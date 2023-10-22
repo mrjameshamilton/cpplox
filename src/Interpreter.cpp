@@ -1,5 +1,6 @@
 #include "AST.h"
 #include "Error.h"
+#include "Util.h"
 #include <chrono>
 #include <functional>
 #include <iostream>
@@ -8,12 +9,7 @@
 #include <utility>
 
 namespace lox {
-    template<class... Ts>
-    struct overloaded : Ts... {
-        using Ts::operator()...;
-    };
-    template<class... Ts>
-    overloaded(Ts...) -> overloaded<Ts...>;
+
 
     struct Interpreter;
     struct LoxCallable;

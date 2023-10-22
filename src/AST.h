@@ -2,6 +2,7 @@
 #define LOX_LLVM_AST_H
 
 #include "Token.h"
+#include "Util.h"
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -173,15 +174,14 @@ namespace lox {
             return "(" + visit(groupingExpr->expression) + ")";
         }
 
-        struct LiteralPrinter {
-            std::string operator()(bool value) { return std::to_string(value); }
-            std::string operator()(double value) { return std::to_string(value); }
-            std::string operator()(std::string_view value) { return std::string(value); }
-            std::string operator()(std::nullptr_t) { return "nil"; }
-        };
-
         std::string operator()(LiteralExprPtr &literalExpr) {
-            return std::visit(LiteralPrinter{}, literalExpr->literal);
+            return std::visit(
+                    overloaded{
+                            [](bool value) -> std::string { return std::to_string(value); },
+                            [](double value) -> std::string { return std::to_string(value); },
+                            [](std::string_view value) -> std::string { return std::string(value); },
+                            [](std::nullptr_t) -> std::string { return "nil"; }},
+                    literalExpr->literal);
         }
 
         std::string operator()(UnaryExprPtr &unaryExpr) {
