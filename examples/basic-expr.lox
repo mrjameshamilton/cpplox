@@ -1,0 +1,49 @@
+//print 2 * 6;
+//print "hello world";
+//print nil == nil;
+//var hello = "hello";
+//print hello;
+//var a = 2;
+//{
+//    print a;
+//    var a = 1;
+//    print a;
+//    a = 3;
+//    print a;
+//}
+//print a;
+//if (a == 1) {
+//    print "a = 1";
+//}
+//print "hi" or 2; // "hi".
+//print nil or "yes"; // "yes".
+//var a = 1;
+//while (a < 5) {
+//    print a;
+//    a = a + 1;
+//}
+//for (var i = 0; i < 10; i = i + 1) {
+//    print i;
+//}
+//var x;
+//print clock();
+//fun test() {
+//    print "test";
+//    return "foo";
+//}
+//print test();
+fun fib(n) {
+  if (n <= 1) {
+    return n;
+  }
+  var left = fib(n - 2);
+  var right = fib(n - 1);
+  return left + right;
+}
+
+//for (var i = 0; i < 20; i = i + 1) {
+print fib(20);
+//}
+print clock;
+print fib;
+print "End";
