@@ -92,16 +92,13 @@ namespace lox {
 
 
     static std::string to_string(LoxObject &object) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-parameter"
         return std::visit(overloaded{
                                   [](bool value) -> std::string { return value ? "true" : "false"; },
                                   [](double value) -> std::string { return std::to_string(value); },
                                   [](std::string value) -> std::string { return value; },
                                   [](const LoxCallablePtr &callable) -> std::string { return callable->to_string(); },
-                                  [](std::nullptr_t value) -> std::string { return "nil"; }},
+                                  [](std::nullptr_t) -> std::string { return "nil"; }},
                           object);
-#pragma clang diagnostic pop
     }
 
     struct ReturnException : std::runtime_error {

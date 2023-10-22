@@ -46,4 +46,5 @@ print fib(20);
 //}
 print clock;
 print fib;
+print nil;
 print "End";
