@@ -6,6 +6,7 @@
 #include <map>
 #include <string>
 #include <utility>
+
 namespace lox {
     template<class... Ts>
     struct overloaded : Ts... {
@@ -17,8 +18,9 @@ namespace lox {
     struct Interpreter;
     struct LoxCallable;
     struct LoxFunction;
+    struct Environment;
     using LoxCallablePtr = LoxCallable *;
-    LoxCallablePtr createLoxFunction(FunctionStmtPtr &functionStmt);
+    LoxCallablePtr createLoxFunction(FunctionStmtPtr &functionStmt, std::shared_ptr<Environment> &);
     using LoxObject = std::variant<std::string, double, bool, LoxCallablePtr, std::nullptr_t>;
 
     struct LoxCallable {
@@ -142,7 +144,7 @@ namespace lox {
 
         void operator()(FunctionStmtPtr &functionStmt) {
             auto name = functionStmt->name.getLexeme();
-            auto value = createLoxFunction(functionStmt);
+            auto value = createLoxFunction(functionStmt, this->environment);
             environment->define(name, value);
         }
 
@@ -303,12 +305,12 @@ namespace lox {
         }
 
         static inline bool isTruthy(const LoxObject &object) {
-            if (std::holds_alternative<nullptr_t>(object)) return false;
+            if (std::holds_alternative<std::nullptr_t>(object)) return false;
             if (std::holds_alternative<bool>(object)) return std::get<bool>(object);
             return true;
         }
 
-        LoxObject operator()(nullptr_t n) {
+        LoxObject operator()(std::nullptr_t n) {
             return n;
         }
 
@@ -329,12 +331,14 @@ namespace lox {
 
     struct LoxFunction : public LoxCallable {
         std::unique_ptr<FunctionStmt> declaration;
+        std::shared_ptr<Environment> closure;
 
-        explicit LoxFunction(std::unique_ptr<FunctionStmt> declaration) : LoxCallable((int) declaration->parameters.size()), declaration{std::move(declaration)} {
+        explicit LoxFunction(std::unique_ptr<FunctionStmt> &declaration, std::shared_ptr<Environment> &closure)
+            : LoxCallable((int) declaration->parameters.size()), declaration{std::move(declaration)}, closure{closure} {
         }
 
         LoxObject operator()(Interpreter &interpreter, const std::vector<LoxObject> &arguments) override {
-            auto environment = std::make_shared<Environment>(interpreter.globals);
+            auto environment = std::make_shared<Environment>(closure);
             for (int i = 0; i < (int) declaration->parameters.size(); i++) {
                 environment->define(declaration->parameters[i].getLexeme(),
                                     arguments[i]);
@@ -354,8 +358,8 @@ namespace lox {
         }
     };
 
-    inline LoxCallablePtr createLoxFunction(FunctionStmtPtr &functionStmt) {
-        return new LoxFunction(std::move(functionStmt));
+    inline LoxCallablePtr createLoxFunction(FunctionStmtPtr &functionStmt, std::shared_ptr<Environment> &environment) {
+        return new LoxFunction(functionStmt, environment);
     }
 
 }// namespace lox

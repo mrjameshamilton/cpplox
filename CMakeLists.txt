@@ -2,8 +2,9 @@ cmake_minimum_required(VERSION 3.26)
 project(lox_llvm)
 
 set(CMAKE_CXX_STANDARD 23)
+#set(CMAKE_CXX_COMPILER "g++")
 
-find_package(LLVM REQUIRED CONFIG)
+find_package(LLVM 18 REQUIRED CONFIG)
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
@@ -23,6 +24,7 @@ add_executable(lox_llvm src/main.cpp
 target_compile_options(lox_llvm PRIVATE
         $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX>
         $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
+#        -std=c++20 -stdlib=libc++
 )
 
 llvm_map_components_to_libnames(llvm_libs support core irreader passes)
