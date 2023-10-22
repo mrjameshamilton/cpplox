@@ -177,7 +177,7 @@ namespace lox {
             std::string operator()(bool value) { return std::to_string(value); }
             std::string operator()(double value) { return std::to_string(value); }
             std::string operator()(std::string_view value) { return std::string(value); }
-            std::string operator()([[maybe_unused]] auto &_) { return "nil"; }
+            std::string operator()(std::nullptr_t) { return "nil"; }
         };
 
         std::string operator()(LiteralExprPtr &literalExpr) {
@@ -188,12 +188,12 @@ namespace lox {
             return std::string(unaryExpr->token.getLexeme()) + visit(unaryExpr->expression);
         }
 
-        std::string operator()(auto &a) {
+        std::string operator()(std::nullptr_t) {
             return "nil";
         }
 
         std::string visit(Expr &node) {
-            return std::visit(*this, node);
+            //return std::visit(*this, node);
         }
 
         std::string visit(Program &program) {
