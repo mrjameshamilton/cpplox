@@ -281,7 +281,6 @@ namespace lox {
             auto expr = and_();
 
             while (match(OR)) {
-                auto op = previous();
                 auto right = and_();
                 expr = std::make_unique<LogicalExpr>(std::move(expr), LogicalOp::OR, std::move(right));
             }
@@ -293,7 +292,6 @@ namespace lox {
             auto expr = equality();
 
             while (match(AND)) {
-                auto op = previous();
                 auto right = equality();
                 expr = std::make_unique<LogicalExpr>(std::move(expr), LogicalOp::AND, std::move(right));
             }
@@ -361,8 +359,7 @@ namespace lox {
                 } while (match(COMMA));
             }
 
-            Token paren = consume(RIGHT_PAREN,
-                                  "Expect ')' after arguments.");
+            consume(RIGHT_PAREN, "Expect ')' after arguments.");
 
             return std::make_unique<CallExpr>(std::move(callee), std::move(arguments));
         }

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.26)
 project(lox_llvm)
 
 set(CMAKE_CXX_STANDARD 23)
-#set(CMAKE_CXX_COMPILER "g++")
+set(CMAKE_CXX_COMPILER "g++-13")
 
 find_package(LLVM 18 REQUIRED CONFIG)
 

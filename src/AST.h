@@ -192,8 +192,9 @@ namespace lox {
             return "nil";
         }
 
-        std::string visit(Expr &node) {
+        std::string visit(Expr &) {
             //return std::visit(*this, node);
+            return "";// TODO
         }
 
         std::string visit(Program &program) {

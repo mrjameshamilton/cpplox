@@ -2,6 +2,7 @@
 #include "Error.h"
 #include "Util.h"
 #include <chrono>
+#include <format>
 #include <functional>
 #include <iostream>
 #include <map>
@@ -14,7 +15,7 @@ namespace lox {
     struct Interpreter;
     struct LoxCallable;
     struct LoxFunction;
-    struct Environment;
+    class Environment;
     using LoxCallablePtr = LoxCallable *;
     LoxCallablePtr createLoxFunction(FunctionStmtPtr &functionStmt, std::shared_ptr<Environment> &);
     using LoxObject = std::variant<std::string, double, bool, LoxCallablePtr, std::nullptr_t>;
@@ -28,6 +29,7 @@ namespace lox {
         virtual std::string to_string() = 0;
 
         bool operator==(const LoxObject &other) const {
+            // TODO
             return false;
         }
     };
@@ -92,7 +94,7 @@ namespace lox {
     static std::string to_string(LoxObject &object) {
         return std::visit(overloaded{
                                   [](bool value) -> std::string { return value ? "true" : "false"; },
-                                  [](double value) -> std::string { return std::to_string(value); },
+                                  [](double value) -> std::string { return std::format("{:g}", value); },
                                   [](std::string value) -> std::string { return value; },
                                   [](const LoxCallablePtr &callable) -> std::string { return callable->to_string(); },
                                   [](std::nullptr_t) -> std::string { return "nil"; }},
@@ -350,7 +352,7 @@ namespace lox {
         }
 
         std::string to_string() override {
-            return "<fn " + std::string(declaration->name.getLexeme()) + ">";
+            return std::format("<fn {}>", std::string(declaration->name.getLexeme()));
         }
     };
 
