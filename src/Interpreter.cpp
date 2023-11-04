@@ -1,3 +1,5 @@
+#pragma once
+
 #include "AST.h"
 #include "Error.h"
 #include "Util.h"
@@ -18,7 +20,7 @@ namespace lox {
     class Environment;
     using LoxCallablePtr = LoxCallable *;
     LoxCallablePtr createLoxFunction(FunctionStmtPtr &functionStmt, std::shared_ptr<Environment> &);
-    using LoxObject = std::variant<std::string, double, bool, LoxCallablePtr, std::nullptr_t>;
+    using LoxObject = std::variant<std::monostate, std::string, double, bool, LoxCallablePtr, std::nullptr_t>;
 
     struct LoxCallable {
         int arity = 0;
@@ -51,10 +53,21 @@ namespace lox {
         }
     };
 
+    static std::string to_string(LoxObject &object) {
+        return std::visit(overloaded{
+                                  [](std::monostate) -> std::string { return "uninitialized"; },
+                                  [](bool value) -> std::string { return value ? "true" : "false"; },
+                                  [](double value) -> std::string { return std::format("{:g}", value); },
+                                  [](std::string value) -> std::string { return value; },
+                                  [](const LoxCallablePtr &callable) -> std::string { return callable->to_string(); },
+                                  [](std::nullptr_t) -> std::string { return "nil"; }},
+                          object);
+    }
+
     class Environment {
     private:
         std::shared_ptr<Environment> enclosing;
-        std::map<std::string_view, LoxObject> values = {};
+        std::unordered_map<std::string_view, LoxObject> values;
 
     public:
         explicit Environment() = default;
@@ -65,7 +78,19 @@ namespace lox {
             values[name] = value;
         }
 
-        LoxObject &get(const Token name) {
+        LoxObject getAt(const unsigned long distance, const std::string_view &name) {
+            return ancestor(distance)->values[name];
+        }
+
+        Environment *ancestor(const unsigned long distance) {
+            auto environment = this;
+            for (unsigned long i = 0; i < distance; i++) {
+                environment = environment->enclosing.get();
+            }
+            return environment;
+        }
+
+        LoxObject get(const Token name) {
             if (values.contains(name.getLexeme())) {
                 return values[name.getLexeme()];
             }
@@ -75,7 +100,7 @@ namespace lox {
             throw std::invalid_argument("Undefined variable '" + std::string(name.getLexeme()) + "'.");
         }
 
-        void assign(Token name, const LoxObject &value) {
+        void assign(const Token name, const LoxObject &value) {
             if (values.contains(name.getLexeme())) {
                 values[name.getLexeme()] = value;
                 return;
@@ -88,18 +113,11 @@ namespace lox {
 
             throw std::invalid_argument("Undefined variable '" + std::string(name.getLexeme()) + "'.");
         }
+
+        void assignAt(const unsigned long distance, const Token name, const LoxObject &value) {
+            ancestor(distance)->values[name.getLexeme()] = value;
+        }
     };
-
-
-    static std::string to_string(LoxObject &object) {
-        return std::visit(overloaded{
-                                  [](bool value) -> std::string { return value ? "true" : "false"; },
-                                  [](double value) -> std::string { return std::format("{:g}", value); },
-                                  [](std::string value) -> std::string { return value; },
-                                  [](const LoxCallablePtr &callable) -> std::string { return callable->to_string(); },
-                                  [](std::nullptr_t) -> std::string { return "nil"; }},
-                          object);
-    }
 
     struct ReturnException : std::runtime_error {
         LoxObject value;
@@ -292,13 +310,24 @@ namespace lox {
             return nullptr;
         }
 
-        LoxObject operator()(VarExprPtr &varExpr) const {
-            return environment->get(varExpr->name);
+        LoxObject operator()(VarExprPtr &varExpr) {
+            return lookUpVariable(varExpr->name, varExpr.get());
+        }
+
+        LoxObject lookUpVariable(const Token &name, Assignable *expr) {
+            if (expr->distance == -1) {
+                return globals->get(name);
+            }
+            return environment->getAt(expr->distance, name.getLexeme());
         }
 
         LoxObject operator()(AssignExprPtr &assignExpr) {
             LoxObject value = evaluate(assignExpr->value);
-            environment->assign(assignExpr->name, value);
+            if (assignExpr->distance == -1) {
+                environment->assign(assignExpr.get()->name, value);
+            } else {
+                environment->assignAt(assignExpr->distance, assignExpr.get()->name, value);
+            }
             return value;
         }
 

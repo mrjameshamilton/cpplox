@@ -53,6 +53,7 @@ namespace lox {
     using VarExprPtr = std::unique_ptr<VarExpr>;
     using AssignExprPtr = std::unique_ptr<AssignExpr>;
 
+    // TODO: do we need to allow null here?
     using Expr = std::variant<BinaryExprPtr, CallExprPtr, GroupingExprPtr, LiteralExprPtr, LogicalExprPtr, UnaryExprPtr, VarExprPtr, AssignExprPtr, std::nullptr_t>;
 
     struct Uncopyable {
@@ -95,13 +96,21 @@ namespace lox {
         Expr right;
     };
 
-    struct VarExpr {
+    struct Assignable {
         Token name;
+        mutable signed long distance = -1;
+        explicit Assignable(const Token name) : name{name} {
+        }
     };
 
-    struct AssignExpr {
-        Token name;
+
+    struct VarExpr : Assignable {
+        explicit VarExpr(const Token name) : Assignable(name) {}
+    };
+
+    struct AssignExpr : Assignable {
         Expr value;
+        AssignExpr(const Token name, Expr value) : Assignable(name), value{std::move(value)} {}
     };
 
     struct ExpressionStmt;
@@ -143,6 +152,7 @@ namespace lox {
 
     struct ReturnStmt {
         std::optional<Expr> expression;
+        Token keyword;
     };
 
     struct PrintStmt {

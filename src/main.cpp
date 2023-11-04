@@ -1,6 +1,7 @@
 #include "AST.h"
 #include "Interpreter.cpp"
 #include "Parser.cpp"
+#include "Resolver.cpp"
 #include "Scanner.cpp"
 #include "llvm/Support/CommandLine.h"
 #include <fstream>
@@ -40,15 +41,17 @@ int main(int argc, char **argv) {
 
     Scanner Scanner(read_string_from_file(InputFilename));
     auto tokens = Scanner.scanTokens();
-
-    for (auto token: tokens) {
-        std::cout << token.getLexeme() << "\n";
-    }
-
     Parser Parser(tokens);
     Program ast = Parser.parse();
+    if (hadError) return 75;
     Interpreter Interpreter{};
+
+    Resolver resolver;
+    if (hadError) return 65;
+    resolver.resolve(ast);
+
     Interpreter.evaluate(ast);
+
 
     return 0;
 }

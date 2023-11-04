@@ -20,6 +20,7 @@ add_executable(lox_llvm src/main.cpp
         src/Parser.cpp
         src/Interpreter.cpp
         src/Util.h
+        src/Resolver.cpp
 )
 
 target_compile_options(lox_llvm PRIVATE

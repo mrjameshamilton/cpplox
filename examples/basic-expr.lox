@@ -1,37 +1,37 @@
-//print 2 * 6;
-//print "hello world";
-//print nil == nil;
-//var hello = "hello";
-//print hello;
-//var a = 2;
-//{
-//    print a;
-//    var a = 1;
-//    print a;
-//    a = 3;
-//    print a;
-//}
-//print a;
-//if (a == 1) {
-//    print "a = 1";
-//}
-//print "hi" or 2; // "hi".
-//print nil or "yes"; // "yes".
-//var a = 1;
-//while (a < 5) {
-//    print a;
-//    a = a + 1;
-//}
-//for (var i = 0; i < 10; i = i + 1) {
-//    print i;
-//}
-//var x;
-//print clock();
-//fun test() {
-//    print "test";
-//    return "foo";
-//}
-//print test();
+print 2 * 6;
+print "hello world";
+print nil == nil;
+var hello = "hello";
+print hello;
+var a = 2;
+{
+    print a;
+    var a = 1;
+    print a;
+    a = 3;
+    print a;
+}
+print a;
+if (a == 1) {
+    print "a = 1";
+}
+print "hi" or 2; // "hi".
+print nil or "yes"; // "yes".
+var a = 1;
+while (a < 5) {
+    print a;
+    a = a + 1;
+}
+for (var i = 0; i < 10; i = i + 1) {
+    print i;
+}
+var x;
+print clock();
+fun test() {
+    print "test";
+    return "foo";
+}
+print test();
 fun fib(n) {
   if (n <= 1) {
     return n;
@@ -61,4 +61,11 @@ var counter = makeCounter();
 counter(); // "1".
 counter(); // "2".
 print 1.5;
+
+fun foo(n) {
+    return n;
+}
+
+print foo(1);
+
 print "End";
