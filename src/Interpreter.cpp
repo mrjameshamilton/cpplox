@@ -24,7 +24,7 @@ namespace lox {
     using LoxNumber = double;
     using LoxBoolean = bool;
     using LoxNil = std::nullptr_t;
-    using LoxObject = std::variant<LoxString, LoxNumber, LoxBoolean, LoxCallablePtr, LoxNil>;
+    using LoxObject = std::variant<LoxNil, LoxString, LoxNumber, LoxBoolean, LoxCallablePtr>;
 
     struct LoxCallable {
         int arity = 0;
@@ -168,7 +168,11 @@ namespace lox {
         }
 
         void operator()(ReturnStmtPtr &returnStmt) {
-            throw ReturnException(returnStmt->expression.has_value() ? evaluate(returnStmt->expression.value()) : LoxNil{});
+            LoxObject value;
+            if (returnStmt->expression.has_value())
+                value = evaluate(returnStmt->expression.value());
+
+            throw ReturnException(value);
         }
 
         void operator()(BlockStmtPtr &blockStmt) {
