@@ -20,7 +20,11 @@ namespace lox {
     class Environment;
     using LoxCallablePtr = LoxCallable *;
     LoxCallablePtr createLoxFunction(FunctionStmtPtr &functionStmt, std::shared_ptr<Environment> &);
-    using LoxObject = std::variant<std::monostate, std::string, double, bool, LoxCallablePtr, std::nullptr_t>;
+    using LoxString = std::string;
+    using LoxNumber = double;
+    using LoxBoolean = bool;
+    using LoxNil = std::nullptr_t;
+    using LoxObject = std::variant<LoxString, LoxNumber, LoxBoolean, LoxCallablePtr, LoxNil>;
 
     struct LoxCallable {
         int arity = 0;
@@ -55,12 +59,11 @@ namespace lox {
 
     static std::string to_string(LoxObject &object) {
         return std::visit(overloaded{
-                                  [](std::monostate) -> std::string { return "uninitialized"; },
-                                  [](bool value) -> std::string { return value ? "true" : "false"; },
-                                  [](double value) -> std::string { return std::format("{:g}", value); },
-                                  [](std::string value) -> std::string { return value; },
+                                  [](LoxBoolean value) -> std::string { return value ? "true" : "false"; },
+                                  [](LoxNumber value) -> std::string { return std::format("{:g}", value); },
+                                  [](LoxString value) -> std::string { return value; },
                                   [](const LoxCallablePtr &callable) -> std::string { return callable->to_string(); },
-                                  [](std::nullptr_t) -> std::string { return "nil"; }},
+                                  [](LoxNil) -> std::string { return "nil"; }},
                           object);
     }
 
@@ -154,7 +157,7 @@ namespace lox {
         }
 
         void operator()(VarStmtPtr &varStmt) {
-            LoxObject value = evaluate(varStmt->initializer);
+            auto value = evaluate(varStmt->initializer);
             environment->define(varStmt->name.getLexeme(), value);
         }
 
@@ -165,11 +168,7 @@ namespace lox {
         }
 
         void operator()(ReturnStmtPtr &returnStmt) {
-            LoxObject value;
-            if (returnStmt->expression.has_value())
-                value = evaluate(returnStmt->expression.value());
-
-            throw ReturnException(value);
+            throw ReturnException(returnStmt->expression.has_value() ? evaluate(returnStmt->expression.value()) : LoxNil{});
         }
 
         void operator()(BlockStmtPtr &blockStmt) {
@@ -206,33 +205,33 @@ namespace lox {
 
             switch (binaryExpr->op) {
                 case BinaryOp::PLUS: {
-                    if (std::holds_alternative<double>(left) &&
-                        std::holds_alternative<double>(right)) {
-                        return std::get<double>(left) + std::get<double>(right);
+                    if (std::holds_alternative<LoxNumber>(left) &&
+                        std::holds_alternative<LoxNumber>(right)) {
+                        return std::get<LoxNumber>(left) + std::get<LoxNumber>(right);
                     }
 
-                    if (std::holds_alternative<std::string>(left) &&
-                        std::holds_alternative<std::string>(right)) {
-                        return std::get<std::string>(left) + std::get<std::string>(right);
+                    if (std::holds_alternative<LoxString>(left) &&
+                        std::holds_alternative<LoxString>(right)) {
+                        return std::get<LoxString>(left) + std::get<LoxString>(right);
                     }
 
                     // TODO
                     return nullptr;
                 }
                 case BinaryOp::MINUS:
-                    return std::get<double>(left) - std::get<double>(right);
+                    return std::get<LoxNumber>(left) - std::get<LoxNumber>(right);
                 case BinaryOp::SLASH:
-                    return std::get<double>(left) / std::get<double>(right);
+                    return std::get<LoxNumber>(left) / std::get<LoxNumber>(right);
                 case BinaryOp::STAR:
-                    return std::get<double>(left) * std::get<double>(right);
+                    return std::get<LoxNumber>(left) * std::get<LoxNumber>(right);
                 case BinaryOp::GREATER:
-                    return std::get<double>(left) > std::get<double>(right);
+                    return std::get<LoxNumber>(left) > std::get<LoxNumber>(right);
                 case BinaryOp::GREATER_EQUAL:
-                    return std::get<double>(left) >= std::get<double>(right);
+                    return std::get<LoxNumber>(left) >= std::get<LoxNumber>(right);
                 case BinaryOp::LESS:
-                    return std::get<double>(left) < std::get<double>(right);
+                    return std::get<LoxNumber>(left) < std::get<LoxNumber>(right);
                 case BinaryOp::LESS_EQUAL:
-                    return std::get<double>(left) <= std::get<double>(right);
+                    return std::get<LoxNumber>(left) <= std::get<LoxNumber>(right);
                 case BinaryOp::BANG:
                     return left == right;
                 case BinaryOp::BANG_EQUAL:
@@ -295,8 +294,8 @@ namespace lox {
             auto result = evaluate(unaryExpr->expression);
             switch (unaryExpr->op) {
                 case UnaryOp::MINUS: {
-                    if (std::holds_alternative<double>(result)) {
-                        return -std::get<double>(result);
+                    if (std::holds_alternative<LoxNumber>(result)) {
+                        return -std::get<LoxNumber>(result);
                     } else {
                         // TODO
                     }
@@ -332,8 +331,8 @@ namespace lox {
         }
 
         static inline bool isTruthy(const LoxObject &object) {
-            if (std::holds_alternative<std::nullptr_t>(object)) return false;
-            if (std::holds_alternative<bool>(object)) return std::get<bool>(object);
+            if (std::holds_alternative<LoxNil>(object)) return false;
+            if (std::holds_alternative<LoxBoolean>(object)) return std::get<LoxBoolean>(object);
             return true;
         }
 

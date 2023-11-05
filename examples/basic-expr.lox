@@ -3,6 +3,10 @@ print "hello world";
 print nil == nil;
 var hello = "hello";
 print hello;
+fun bar() {
+    return;
+}
+bar();
 var a = 2;
 {
     print a;
