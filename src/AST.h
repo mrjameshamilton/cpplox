@@ -38,6 +38,7 @@ namespace lox {
     struct BinaryExpr;
     struct CallExpr;
     struct GetExpr;
+    struct SetExpr;
     struct GroupingExpr;
     struct LiteralExpr;
     struct LogicalExpr;
@@ -48,6 +49,7 @@ namespace lox {
     using BinaryExprPtr = std::unique_ptr<BinaryExpr>;
     using CallExprPtr = std::unique_ptr<CallExpr>;
     using GetExprPtr = std::unique_ptr<GetExpr>;
+    using SetExprPtr = std::unique_ptr<SetExpr>;
     using GroupingExprPtr = std::unique_ptr<GroupingExpr>;
     using LiteralExprPtr = std::unique_ptr<LiteralExpr>;
     using LogicalExprPtr = std::unique_ptr<LogicalExpr>;
@@ -56,7 +58,7 @@ namespace lox {
     using AssignExprPtr = std::unique_ptr<AssignExpr>;
 
     // TODO: do we need to allow null here?
-    using Expr = std::variant<BinaryExprPtr, CallExprPtr, GetExprPtr, GroupingExprPtr, LiteralExprPtr, LogicalExprPtr, UnaryExprPtr, VarExprPtr, AssignExprPtr, std::nullptr_t>;
+    using Expr = std::variant<BinaryExprPtr, CallExprPtr, GetExprPtr, SetExprPtr, GroupingExprPtr, LiteralExprPtr, LogicalExprPtr, UnaryExprPtr, VarExprPtr, AssignExprPtr, std::nullptr_t>;
 
     struct Uncopyable {
         explicit Uncopyable() = default;
@@ -82,6 +84,12 @@ namespace lox {
     struct GetExpr {
         Expr object;
         Token name;
+    };
+
+    struct SetExpr {
+        Expr object;
+        Token name;
+        Expr value;
     };
 
     struct UnaryExpr {

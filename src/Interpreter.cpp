@@ -74,6 +74,10 @@ namespace lox {
 
             throw lox::runtime_error(name, "Undefined property '" + std::string(name.getLexeme()) + "'.");
         }
+
+        void set(const Token name, const LoxObject &value) {
+            fields[name.getLexeme()] = value;
+        }
     };
 
     struct LoxClass : public LoxCallable {
@@ -318,6 +322,18 @@ namespace lox {
             }
 
             throw lox::runtime_error(getExpr->name, "Only instances have properties.");
+        }
+
+        LoxObject operator()(SetExprPtr &setExpr) {
+            auto object = evaluate(setExpr->object);
+
+            if (!std::holds_alternative<LoxInstancePtr>(object)) {
+                throw lox::runtime_error(setExpr->name, "Only instances have fields.");
+            }
+
+            auto value = evaluate(setExpr->value);
+            std::get<LoxInstancePtr>(object)->set(setExpr->name, value);
+            return value;
         }
 
         LoxObject operator()(GroupingExprPtr &groupingExpr) {

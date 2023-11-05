@@ -80,8 +80,10 @@ class Foo {
 print Foo;
 var foo = Foo();
 var bar = Foo();
+bar.foo = "test";
 print foo;
 print bar;
+print bar.foo;
 print foo.bar();
 
 print "End";

@@ -134,6 +134,11 @@ namespace lox {
             resolve(getExpr->object);
         }
 
+        void operator()(SetExprPtr &setExpr) {
+            resolve(setExpr->object);
+            resolve(setExpr->value);
+        }
+
         void operator()(VarExprPtr &varExpr) {
             if (!scopes.empty() &&
                 scopes.front().contains(varExpr->name.getLexeme()) &&

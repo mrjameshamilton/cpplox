@@ -284,6 +284,9 @@ namespace lox {
                 if (std::holds_alternative<VarExprPtr>(expr)) {
                     auto name = std::get<VarExprPtr>(expr)->name;
                     return createAssignExpr(name, std::move(value));
+                } else if (std::holds_alternative<GetExprPtr>(expr)) {
+                    auto &getExpr = std::get<GetExprPtr>(expr);
+                    return std::make_unique<SetExpr>(std::move(getExpr->object), getExpr->name, std::move(value));
                 }
 
                 lox::error(equals, "Invalid assignment target.");
