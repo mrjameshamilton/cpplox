@@ -83,6 +83,7 @@ namespace lox {
 
         std::optional<Stmt> declaration() {
             try {
+                if (match(CLASS)) return classDeclaration();
                 if (match(VAR)) return varDeclaration();
                 if (match(FUN)) return function("function");
 
@@ -91,6 +92,20 @@ namespace lox {
                 synchronize();
                 return std::make_optional<Stmt>();
             }
+        }
+
+        Stmt classDeclaration() {
+            auto name = consume(IDENTIFIER, "Expect class name.");
+            consume(LEFT_BRACE, "Expect '{' before class body.");
+
+            std::vector<FunctionStmtPtr> methods;
+            while (!check(RIGHT_BRACE) && !isAtEnd()) {
+                methods.push_back(function("method"));
+            }
+
+            consume(RIGHT_BRACE, "Expect '}' after class body.");
+
+            return std::make_unique<ClassStmt>(name, std::move(methods));
         }
 
         Stmt varDeclaration() {
@@ -196,7 +211,7 @@ namespace lox {
             return createExpressionStatement(std::move(expr));
         }
 
-        Stmt function(const std::string &kind) {
+        FunctionStmtPtr function(const std::string &kind) {
             Token name = consume(IDENTIFIER, "Expect " + kind + " name.");
             consume(LEFT_PAREN, "Expect '(' after " + kind + " name.");
             std::vector<Token> parameters;

@@ -72,4 +72,15 @@ fun foo(n) {
 
 print foo(1);
 
+class Foo {
+    bar() {
+        print "bar";
+    }
+}
+print Foo;
+var foo = Foo();
+var bar = Foo();
+print foo;
+print bar;
+
 print "End";

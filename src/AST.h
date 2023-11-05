@@ -121,6 +121,7 @@ namespace lox {
     struct VarStmt;
     struct BlockStmt;
     struct WhileStmt;
+    struct ClassStmt;
 
     using ExpressionStmtPtr = std::unique_ptr<ExpressionStmt>;
     using FunctionStmtPtr = std::unique_ptr<FunctionStmt>;
@@ -130,8 +131,9 @@ namespace lox {
     using VarStmtPtr = std::unique_ptr<VarStmt>;
     using BlockStmtPtr = std::unique_ptr<BlockStmt>;
     using WhileStmtPtr = std::unique_ptr<WhileStmt>;
+    using ClassStmtPtr = std::unique_ptr<ClassStmt>;
 
-    using Stmt = std::variant<ExpressionStmtPtr, FunctionStmtPtr, ReturnStmtPtr, IfStmtPtr, PrintStmtPtr, VarStmtPtr, BlockStmtPtr, WhileStmtPtr>;
+    using Stmt = std::variant<ExpressionStmtPtr, FunctionStmtPtr, ReturnStmtPtr, IfStmtPtr, PrintStmtPtr, VarStmtPtr, BlockStmtPtr, WhileStmtPtr, ClassStmtPtr>;
     using StmtList = std::vector<Stmt>;
 
     struct ExpressionStmt {
@@ -171,6 +173,11 @@ namespace lox {
     struct WhileStmt {
         Expr condition;
         Stmt body;
+    };
+
+    struct ClassStmt {
+        Token name;
+        std::vector<FunctionStmtPtr> methods;
     };
 
     using Program = std::vector<Stmt>;

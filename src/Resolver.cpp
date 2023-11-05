@@ -108,6 +108,11 @@ namespace lox {
             if (ifStmt->elseBranch.has_value()) resolve(ifStmt->elseBranch.value());
         }
 
+        void operator()(ClassStmtPtr &classStmt) {
+            declare(classStmt->name);
+            define(classStmt->name);
+        }
+
         void operator()(AssignExprPtr &assignExpr) {
             resolve(assignExpr->value);
             resolveLocal(*assignExpr, assignExpr->name);
