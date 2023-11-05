@@ -18,7 +18,7 @@ namespace lox {
     struct LoxCallable;
     struct LoxFunction;
     class Environment;
-    using LoxCallablePtr = LoxCallable *;
+    using LoxCallablePtr = std::shared_ptr<LoxCallable>;
     LoxCallablePtr createLoxFunction(FunctionStmtPtr &functionStmt, std::shared_ptr<Environment> &);
     using LoxString = std::string;
     using LoxNumber = double;
@@ -46,7 +46,7 @@ namespace lox {
         explicit NativeFunction(std::function<LoxObject(const std::vector<LoxObject> &)> function) : LoxCallable(0), function{std::move(function)} {
         }
 
-        ~NativeFunction() = default;
+        virtual ~NativeFunction() = default;
 
         LoxObject operator()(Interpreter &, const std::vector<LoxObject> &arguments) override {
             return function(arguments);
@@ -133,10 +133,10 @@ namespace lox {
         std::shared_ptr<Environment> environment = globals;
 
         Interpreter() {
-            globals->define("clock", new NativeFunction{[](const std::vector<LoxObject> &) -> LoxObject {
+            globals->define("clock", std::make_shared<NativeFunction>([](const std::vector<LoxObject> &) -> LoxObject {
                                 auto now = std::chrono::system_clock::now().time_since_epoch();
                                 return (double) std::chrono::duration_cast<std::chrono::seconds>(now).count();
-                            }});
+                            }));
         }
 
         void operator()(ExpressionStmtPtr &expressionStmt) {
@@ -367,6 +367,8 @@ namespace lox {
             : LoxCallable((int) declaration->parameters.size()), declaration{std::move(declaration)}, closure{closure} {
         }
 
+        virtual ~LoxFunction() = default;
+
         LoxObject operator()(Interpreter &interpreter, const std::vector<LoxObject> &arguments) override {
             auto environment = std::make_shared<Environment>(closure);
             for (int i = 0; i < (int) declaration->parameters.size(); i++) {
@@ -389,7 +391,7 @@ namespace lox {
     };
 
     inline LoxCallablePtr createLoxFunction(FunctionStmtPtr &functionStmt, std::shared_ptr<Environment> &environment) {
-        return new LoxFunction(functionStmt, environment);
+        return std::make_shared<LoxFunction>(functionStmt, environment);
     }
 
 }// namespace lox
