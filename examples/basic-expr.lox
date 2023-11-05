@@ -75,6 +75,7 @@ print foo(1);
 class Foo {
     bar() {
         print "bar";
+        return "hello from bar";
     }
 }
 print Foo;

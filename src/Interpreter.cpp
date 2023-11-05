@@ -13,7 +13,6 @@
 
 namespace lox {
 
-
     struct Interpreter;
     struct LoxCallable;
     struct LoxFunction;
@@ -21,13 +20,20 @@ namespace lox {
     struct LoxInstance;
     class Environment;
     using LoxCallablePtr = std::shared_ptr<LoxCallable>;
+    using LoxFunctionPtr = std::shared_ptr<LoxFunction>;
     using LoxInstancePtr = std::shared_ptr<LoxInstance>;
-    LoxCallablePtr createLoxFunction(FunctionStmtPtr &functionStmt, std::shared_ptr<Environment> &);
     using LoxString = std::string;
     using LoxNumber = double;
     using LoxBoolean = bool;
     using LoxNil = std::nullptr_t;
     using LoxObject = std::variant<LoxNil, LoxString, LoxNumber, LoxBoolean, LoxCallablePtr, LoxInstancePtr>;
+    static inline std::string to_string(LoxObject &);
+
+    struct ReturnException : std::runtime_error {
+        LoxObject value;
+        explicit ReturnException(LoxObject value) : runtime_error("return exception: " + lox::to_string(value)), value{std::move(value)} {
+        }
+    };
 
     struct LoxCallable {
         int arity = 0;
@@ -60,6 +66,35 @@ namespace lox {
         }
     };
 
+    struct LoxClass : public LoxCallable {
+        std::string_view name;
+        std::unordered_map<std::string_view, LoxFunctionPtr> methods;
+
+        explicit LoxClass(const std::string_view &name, int arity = 0, const std::unordered_map<std::string_view, LoxFunctionPtr> &methods = {})
+            : LoxCallable(arity), name{name}, methods{methods} {
+        }
+
+        virtual ~LoxClass() = default;
+
+        LoxObject operator()(Interpreter &, const std::vector<LoxObject> &arguments) override {
+            auto instance = std::make_shared<LoxInstance>(this);
+            return instance;
+        }
+
+        LoxCallablePtr findMethod(Token method_name) {
+            if (methods.contains(method_name.getLexeme())) {
+                std::shared_ptr<LoxCallable> ptr = reinterpret_cast<const std::shared_ptr<lox::LoxCallable> &>(methods[method_name.getLexeme()]);
+                return ptr;
+            }
+
+            return nullptr;
+        }
+
+        std::string to_string() override {
+            return std::string(name);
+        }
+    };
+
     struct LoxInstance {
         LoxClass *klass;
         std::unordered_map<std::string_view, LoxObject> fields;
@@ -72,6 +107,10 @@ namespace lox {
                 return fields[name.getLexeme()];
             }
 
+            auto method = klass->findMethod(name);
+
+            if (method != nullptr) return method;
+
             throw lox::runtime_error(name, "Undefined property '" + std::string(name.getLexeme()) + "'.");
         }
 
@@ -79,34 +118,6 @@ namespace lox {
             fields[name.getLexeme()] = value;
         }
     };
-
-    struct LoxClass : public LoxCallable {
-        std::string_view name;
-
-        explicit LoxClass(const std::string_view &name, int arity = 0) : LoxCallable(arity), name{name} {}
-
-        virtual ~LoxClass() = default;
-
-        LoxObject operator()(Interpreter &, const std::vector<LoxObject> &arguments) override {
-            auto instance = std::make_shared<LoxInstance>(this);
-            return instance;
-        }
-
-        std::string to_string() override {
-            return std::string(name);
-        }
-    };
-
-    static std::string to_string(LoxObject &object) {
-        return std::visit(overloaded{
-                                  [](LoxBoolean value) -> std::string { return value ? "true" : "false"; },
-                                  [](LoxNumber value) -> std::string { return std::format("{:g}", value); },
-                                  [](LoxString value) -> std::string { return value; },
-                                  [](const LoxCallablePtr &callable) -> std::string { return callable->to_string(); },
-                                  [](const LoxInstancePtr &instance) -> std::string { return std::string(instance->klass->name) + " instance"; },
-                                  [](LoxNil) -> std::string { return "nil"; }},
-                          object);
-    }
 
     class Environment {
     private:
@@ -163,9 +174,36 @@ namespace lox {
         }
     };
 
-    struct ReturnException : std::runtime_error {
-        LoxObject value;
-        explicit ReturnException(LoxObject value) : runtime_error("return exception: " + lox::to_string(value)), value{std::move(value)} {
+    inline void executeBlock(Interpreter &interpreter, StmtList &statements, std::shared_ptr<Environment> &newEnvironment);
+
+    struct LoxFunction : public LoxCallable, public std::enable_shared_from_this<LoxFunction> {
+        std::unique_ptr<FunctionStmt> declaration;
+        std::shared_ptr<Environment> closure;
+
+        explicit LoxFunction(std::unique_ptr<FunctionStmt> &declaration, std::shared_ptr<Environment> &closure)
+            : LoxCallable((int) declaration->parameters.size()), declaration{std::move(declaration)}, closure{closure} {
+        }
+
+        virtual ~LoxFunction() = default;
+
+        LoxObject operator()(Interpreter &interpreter, const std::vector<LoxObject> &arguments) override {
+            auto environment = std::make_shared<Environment>(closure);
+            for (int i = 0; i < (int) declaration->parameters.size(); i++) {
+                environment->define(declaration->parameters[i].getLexeme(),
+                                    arguments[i]);
+            }
+
+            auto &statements = declaration->body;
+            try {
+                executeBlock(interpreter, statements, environment);
+            } catch (ReturnException &e) {
+                return e.value;
+            }
+            return nullptr;
+        }
+
+        inline std::string to_string() override {
+            return std::format("<fn {}>", std::string(declaration->name.getLexeme()));
         }
     };
 
@@ -194,7 +232,7 @@ namespace lox {
 
         void operator()(PrintStmtPtr &printStmt) {
             LoxObject object = evaluate(printStmt->expression);
-            std::cout << to_string(object) << "\n";
+            std::cout << lox::to_string(object) << "\n";
         }
 
         void operator()(VarStmtPtr &varStmt) {
@@ -204,8 +242,8 @@ namespace lox {
 
         void operator()(FunctionStmtPtr &functionStmt) {
             auto name = functionStmt->name.getLexeme();
-            auto value = createLoxFunction(functionStmt, this->environment);
-            environment->define(name, value);
+            auto function = std::make_shared<LoxFunction>(functionStmt, environment);
+            environment->define(name, std::move(function));
         }
 
         void operator()(ReturnStmtPtr &returnStmt) {
@@ -247,6 +285,13 @@ namespace lox {
         void operator()(ClassStmtPtr &classStmt) {
             environment->define(classStmt->name.getLexeme());
             auto klass = std::make_shared<LoxClass>(classStmt->name.getLexeme());
+
+            for (auto &method: classStmt->methods) {
+                auto name = method->name.getLexeme();
+                auto loxFunction = std::make_shared<LoxFunction>(method, environment);
+                klass->methods[name] = std::move(loxFunction);
+            }
+
             environment->assign(classStmt->name, klass);
         }
 
@@ -427,39 +472,20 @@ namespace lox {
         }
     };
 
-    struct LoxFunction : public LoxCallable {
-        std::unique_ptr<FunctionStmt> declaration;
-        std::shared_ptr<Environment> closure;
-
-        explicit LoxFunction(std::unique_ptr<FunctionStmt> &declaration, std::shared_ptr<Environment> &closure)
-            : LoxCallable((int) declaration->parameters.size()), declaration{std::move(declaration)}, closure{closure} {
-        }
-
-        virtual ~LoxFunction() = default;
-
-        LoxObject operator()(Interpreter &interpreter, const std::vector<LoxObject> &arguments) override {
-            auto environment = std::make_shared<Environment>(closure);
-            for (int i = 0; i < (int) declaration->parameters.size(); i++) {
-                environment->define(declaration->parameters[i].getLexeme(),
-                                    arguments[i]);
-            }
-
-            auto &statements = declaration->body;
-            try {
-                interpreter.executeBlock(statements, environment);
-            } catch (ReturnException &e) {
-                return e.value;
-            }
-            return nullptr;
-        }
-
-        std::string to_string() override {
-            return std::format("<fn {}>", std::string(declaration->name.getLexeme()));
-        }
-    };
-
-    inline LoxCallablePtr createLoxFunction(FunctionStmtPtr &functionStmt, std::shared_ptr<Environment> &environment) {
-        return std::make_shared<LoxFunction>(functionStmt, environment);
+    inline void executeBlock(Interpreter &interpreter, StmtList &statements, std::shared_ptr<Environment> &newEnvironment) {
+        interpreter.executeBlock(statements, newEnvironment);
     }
+
+    static inline std::string to_string(LoxObject &object) {
+        return std::visit(overloaded{
+                                  [](LoxBoolean value) -> std::string { return value ? "true" : "false"; },
+                                  [](LoxNumber value) -> std::string { return std::format("{:g}", value); },
+                                  [](LoxString value) -> std::string { return value; },
+                                  [](const LoxCallablePtr &callable) -> std::string { return callable->to_string(); },
+                                  [](const LoxInstancePtr &instance) -> std::string { return std::string(instance->klass->name) + " instance"; },
+                                  [](LoxNil) -> std::string { return "nil"; }},
+                          object);
+    }
+
 
 }// namespace lox

@@ -8,7 +8,8 @@ namespace lox {
 
         enum class FunctionType {
             NONE,
-            FUNCTION
+            FUNCTION,
+            METHOD
         };
 
         using Scope = std::unordered_map<std::string_view, bool>;
@@ -53,7 +54,6 @@ namespace lox {
             resolve(blockStmt->statements);
             endScope();
         }
-
 
         void resolveFunction(FunctionStmtPtr &function, FunctionType functionType) {
             FunctionType enclosingFunction = currentFunction;
@@ -111,6 +111,11 @@ namespace lox {
         void operator()(ClassStmtPtr &classStmt) {
             declare(classStmt->name);
             define(classStmt->name);
+
+            for (auto &method: classStmt->methods) {
+                auto functionType = FunctionType::METHOD;
+                resolveFunction(method, functionType);
+            }
         }
 
         void operator()(AssignExprPtr &assignExpr) {
