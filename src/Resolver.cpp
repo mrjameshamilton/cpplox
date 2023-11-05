@@ -130,6 +130,10 @@ namespace lox {
             }
         }
 
+        void operator()(GetExprPtr &getExpr) {
+            resolve(getExpr->object);
+        }
+
         void operator()(VarExprPtr &varExpr) {
             if (!scopes.empty() &&
                 scopes.front().contains(varExpr->name.getLexeme()) &&

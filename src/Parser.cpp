@@ -354,6 +354,10 @@ namespace lox {
             while (true) {
                 if (match(LEFT_PAREN)) {
                     expr = finishCall(expr);
+                } else if (match(DOT)) {
+                    Token name = consume(IDENTIFIER,
+                                         "Expect property name after '.'.");
+                    expr = std::make_unique<GetExpr>(std::move(expr), name);
                 } else {
                     break;
                 }

@@ -82,5 +82,6 @@ var foo = Foo();
 var bar = Foo();
 print foo;
 print bar;
+print foo.bar();
 
 print "End";

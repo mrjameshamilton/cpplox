@@ -62,8 +62,18 @@ namespace lox {
 
     struct LoxInstance {
         LoxClass *klass;
+        std::unordered_map<std::string_view, LoxObject> fields;
 
-        explicit LoxInstance(LoxClass *klass) : klass{klass} {}
+        explicit LoxInstance(LoxClass *klass) : klass{klass} {
+        }
+
+        LoxObject get(const Token name) {
+            if (fields.contains(name.getLexeme())) {
+                return fields[name.getLexeme()];
+            }
+
+            throw lox::runtime_error(name, "Undefined property '" + std::string(name.getLexeme()) + "'.");
+        }
     };
 
     struct LoxClass : public LoxCallable {
@@ -299,6 +309,15 @@ namespace lox {
             } else {
                 throw std::invalid_argument("Can only call functions and classes.");
             }
+        }
+
+        LoxObject operator()(GetExprPtr &getExpr) {
+            auto object = evaluate(getExpr->object);
+            if (std::holds_alternative<LoxInstancePtr>(object)) {
+                return std::get<LoxInstancePtr>(object)->get(getExpr->name);
+            }
+
+            throw lox::runtime_error(getExpr->name, "Only instances have properties.");
         }
 
         LoxObject operator()(GroupingExprPtr &groupingExpr) {
