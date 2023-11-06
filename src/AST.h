@@ -39,6 +39,7 @@ namespace lox {
     struct CallExpr;
     struct GetExpr;
     struct SetExpr;
+    struct ThisExpr;
     struct GroupingExpr;
     struct LiteralExpr;
     struct LogicalExpr;
@@ -50,6 +51,7 @@ namespace lox {
     using CallExprPtr = std::unique_ptr<CallExpr>;
     using GetExprPtr = std::unique_ptr<GetExpr>;
     using SetExprPtr = std::unique_ptr<SetExpr>;
+    using ThisExprPtr = std::unique_ptr<ThisExpr>;
     using GroupingExprPtr = std::unique_ptr<GroupingExpr>;
     using LiteralExprPtr = std::unique_ptr<LiteralExpr>;
     using LogicalExprPtr = std::unique_ptr<LogicalExpr>;
@@ -58,7 +60,7 @@ namespace lox {
     using AssignExprPtr = std::unique_ptr<AssignExpr>;
 
     // TODO: do we need to allow null here?
-    using Expr = std::variant<BinaryExprPtr, CallExprPtr, GetExprPtr, SetExprPtr, GroupingExprPtr, LiteralExprPtr, LogicalExprPtr, UnaryExprPtr, VarExprPtr, AssignExprPtr, std::nullptr_t>;
+    using Expr = std::variant<BinaryExprPtr, CallExprPtr, GetExprPtr, SetExprPtr, ThisExprPtr, GroupingExprPtr, LiteralExprPtr, LogicalExprPtr, UnaryExprPtr, VarExprPtr, AssignExprPtr, std::nullptr_t>;
 
     struct Uncopyable {
         explicit Uncopyable() = default;
@@ -68,6 +70,13 @@ namespace lox {
         Uncopyable(Uncopyable &&) = delete;
         auto operator=(Uncopyable &&) -> Uncopyable & = delete;
     };// struct Uncopyable*/
+
+    struct Assignable {
+        Token name;
+        mutable signed long distance = -1;
+        explicit Assignable(const Token name) : name{name} {
+        }
+    };
 
     struct BinaryExpr {
         Expr left;
@@ -92,11 +101,16 @@ namespace lox {
         Expr value;
     };
 
+    struct ThisExpr : Assignable {
+        explicit ThisExpr(const Token name) : Assignable(name) {}
+    };
+
     struct UnaryExpr {
         Token token;
         UnaryOp op;
         Expr expression;
     };
+
     struct GroupingExpr {
         Expr expression;
     };
@@ -110,14 +124,6 @@ namespace lox {
         LogicalOp op;
         Expr right;
     };
-
-    struct Assignable {
-        Token name;
-        mutable signed long distance = -1;
-        explicit Assignable(const Token name) : name{name} {
-        }
-    };
-
 
     struct VarExpr : Assignable {
         explicit VarExpr(const Token name) : Assignable(name) {}

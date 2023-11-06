@@ -86,5 +86,12 @@ print foo;
 print bar;
 print bar.foo;
 print foo.bar();
+class Egotist {
+  speak() {
+    print this;
+  }
+}
 
+var method = Egotist().speak;
+method();
 print "End";

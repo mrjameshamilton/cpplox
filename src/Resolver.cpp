@@ -12,9 +12,15 @@ namespace lox {
             METHOD
         };
 
+        enum class ClassType {
+            NONE,
+            CLASS
+        };
+
         using Scope = std::unordered_map<std::string_view, bool>;
         std::vector<Scope> scopes;
         FunctionType currentFunction = FunctionType::NONE;
+        ClassType currentClass = ClassType::NONE;
 
         void beginScope() {
             scopes.emplace_back();
@@ -109,13 +115,21 @@ namespace lox {
         }
 
         void operator()(ClassStmtPtr &classStmt) {
+            ClassType enclosingClass = currentClass;
+            currentClass = ClassType::CLASS;
             declare(classStmt->name);
             define(classStmt->name);
+
+            beginScope();
+            scopes.front()["this"sv] = true;
 
             for (auto &method: classStmt->methods) {
                 auto functionType = FunctionType::METHOD;
                 resolveFunction(method, functionType);
             }
+
+            endScope();
+            currentClass = enclosingClass;
         }
 
         void operator()(AssignExprPtr &assignExpr) {
@@ -142,6 +156,16 @@ namespace lox {
         void operator()(SetExprPtr &setExpr) {
             resolve(setExpr->object);
             resolve(setExpr->value);
+        }
+
+        void operator()(ThisExprPtr &thisExpr) {
+            if (currentClass == ClassType::NONE) {
+                lox::error(thisExpr->name,
+                           "Can't use 'this' outside of a class.");
+                return;
+            }
+
+            resolveLocal(*thisExpr, thisExpr->name);
         }
 
         void operator()(VarExprPtr &varExpr) {

@@ -395,6 +395,8 @@ namespace lox {
                 return createLiteralExpr(previous().getLiteral());
             }
 
+            if (match(THIS)) return std::make_unique<ThisExpr>(previous());
+
             if (match(TokenType::IDENTIFIER)) {
                 return createVarExpr(previous());
             }
