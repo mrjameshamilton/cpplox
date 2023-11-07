@@ -9,6 +9,7 @@ namespace lox {
         enum class FunctionType {
             NONE,
             FUNCTION,
+            INITIALIZER,
             METHOD
         };
 
@@ -92,6 +93,10 @@ namespace lox {
         void operator()(ReturnStmtPtr &returnStmt) {
             if (currentFunction == FunctionType::NONE) {
                 lox::error(returnStmt->keyword, "Can't return from top-level code.");
+            } else if (returnStmt->expression.has_value() &&
+                       currentFunction == FunctionType::INITIALIZER) {
+                lox::error(returnStmt->keyword,
+                           "Can't return a value from an initializer.");
             }
 
             resolve(returnStmt->expression);
@@ -121,10 +126,10 @@ namespace lox {
             define(classStmt->name);
 
             beginScope();
-            scopes.front()["this"sv] = true;
+            scopes.front()["this"] = true;
 
             for (auto &method: classStmt->methods) {
-                auto functionType = FunctionType::METHOD;
+                auto functionType = method->name.getLexeme() == "init" ? FunctionType::INITIALIZER : FunctionType::METHOD;
                 resolveFunction(method, functionType);
             }
 
