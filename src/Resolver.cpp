@@ -34,7 +34,7 @@ namespace lox {
 
         void declare(const Token &name) {
             if (scopes.empty()) return;
-            auto scope = scopes.front();
+            auto scope = scopes.back();
             if (scope.contains(name.getLexeme())) {
                 lox::error(name, "Already a variable with this name in this scope.");
             }
@@ -43,7 +43,7 @@ namespace lox {
 
         void define(const Token &name) {
             if (scopes.empty()) return;
-            scopes.front()[name.getLexeme()] = true;
+            scopes.back()[name.getLexeme()] = true;
         }
 
         void resolveLocal(Assignable &expr, const Token &name) {
@@ -139,11 +139,11 @@ namespace lox {
 
             if (classStmt->superClass.has_value()) {
                 beginScope();
-                scopes.front()["super"] = true;
+                scopes.back()["super"] = true;
             }
 
             beginScope();
-            scopes.front()["this"] = true;
+            scopes.back()["this"] = true;
 
             for (auto &method: classStmt->methods) {
                 auto functionType = method->name.getLexeme() == "init" ? FunctionType::INITIALIZER : FunctionType::METHOD;
@@ -208,8 +208,8 @@ namespace lox {
 
         void operator()(VarExprPtr &varExpr) {
             if (!scopes.empty() &&
-                scopes.front().contains(varExpr->name.getLexeme()) &&
-                !scopes.front()[varExpr->name.getLexeme()]) {
+                scopes.back().contains(varExpr->name.getLexeme()) &&
+                !scopes.back()[varExpr->name.getLexeme()]) {
                 lox::error(varExpr->name,
                            "Can't read local variable in its own initializer.");
                 return;
