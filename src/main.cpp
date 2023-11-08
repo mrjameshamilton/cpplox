@@ -13,10 +13,6 @@ using namespace llvm;
 using namespace lox;
 
 cl::opt<std::string> InputFilename(cl::Positional, cl::desc("<input>"), cl::Required);
-cl::opt<std::string> OutputFilename("o", cl::desc("Output LLVM IR file"), cl::value_desc("<output>"));
-cl::opt<bool> Execute("e", cl::desc("Execute the brainf*ck program using the interpreter"));
-cl::opt<bool> Print("p", cl::desc("Print the brainf*ck source"));
-cl::opt<bool> DontOptimize("dontoptimize", cl::desc("Don't optimize the LLVM IR"));
 
 std::string read_string_from_file(const std::string &file_path) {
     const std::ifstream input_stream(file_path, std::ios_base::binary);
