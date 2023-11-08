@@ -67,7 +67,7 @@ namespace lox {
         explicit Token(const TokenType type, const std::string_view lexeme, const Literal literal, const unsigned int line)
             : type{type}, lexeme{lexeme}, literal{literal}, line{line} {}
 
-        [[nodiscard]] TokenType getType() { return type; }
+        [[nodiscard]] TokenType getType() const { return type; }
 
         [[nodiscard]] unsigned int getLine() const { return line; }
 

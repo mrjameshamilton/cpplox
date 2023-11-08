@@ -54,7 +54,7 @@ namespace lox {
             return std::make_unique<LiteralExpr>(literal);
         }
 
-        static Expr createVarExpr(const Token name) {
+        static VarExprPtr createVarExpr(const Token name) {
             return std::make_unique<VarExpr>(name);
         }
 
@@ -96,6 +96,13 @@ namespace lox {
 
         Stmt classDeclaration() {
             auto name = consume(IDENTIFIER, "Expect class name.");
+
+            std::optional<VarExprPtr> superclass;
+            if (match(LESS)) {
+                consume(IDENTIFIER, "Expect superclass name.");
+                superclass = createVarExpr(previous());
+            }
+
             consume(LEFT_BRACE, "Expect '{' before class body.");
 
             std::vector<FunctionStmtPtr> methods;
@@ -105,7 +112,7 @@ namespace lox {
 
             consume(RIGHT_BRACE, "Expect '}' after class body.");
 
-            return std::make_unique<ClassStmt>(name, std::move(methods));
+            return std::make_unique<ClassStmt>(name, std::move(superclass), std::move(methods));
         }
 
         Stmt varDeclaration() {
@@ -396,6 +403,14 @@ namespace lox {
             }
 
             if (match(THIS)) return std::make_unique<ThisExpr>(previous());
+
+            if (match(SUPER)) {
+                Token keyword = previous();
+                consume(DOT, "Expect '.' after 'super'.");
+                Token method = consume(IDENTIFIER,
+                                       "Expect superclass method name.");
+                return std::make_unique<SuperExpr>(keyword, method);
+            }
 
             if (match(TokenType::IDENTIFIER)) {
                 return createVarExpr(previous());

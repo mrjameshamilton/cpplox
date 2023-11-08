@@ -17,7 +17,7 @@ namespace lox {
         report(line, "", message);
     }
 
-    static void error(Token token, const std::string &message) {
+    static void error(const Token token, const std::string &message) {
         if (token.getType() == TokenType::END) {
             report(token.getLine(), " at end", message);
         } else {

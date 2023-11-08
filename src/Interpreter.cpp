@@ -47,7 +47,7 @@ namespace lox {
         virtual LoxObject operator()(Interpreter &interpreter, const std::vector<LoxObject> &arguments) = 0;
         virtual std::string to_string() = 0;
 
-        bool operator==(const LoxObject &other) const {
+        bool operator==(const LoxObject &) const {
             // TODO
             return false;
         }
@@ -72,11 +72,12 @@ namespace lox {
 
     struct LoxClass : public LoxCallable {
         std::string_view name;
+        std::optional<std::shared_ptr<LoxClass>> superClass;
         std::unordered_map<std::string_view, LoxFunctionPtr> methods;
         LoxFunctionPtr initializer;
 
-        explicit LoxClass(const std::string_view &name, const std::unordered_map<std::string_view, LoxFunctionPtr> &methods)
-            : LoxCallable(0), name{name}, methods{methods} {
+        explicit LoxClass(const std::string_view &name, const std::optional<std::shared_ptr<LoxClass>> &superClass, const std::unordered_map<std::string_view, LoxFunctionPtr> &methods)
+            : LoxCallable(0), name{name}, superClass{superClass}, methods{methods} {
             this->initializer = findMethod("init");
             this->arity = functionArity(initializer);
         }
@@ -95,6 +96,10 @@ namespace lox {
         LoxFunctionPtr findMethod(const std::string_view &method_name) {
             if (methods.contains(method_name)) {
                 return methods[method_name];
+            }
+
+            if (superClass.has_value()) {
+                return superClass.value()->findMethod(method_name);
             }
 
             return nullptr;
@@ -134,10 +139,10 @@ namespace lox {
 
     class Environment {
     private:
-        std::shared_ptr<Environment> enclosing;
         std::unordered_map<std::string_view, LoxObject> values;
 
     public:
+        std::shared_ptr<Environment> enclosing;
         explicit Environment() = default;
         explicit Environment(std::shared_ptr<Environment> environment) : enclosing{std::move(environment)} {
         }
@@ -323,7 +328,22 @@ namespace lox {
         }
 
         void operator()(ClassStmtPtr &classStmt) {
+            std::optional<std::shared_ptr<LoxClass>> superKlass;
+            if (classStmt->superClass.has_value()) {
+                auto superclass = this->operator()(classStmt->superClass.value());
+                if (!(std::holds_alternative<LoxCallablePtr>(superclass) && dynamic_cast<LoxClass *>(std::get<LoxCallablePtr>(superclass).get()))) {
+                    throw lox::runtime_error(classStmt->superClass.value()->name, "Superclass must be a class.");
+                }
+                superKlass = std::reinterpret_pointer_cast<LoxClass>(std::get<LoxCallablePtr>(superclass));
+            }
+
             environment->define(classStmt->name.getLexeme());
+
+            if (superKlass.has_value()) {
+                environment = std::make_shared<Environment>(environment);
+                environment->define("super", superKlass.value());
+            }
+
             std::unordered_map<std::string_view, LoxFunctionPtr> methods;
 
             for (auto &method: classStmt->methods) {
@@ -332,7 +352,11 @@ namespace lox {
                 methods[name] = std::make_shared<LoxFunction>(m, environment, name == "init");
             }
 
-            auto klass = std::make_shared<LoxClass>(classStmt->name.getLexeme(), std::move(methods));
+            auto klass = std::make_shared<LoxClass>(classStmt->name.getLexeme(), superKlass, std::move(methods));
+            if (superKlass.has_value()) {
+                environment = environment->enclosing;
+            }
+
             environment->assign(classStmt->name, klass);
         }
 
@@ -425,6 +449,17 @@ namespace lox {
 
         LoxObject operator()(ThisExprPtr &thisExpr) {
             return lookUpVariable(thisExpr->name, *thisExpr);
+        }
+
+        LoxObject operator()(SuperExprPtr &superExpr) {
+            auto callable = std::get<LoxCallablePtr>(environment->getAt(superExpr->distance, "super"));
+            auto superClass = std::reinterpret_pointer_cast<LoxClass>(callable);
+            auto instance = std::get<LoxInstancePtr>(environment->getAt(superExpr->distance - 1, "this"));
+            auto method = superClass->findMethod(superExpr->method.getLexeme());
+            if (method == nullptr) {
+                throw lox::runtime_error(superExpr->method, "Undefined property '" + std::string(superExpr->method.getLexeme()) + "'.");
+            }
+            return method->bind(instance);
         }
 
         LoxObject operator()(GroupingExprPtr &groupingExpr) {

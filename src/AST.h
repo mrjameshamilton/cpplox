@@ -40,6 +40,7 @@ namespace lox {
     struct GetExpr;
     struct SetExpr;
     struct ThisExpr;
+    struct SuperExpr;
     struct GroupingExpr;
     struct LiteralExpr;
     struct LogicalExpr;
@@ -52,6 +53,7 @@ namespace lox {
     using GetExprPtr = std::unique_ptr<GetExpr>;
     using SetExprPtr = std::unique_ptr<SetExpr>;
     using ThisExprPtr = std::unique_ptr<ThisExpr>;
+    using SuperExprPtr = std::unique_ptr<SuperExpr>;
     using GroupingExprPtr = std::unique_ptr<GroupingExpr>;
     using LiteralExprPtr = std::unique_ptr<LiteralExpr>;
     using LogicalExprPtr = std::unique_ptr<LogicalExpr>;
@@ -60,7 +62,7 @@ namespace lox {
     using AssignExprPtr = std::unique_ptr<AssignExpr>;
 
     // TODO: do we need to allow null here?
-    using Expr = std::variant<BinaryExprPtr, CallExprPtr, GetExprPtr, SetExprPtr, ThisExprPtr, GroupingExprPtr, LiteralExprPtr, LogicalExprPtr, UnaryExprPtr, VarExprPtr, AssignExprPtr, std::nullptr_t>;
+    using Expr = std::variant<BinaryExprPtr, CallExprPtr, GetExprPtr, SetExprPtr, ThisExprPtr, SuperExprPtr, GroupingExprPtr, LiteralExprPtr, LogicalExprPtr, UnaryExprPtr, VarExprPtr, AssignExprPtr, std::nullptr_t>;
 
     struct Uncopyable {
         explicit Uncopyable() = default;
@@ -103,6 +105,11 @@ namespace lox {
 
     struct ThisExpr : Assignable {
         explicit ThisExpr(const Token name) : Assignable(name) {}
+    };
+
+    struct SuperExpr : Assignable {
+        Token method;
+        explicit SuperExpr(const Token name, const Token method) : Assignable(name), method{method} {}
     };
 
     struct UnaryExpr {
@@ -198,62 +205,12 @@ namespace lox {
 
     struct ClassStmt {
         Token name;
+        std::optional<VarExprPtr> superClass;
         std::vector<FunctionStmtPtr> methods;
     };
 
     using Program = std::vector<Stmt>;
 
-    struct AstPrinter {
-        std::string operator()(BinaryExprPtr &binaryExpr) {
-            return "(" + visit(binaryExpr->left) + " " + std::string(binaryExpr->token.getLexeme()) + " " + visit(binaryExpr->right) + ")";
-        }
-
-        std::string operator()(GroupingExprPtr &groupingExpr) {
-            return "(" + visit(groupingExpr->expression) + ")";
-        }
-
-        std::string operator()(LiteralExprPtr &literalExpr) {
-            return std::visit(
-                    overloaded{
-                            [](bool value) -> std::string { return std::to_string(value); },
-                            [](double value) -> std::string { return std::to_string(value); },
-                            [](std::string_view value) -> std::string { return std::string(value); },
-                            [](std::nullptr_t) -> std::string { return "nil"; }},
-                    literalExpr->literal);
-        }
-
-        std::string operator()(UnaryExprPtr &unaryExpr) {
-            return std::string(unaryExpr->token.getLexeme()) + visit(unaryExpr->expression);
-        }
-
-        std::string operator()(std::nullptr_t) {
-            return "nil";
-        }
-
-        std::string visit(Expr &) {
-            //return std::visit(*this, node);
-            return "";// TODO
-        }
-
-        std::string visit(Program &program) {
-            std::string result;
-            for (auto &n: program) {
-                /// TODO
-                //result += visit(n);
-            }
-            return result;
-        }
-        /*
-        std::string visit(std::vector<Expr> &program) {
-            std::string result{};
-
-            for (auto &node: program) {
-                result += visit(std::move(node));
-            }
-
-            return result;
-        }*/
-    };
 }// namespace lox
 
 #endif//LOX_LLVM_AST_H

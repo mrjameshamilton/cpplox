@@ -44,12 +44,12 @@ int main(int argc, char **argv) {
     Parser Parser(tokens);
     Program ast = Parser.parse();
     if (hadError) return 75;
-    Interpreter Interpreter{};
 
     Resolver resolver;
-    if (hadError) return 65;
     resolver.resolve(ast);
+    if (hadError) return 65;
 
+    Interpreter Interpreter;
     Interpreter.evaluate(ast);
 
 

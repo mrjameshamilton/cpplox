@@ -15,7 +15,8 @@ namespace lox {
 
         enum class ClassType {
             NONE,
-            CLASS
+            CLASS,
+            SUBCLASS
         };
 
         using Scope = std::unordered_map<std::string_view, bool>;
@@ -125,6 +126,22 @@ namespace lox {
             declare(classStmt->name);
             define(classStmt->name);
 
+            if (classStmt->superClass.has_value() &&
+                classStmt->name.getLexeme() == classStmt->superClass.value()->name.getLexeme()) {
+                lox::error(classStmt->superClass.value()->name,
+                           "A class can't inherit from itself.");
+            }
+
+            if (classStmt->superClass.has_value()) {
+                currentClass = ClassType::SUBCLASS;
+                this->operator()(classStmt->superClass.value());
+            }
+
+            if (classStmt->superClass.has_value()) {
+                beginScope();
+                scopes.front()["super"] = true;
+            }
+
             beginScope();
             scopes.front()["this"] = true;
 
@@ -134,6 +151,11 @@ namespace lox {
             }
 
             endScope();
+
+            if (classStmt->superClass.has_value()) {
+                endScope();
+            }
+
             currentClass = enclosingClass;
         }
 
@@ -171,6 +193,17 @@ namespace lox {
             }
 
             resolveLocal(*thisExpr, thisExpr->name);
+        }
+
+        void operator()(SuperExprPtr &superExpr) {
+            if (currentClass == ClassType::NONE) {
+                lox::error(superExpr->name,
+                           "Can't use 'super' outside of a class.");
+            } else if (currentClass != ClassType::SUBCLASS) {
+                lox::error(superExpr->name,
+                           "Can't use 'super' in a class with no superclass.");
+            }
+            resolveLocal(*superExpr, superExpr->name);
         }
 
         void operator()(VarExprPtr &varExpr) {
