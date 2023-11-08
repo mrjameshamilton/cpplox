@@ -169,10 +169,9 @@ namespace lox {
             Stmt body = statement();
 
             if (increment.has_value()) {
-                auto variant = createExpressionStatement(std::move(increment.value()));
                 StmtList statements;
                 statements.push_back(std::move(body));
-                statements.push_back(std::move(variant));
+                statements.push_back(createExpressionStatement(std::move(increment.value())));
                 body = createBlockStatement(std::move(statements));
             }
 
@@ -390,7 +389,7 @@ namespace lox {
 
             consume(RIGHT_PAREN, "Expect ')' after arguments.");
 
-            return std::make_unique<CallExpr>(std::move(callee), std::move(arguments));
+            return std::make_unique<CallExpr>(std::move(callee), previous(), std::move(arguments));
         }
 
         Expr primary() {
@@ -422,7 +421,7 @@ namespace lox {
                 return createGroupingExpr(std::move(expr));
             }
 
-            throw ParseError("Invalid");
+            throw error(peek(), "Expect expression.");
         }
 
         static ParseError error(const Token token, const std::string &message) {

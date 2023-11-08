@@ -32,22 +32,24 @@ int main(int argc, char **argv) {
 
     if (InputFilename.empty()) {
         std::cout << "source must not be empty";
-        return -1;
+        return 64;
     }
 
     Scanner Scanner(read_string_from_file(InputFilename));
     auto tokens = Scanner.scanTokens();
     Parser Parser(tokens);
     Program ast = Parser.parse();
-    if (hadError) return 75;
+    if (hadError) return 65;
 
     Resolver resolver;
     resolver.resolve(ast);
     if (hadError) return 65;
 
     Interpreter Interpreter;
+
     Interpreter.evaluate(ast);
 
+    if (hadRuntimeError) return 70;
 
     return 0;
 }

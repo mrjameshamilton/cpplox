@@ -54,7 +54,7 @@ namespace lox {
         END
     };
 
-    using Literal = std::variant<std::string_view, double, bool, std::nullptr_t>;
+    using Literal = std::variant<std::nullptr_t, std::string_view, double, bool>;
 
     class Token {
     private:

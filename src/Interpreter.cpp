@@ -28,7 +28,7 @@ namespace lox {
     using LoxBoolean = bool;
     using LoxNil = std::nullptr_t;
     using LoxObject = std::variant<LoxNil, LoxString, LoxNumber, LoxBoolean, LoxCallablePtr, LoxInstancePtr>;
-    static inline std::string to_string(LoxObject &);
+    static inline std::string to_string(const LoxObject &);
     static inline LoxFunctionPtr bind(LoxFunctionPtr &, LoxInstancePtr &);
     static inline LoxObject execute(LoxFunctionPtr &, Interpreter &, const std::vector<LoxObject> &);
     static inline int functionArity(LoxFunctionPtr &);
@@ -137,17 +137,20 @@ namespace lox {
         }
     };
 
-    class Environment {
+    class Environment : public std::enable_shared_from_this<Environment> {
     private:
         std::unordered_map<std::string_view, LoxObject> values;
+        std::shared_ptr<Environment> enclosing;
 
     public:
-        std::shared_ptr<Environment> enclosing;
         explicit Environment() = default;
         explicit Environment(std::shared_ptr<Environment> environment) : enclosing{std::move(environment)} {
         }
 
+        std::shared_ptr<Environment> getEnclosing() const { return enclosing; }
+
         void define(const std::string_view &name, const LoxObject &value = LoxNil{}) {
+
             values[name] = value;
         }
 
@@ -155,10 +158,10 @@ namespace lox {
             return ancestor(distance)->values[name];
         }
 
-        Environment *ancestor(const unsigned long distance) {
-            auto environment = this;
+        std::shared_ptr<Environment> ancestor(const unsigned long distance) {
+            auto environment = shared_from_this();
             for (unsigned long i = 0; i < distance; i++) {
-                environment = environment->enclosing.get();
+                environment = environment->enclosing;
             }
             return environment;
         }
@@ -170,7 +173,7 @@ namespace lox {
 
             if (enclosing != nullptr) return enclosing->get(name);
 
-            throw std::invalid_argument("Undefined variable '" + std::string(name.getLexeme()) + "'.");
+            throw lox::runtime_error(name, "Undefined variable '" + std::string(name.getLexeme()) + "'.");
         }
 
         void assign(const Token name, const LoxObject &value) {
@@ -184,7 +187,7 @@ namespace lox {
                 return;
             }
 
-            throw std::invalid_argument("Undefined variable '" + std::string(name.getLexeme()) + "'.");
+            throw lox::runtime_error(name, "Undefined variable '" + std::string(name.getLexeme()) + "'.");
         }
 
         void assignAt(const unsigned long distance, const Token name, const LoxObject &value) {
@@ -354,7 +357,7 @@ namespace lox {
 
             auto klass = std::make_shared<LoxClass>(classStmt->name.getLexeme(), superKlass, std::move(methods));
             if (superKlass.has_value()) {
-                environment = environment->enclosing;
+                environment = environment->getEnclosing();
             }
 
             environment->assign(classStmt->name, klass);
@@ -376,22 +379,29 @@ namespace lox {
                         return std::get<LoxString>(left) + std::get<LoxString>(right);
                     }
 
-                    // TODO
-                    return nullptr;
+                    throw lox::runtime_error(binaryExpr->token,
+                                             "Operands must be two numbers or two strings.");
                 }
                 case BinaryOp::MINUS:
+                    checkNumberOperands(binaryExpr->token, left, right);
                     return std::get<LoxNumber>(left) - std::get<LoxNumber>(right);
                 case BinaryOp::SLASH:
+                    checkNumberOperands(binaryExpr->token, left, right);
                     return std::get<LoxNumber>(left) / std::get<LoxNumber>(right);
                 case BinaryOp::STAR:
+                    checkNumberOperands(binaryExpr->token, left, right);
                     return std::get<LoxNumber>(left) * std::get<LoxNumber>(right);
                 case BinaryOp::GREATER:
+                    checkNumberOperands(binaryExpr->token, left, right);
                     return std::get<LoxNumber>(left) > std::get<LoxNumber>(right);
                 case BinaryOp::GREATER_EQUAL:
+                    checkNumberOperands(binaryExpr->token, left, right);
                     return std::get<LoxNumber>(left) >= std::get<LoxNumber>(right);
                 case BinaryOp::LESS:
+                    checkNumberOperands(binaryExpr->token, left, right);
                     return std::get<LoxNumber>(left) < std::get<LoxNumber>(right);
                 case BinaryOp::LESS_EQUAL:
+                    checkNumberOperands(binaryExpr->token, left, right);
                     return std::get<LoxNumber>(left) <= std::get<LoxNumber>(right);
                 case BinaryOp::BANG:
                     return left == right;
@@ -401,7 +411,7 @@ namespace lox {
                     return left == right;
             }
 
-            throw std::invalid_argument("Unknown binary expression.");
+            std::unreachable();
         }
 
         LoxObject operator()(CallExprPtr &callExpr) {
@@ -415,13 +425,13 @@ namespace lox {
             if (std::holds_alternative<LoxCallablePtr>(callee)) {
                 auto callable = std::get<LoxCallablePtr>(callee);
                 if ((int) arguments.size() != callable->arity) {
-                    throw std::invalid_argument("Expected " +
-                                                std::to_string(callable->arity) + " arguments but got " +
-                                                std::to_string(arguments.size()) + ".");
+                    throw lox::runtime_error(callExpr->keyword, "Expected " +
+                                                                        std::to_string(callable->arity) + " arguments but got " +
+                                                                        std::to_string(arguments.size()) + ".");
                 }
                 return (*callable)(*this, arguments);
             } else {
-                throw std::invalid_argument("Can only call functions and classes.");
+                throw lox::runtime_error(callExpr->keyword, "Can only call functions and classes.");
             }
         }
 
@@ -492,19 +502,25 @@ namespace lox {
             auto result = evaluate(unaryExpr->expression);
             switch (unaryExpr->op) {
                 case UnaryOp::MINUS: {
-                    if (std::holds_alternative<LoxNumber>(result)) {
-                        return -std::get<LoxNumber>(result);
-                    } else {
-                        // TODO
-                    }
-                    break;
+                    checkNumberOperand(unaryExpr->token, result);
+                    return -std::get<LoxNumber>(result);
                 }
                 case UnaryOp::BANG:
                     return !isTruthy(result);
             }
 
-            // Unreachable.
-            return nullptr;
+            std::unreachable();
+        }
+
+        static void checkNumberOperand(const Token op, const LoxObject &operand) {
+            if (std::holds_alternative<LoxNumber>(operand)) return;
+            throw lox::runtime_error(op, "Operand must be a number.");
+        }
+
+        static void checkNumberOperands(const Token op, const LoxObject &left, const LoxObject &right) {
+            if (std::holds_alternative<LoxNumber>(left) && std::holds_alternative<LoxNumber>(right)) return;
+
+            throw lox::runtime_error(op, "Operands must be numbers.");
         }
 
         LoxObject operator()(VarExprPtr &varExpr) {
@@ -547,8 +563,12 @@ namespace lox {
         }
 
         void evaluate(Program &program) {
-            for (auto &stmt: program) {
-                evaluate(stmt);
+            try {
+                for (auto &stmt: program) {
+                    evaluate(stmt);
+                }
+            } catch (const lox::runtime_error &e) {
+                lox::runtimeError(e);
             }
         }
     };
@@ -557,7 +577,7 @@ namespace lox {
         interpreter.executeBlock(statements, newEnvironment);
     }
 
-    static inline std::string to_string(LoxObject &object) {
+    static inline std::string to_string(const LoxObject &object) {
         return std::visit(overloaded{
                                   [](LoxBoolean value) -> std::string { return value ? "true" : "false"; },
                                   [](LoxNumber value) -> std::string { return std::format("{:g}", value); },
