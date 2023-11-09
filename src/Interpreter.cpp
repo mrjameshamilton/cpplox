@@ -288,8 +288,7 @@ namespace lox {
 
         void operator()(FunctionStmtPtr &functionStmt) {
             const auto name = functionStmt->name.getLexeme();
-            std::shared_ptr decl = std::move(functionStmt);
-            auto function = std::make_shared<LoxFunction>(decl, environment);
+            auto function = std::make_shared<LoxFunction>(functionStmt, environment);
             environment->define(name, std::move(function));
         }
 

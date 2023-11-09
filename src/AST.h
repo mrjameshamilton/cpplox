@@ -151,7 +151,7 @@ namespace lox {
     struct ClassStmt;
 
     using ExpressionStmtPtr = std::unique_ptr<ExpressionStmt>;
-    using FunctionStmtPtr = std::unique_ptr<FunctionStmt>;
+    using FunctionStmtPtr = std::shared_ptr<FunctionStmt>;
     using ReturnStmtPtr = std::unique_ptr<ReturnStmt>;
     using IfStmtPtr = std::unique_ptr<IfStmt>;
     using PrintStmtPtr = std::unique_ptr<PrintStmt>;
