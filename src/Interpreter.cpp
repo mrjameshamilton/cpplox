@@ -24,13 +24,13 @@ namespace lox {
     using LoxFunctionPtr = std::shared_ptr<LoxFunction>;
     using LoxInstancePtr = std::shared_ptr<LoxInstance>;
     using LoxClassPtr = std::shared_ptr<LoxClass>;
-    static LoxInstancePtr createLoxInstance(const LoxClassPtr &klass);
     using LoxString = std::string;
     using LoxNumber = double;
     using LoxBoolean = bool;
     using LoxNil = std::nullptr_t;
     using LoxObject = std::variant<LoxNil, LoxString, LoxNumber, LoxBoolean, LoxCallablePtr, LoxInstancePtr>;
     static std::string to_string(const LoxObject &);
+    static LoxInstancePtr createLoxInstance(const LoxClassPtr &klass);
     inline LoxFunctionPtr bind(LoxFunctionPtr &, LoxInstancePtr &);
     inline LoxObject execute(const LoxFunctionPtr &, Interpreter &, const std::vector<LoxObject> &);
     inline int functionArity(const LoxFunctionPtr &);
