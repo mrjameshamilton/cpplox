@@ -532,7 +532,7 @@ namespace lox {
         LoxObject operator()(const AssignExprPtr &assignExpr) {
             LoxObject value = evaluate(assignExpr->value);
             if (assignExpr->distance == -1) {
-                environment->assign(assignExpr.get()->name, value);
+                globals->assign(assignExpr.get()->name, value);
             } else {
                 environment->assignAt(assignExpr->distance, assignExpr.get()->name, value);
             }
