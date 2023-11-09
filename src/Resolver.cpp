@@ -1,5 +1,6 @@
 #include "AST.h"
 #include "Interpreter.cpp"
+#include <unordered_map>
 
 using namespace std::literals;
 
@@ -32,9 +33,9 @@ namespace lox {
             scopes.pop_back();
         }
 
-        void declare(const Token &name) const {
+        void declare(const Token &name) {
             if (scopes.empty()) return;
-            auto scope = scopes.back();
+            auto &scope = scopes.back();
             if (scope.contains(name.getLexeme())) {
                 lox::error(name, "Already a variable with this name in this scope.");
             }
