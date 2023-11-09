@@ -16,7 +16,7 @@ namespace lox {
                 scanToken();
             }
 
-            tokens.emplace_back(TokenType::END, "", "", line);
+            tokens.emplace_back(END, "", "", line);
 
             return tokens;
         }
@@ -28,7 +28,7 @@ namespace lox {
         long unsigned int line = 1;
         std::vector<Token> tokens = std::vector<Token>();
 
-        void addToken(TokenType type) {
+        void addToken(const TokenType type) {
             addToken(type, nullptr);
         }
 
@@ -39,60 +39,59 @@ namespace lox {
 
         char advance() { return source[current++]; }
 
-        bool isAtEnd() { return current >= source.length(); }
+        [[nodiscard]] bool isAtEnd() const { return current >= source.length(); }
 
         void scanToken() {
-            char c = advance();
-            switch (c) {
+            switch (const char c = advance()) {
                 case '(':
-                    addToken(TokenType::LEFT_PAREN);
+                    addToken(LEFT_PAREN);
                     break;
                 case ')':
-                    addToken(TokenType::RIGHT_PAREN);
+                    addToken(RIGHT_PAREN);
                     break;
                 case '{':
-                    addToken(TokenType::LEFT_BRACE);
+                    addToken(LEFT_BRACE);
                     break;
                 case '}':
-                    addToken(TokenType::RIGHT_BRACE);
+                    addToken(RIGHT_BRACE);
                     break;
                 case ',':
-                    addToken(TokenType::COMMA);
+                    addToken(COMMA);
                     break;
                 case '.':
-                    addToken(TokenType::DOT);
+                    addToken(DOT);
                     break;
                 case '-':
-                    addToken(TokenType::MINUS);
+                    addToken(MINUS);
                     break;
                 case '+':
-                    addToken(TokenType::PLUS);
+                    addToken(PLUS);
                     break;
                 case ';':
-                    addToken(TokenType::SEMICOLON);
+                    addToken(SEMICOLON);
                     break;
                 case '*':
-                    addToken(TokenType::STAR);
+                    addToken(STAR);
                     break;
                 case '/':
                     if (match('/')) {
                         // A comment goes until the end of the line.
                         while (peek() != '\n' && !isAtEnd()) advance();
                     } else {
-                        addToken(TokenType::SLASH);
+                        addToken(SLASH);
                     }
                     break;
                 case '!':
-                    addToken(match('=') ? TokenType::BANG_EQUAL : TokenType::BANG);
+                    addToken(match('=') ? BANG_EQUAL : BANG);
                     break;
                 case '=':
-                    addToken(match('=') ? TokenType::EQUAL_EQUAL : TokenType::EQUAL);
+                    addToken(match('=') ? EQUAL_EQUAL : EQUAL);
                     break;
                 case '<':
-                    addToken(match('=') ? TokenType::LESS_EQUAL : TokenType::LESS);
+                    addToken(match('=') ? LESS_EQUAL : LESS);
                     break;
                 case '>':
-                    addToken(match('=') ? TokenType::GREATER_EQUAL : TokenType::GREATER);
+                    addToken(match('=') ? GREATER_EQUAL : GREATER);
                     break;
                 case ' ':
                 case '\r':
@@ -125,43 +124,43 @@ namespace lox {
         void identifier() {
             while (isAlphaNumeric(peek())) advance();
 
-            auto text = std::string_view(source).substr(start, current - start);
+            const auto text = std::string_view(source).substr(start, current - start);
             TokenType type;
 
             if (text == "and")
-                type = TokenType::AND;
+                type = AND;
             else if (text == "class")
-                type = TokenType::CLASS;
+                type = CLASS;
             else if (text == "else")
-                type = TokenType::ELSE;
+                type = ELSE;
             else if (text == "false")
-                type = TokenType::FALSE;
+                type = FALSE;
             else if (text == "for")
-                type = TokenType::FOR;
+                type = FOR;
             else if (text == "fun")
-                type = TokenType::FUN;
+                type = FUN;
             else if (text == "if")
-                type = TokenType::IF;
+                type = IF;
             else if (text == "nil")
-                type = TokenType::NIL;
+                type = NIL;
             else if (text == "or")
-                type = TokenType::OR;
+                type = OR;
             else if (text == "print")
-                type = TokenType::PRINT;
+                type = PRINT;
             else if (text == "return")
-                type = TokenType::RETURN;
+                type = RETURN;
             else if (text == "super")
-                type = TokenType::SUPER;
+                type = SUPER;
             else if (text == "this")
-                type = TokenType::THIS;
+                type = THIS;
             else if (text == "true")
-                type = TokenType::TRUE;
+                type = TRUE;
             else if (text == "var")
-                type = TokenType::VAR;
+                type = VAR;
             else if (text == "while")
-                type = TokenType::WHILE;
+                type = WHILE;
             else
-                type = TokenType::IDENTIFIER;
+                type = IDENTIFIER;
             addToken(type);
         }
 
@@ -176,7 +175,7 @@ namespace lox {
                 while (isDigit(peek())) advance();
             }
 
-            addToken(TokenType::NUMBER, std::stod(source.substr(start, current - start)));
+            addToken(NUMBER, std::stod(source.substr(start, current - start)));
         }
 
         void string() {
@@ -194,36 +193,36 @@ namespace lox {
             advance();
 
             // Trim the surrounding quotes.
-            addToken(TokenType::STRING, std::string_view(source).substr(start + 1, current - 1 - start - 1));
+            addToken(STRING, std::string_view(source).substr(start + 1, current - 1 - start - 1));
         }
 
-        static inline bool isAlpha(char c) {
+        static bool isAlpha(const char c) {
             return (c >= 'a' && c <= 'z') ||
                    (c >= 'A' && c <= 'Z') ||
                    c == '_';
         }
 
-        static inline bool isAlphaNumeric(char c) {
+        static bool isAlphaNumeric(const char c) {
             return isAlpha(c) || isDigit(c);
         }
 
-        static inline bool isDigit(char c) {
+        static bool isDigit(const char c) {
             return c >= '0' && c <= '9';
         }
 
-        bool match(char expected) {
+        bool match(const char expected) {
             if (isAtEnd()) return false;
             if (source[current] != expected) return false;
             current++;
             return true;
         }
 
-        char peek() {
+        [[nodiscard]] char peek() const {
             if (isAtEnd()) return '\0';
             return source[current];
         }
 
-        char peekNext() {
+        [[nodiscard]] char peekNext() const {
             if (current + 1 >= source.length()) return '\0';
             return source[current + 1];
         }

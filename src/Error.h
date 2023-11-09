@@ -18,18 +18,18 @@ namespace lox {
         report(line, "", message);
     }
 
-    static void error(const Token token, const std::string &message) {
-        if (token.getType() == TokenType::END) {
+    static void error(const Token &token, const std::string &message) {
+        if (token.getType() == END) {
             report(token.getLine(), " at end", message);
         } else {
             report(token.getLine(), " at '" + std::string(token.getLexeme()) + "'", message);
         }
     }
-    struct runtime_error : std::runtime_error {
+    struct runtime_error final : std::runtime_error {
         Token token;
-        explicit runtime_error(const Token token, const std::string &message) : std::runtime_error(message), token{token} {}
+        explicit runtime_error(const Token &token, const std::string &message) : std::runtime_error(message), token{token} {}
     };
-    static void runtimeError(const lox::runtime_error &error) {
+    static void runtimeError(const runtime_error &error) {
         std::cerr << error.what() << "\n[line " << error.token.getLine() << "]";
         hadRuntimeError = true;
     }

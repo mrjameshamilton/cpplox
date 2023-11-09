@@ -27,7 +27,7 @@ std::string read_string_from_file(const std::string &file_path) {
     return buffer.str();
 }
 
-int main(int argc, char **argv) {
+int main(const int argc, char **argv) {
     cl::ParseCommandLineOptions(argc, argv);
 
     if (InputFilename.empty()) {
@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
     }
 
     Scanner Scanner(read_string_from_file(InputFilename));
-    auto tokens = Scanner.scanTokens();
+    const auto tokens = Scanner.scanTokens();
     Parser Parser(tokens);
     Program ast = Parser.parse();
     if (hadError) return 65;

@@ -2,7 +2,6 @@
 #define LOX_LLVM_AST_H
 
 #include "Token.h"
-#include "Util.h"
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -76,7 +75,7 @@ namespace lox {
     struct Assignable {
         Token name;
         mutable signed long distance = -1;
-        explicit Assignable(const Token name) : name{name} {
+        explicit Assignable(const Token &name) : name{name} {
         }
     };
 
@@ -105,12 +104,12 @@ namespace lox {
     };
 
     struct ThisExpr : Assignable {
-        explicit ThisExpr(const Token name) : Assignable(name) {}
+        explicit ThisExpr(const Token &name) : Assignable(name) {}
     };
 
     struct SuperExpr : Assignable {
         Token method;
-        explicit SuperExpr(const Token name, const Token method) : Assignable(name), method{method} {}
+        explicit SuperExpr(const Token &name, const Token &method) : Assignable(name), method{method} {}
     };
 
     struct UnaryExpr {
@@ -134,12 +133,12 @@ namespace lox {
     };
 
     struct VarExpr : Assignable {
-        explicit VarExpr(const Token name) : Assignable(name) {}
+        explicit VarExpr(const Token &name) : Assignable(name) {}
     };
 
     struct AssignExpr : Assignable {
         Expr value;
-        AssignExpr(const Token name, Expr value) : Assignable(name), value{std::move(value)} {}
+        AssignExpr(const Token &name, Expr value) : Assignable(name), value{std::move(value)} {}
     };
 
     struct ExpressionStmt;

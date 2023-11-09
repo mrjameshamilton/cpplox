@@ -7,7 +7,7 @@
 #include <vector>
 
 namespace lox {
-    class ParseError : public std::runtime_error {
+    class ParseError final : public std::runtime_error {
     public:
         explicit ParseError(const std::string &arg) : runtime_error(arg) {}
     };
@@ -20,8 +20,7 @@ namespace lox {
             auto program = Program();
             try {
                 while (!isAtEnd()) {
-                    auto decl = declaration();
-                    if (decl.has_value()) {
+                    if (auto decl = declaration(); decl.has_value()) {
                         program.push_back(std::move(decl.value()));
                     }
                 }
@@ -54,11 +53,11 @@ namespace lox {
             return std::make_unique<LiteralExpr>(literal);
         }
 
-        static VarExprPtr createVarExpr(const Token name) {
+        static VarExprPtr createVarExpr(const Token &name) {
             return std::make_unique<VarExpr>(name);
         }
 
-        static Expr createAssignExpr(const Token name, Expr value) {
+        static Expr createAssignExpr(const Token &name, Expr value) {
             return std::make_unique<AssignExpr>(name, std::move(value));
         }
 
@@ -73,7 +72,7 @@ namespace lox {
         static Stmt createPrintStatement(Expr expr) {
             return std::make_unique<PrintStmt>(std::move(expr));
         }
-        static Stmt createVarStatement(const Token name, Expr initializer) {
+        static Stmt createVarStatement(const Token &name, Expr initializer) {
             return std::make_unique<VarStmt>(name, std::move(initializer));
         }
 
@@ -88,7 +87,7 @@ namespace lox {
                 if (match(FUN)) return function("function");
 
                 return std::make_optional<Stmt>(statement());
-            } catch (ParseError &error) {
+            } catch (ParseError &) {
                 synchronize();
                 return std::make_optional<Stmt>();
             }
@@ -116,7 +115,7 @@ namespace lox {
         }
 
         Stmt varDeclaration() {
-            Token name = consume(IDENTIFIER, "Expect variable name.");
+            const Token name = consume(IDENTIFIER, "Expect variable name.");
             Expr initializer = match(EQUAL) ? expression() : nullptr;
             consume(SEMICOLON, "Expect ';' after variable declaration.");
             return createVarStatement(name, std::move(initializer));
@@ -193,7 +192,7 @@ namespace lox {
 
         Stmt printStatement() {
             Expr value = expression();
-            consume(TokenType::SEMICOLON, "Expect ';' after value.");
+            consume(SEMICOLON, "Expect ';' after value.");
             return createPrintStatement(std::move(value));
         }
 
@@ -252,8 +251,7 @@ namespace lox {
             std::vector<Stmt> statements;
 
             while (!check(RIGHT_BRACE) && !isAtEnd()) {
-                auto decl = declaration();
-                if (decl.has_value()) {
+                if (auto decl = declaration(); decl.has_value()) {
                     statements.push_back(std::move(decl.value()));
                 }
             }
@@ -284,14 +282,14 @@ namespace lox {
             auto expr = or_();
 
             if (match(TokenType::EQUAL)) {
-                auto equals = previous();
+                const auto equals = previous();
                 auto value = assignment();
 
                 if (std::holds_alternative<VarExprPtr>(expr)) {
-                    auto name = std::get<VarExprPtr>(expr)->name;
+                    const auto name = std::get<VarExprPtr>(expr)->name;
                     return createAssignExpr(name, std::move(value));
                 } else if (std::holds_alternative<GetExprPtr>(expr)) {
-                    auto &getExpr = std::get<GetExprPtr>(expr);
+                    const auto &getExpr = std::get<GetExprPtr>(expr);
                     return std::make_unique<SetExpr>(std::move(getExpr->object), getExpr->name, std::move(value));
                 }
 
@@ -324,32 +322,32 @@ namespace lox {
         }
 
         Expr equality() {
-            return parseBinaryExpr({TokenType::BANG_EQUAL, TokenType::EQUAL_EQUAL},
+            return parseBinaryExpr({BANG_EQUAL, EQUAL_EQUAL},
                                    comparison(),
                                    &Parser::comparison);
         }
 
         Expr comparison() {
-            return parseBinaryExpr({TokenType::GREATER, TokenType::GREATER_EQUAL, TokenType::LESS, TokenType::LESS_EQUAL},
+            return parseBinaryExpr({GREATER, GREATER_EQUAL, LESS, LESS_EQUAL},
                                    term(),
                                    &Parser::term);
         }
 
         Expr term() {
-            return parseBinaryExpr({TokenType::MINUS, TokenType::PLUS},
+            return parseBinaryExpr({MINUS, PLUS},
                                    factor(),
                                    &Parser::factor);
         }
 
         Expr factor() {
-            return parseBinaryExpr({TokenType::SLASH, TokenType::STAR},
+            return parseBinaryExpr({SLASH, STAR},
                                    unary(),
                                    &Parser::unary);
         }
 
         Expr unary() {
-            if (match({TokenType::BANG, TokenType::MINUS})) {
-                Token token = previous();
+            if (match({BANG, MINUS})) {
+                const Token token = previous();
                 auto right = unary();
                 return createUnaryExpr(token, static_cast<UnaryOp>(token.getType()), std::move(right));
             }
@@ -393,11 +391,11 @@ namespace lox {
         }
 
         Expr primary() {
-            if (match(TokenType::FALSE)) return createLiteralExpr(false);
-            if (match(TokenType::TRUE)) return createLiteralExpr(true);
-            if (match(TokenType::NIL)) return createLiteralExpr(nullptr);
+            if (match(FALSE)) return createLiteralExpr(false);
+            if (match(TRUE)) return createLiteralExpr(true);
+            if (match(NIL)) return createLiteralExpr(nullptr);
 
-            if (match({TokenType::NUMBER, TokenType::STRING})) {
+            if (match({NUMBER, STRING})) {
                 return createLiteralExpr(previous().getLiteral());
             }
 
@@ -411,20 +409,20 @@ namespace lox {
                 return std::make_unique<SuperExpr>(keyword, method);
             }
 
-            if (match(TokenType::IDENTIFIER)) {
+            if (match(IDENTIFIER)) {
                 return createVarExpr(previous());
             }
 
-            if (match(TokenType::LEFT_PAREN)) {
+            if (match(LEFT_PAREN)) {
                 auto expr = expression();
-                consume(TokenType::RIGHT_PAREN, "Expect ')' after expression.");
+                consume(RIGHT_PAREN, "Expect ')' after expression.");
                 return createGroupingExpr(std::move(expr));
             }
 
             throw error(peek(), "Expect expression.");
         }
 
-        static ParseError error(const Token token, const std::string &message) {
+        static ParseError error(const Token &token, const std::string &message) {
             lox::error(token, message);
             return ParseError{message};
         }
@@ -433,7 +431,7 @@ namespace lox {
             advance();
 
             while (!isAtEnd()) {
-                if (previous().getType() == TokenType::SEMICOLON) return;
+                if (previous().getType() == SEMICOLON) return;
 
                 switch (peek().getType()) {
                     case CLASS:
@@ -471,9 +469,9 @@ namespace lox {
             return false;
         }
 
-        bool match(TokenType type) { return match({type}); }
+        bool match(const TokenType type) { return match({type}); }
 
-        bool check(TokenType type) {
+        bool check(const TokenType type) {
             return !isAtEnd() && (peek().getType() == type);
         }
 
@@ -483,7 +481,7 @@ namespace lox {
             return previous();
         }
 
-        bool isAtEnd() { return peek().getType() == TokenType::END; }
+        bool isAtEnd() { return peek().getType() == END; }
 
         Token peek() { return tokens.at(current); }
 

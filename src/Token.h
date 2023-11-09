@@ -57,14 +57,13 @@ namespace lox {
     using Literal = std::variant<std::nullptr_t, std::string_view, double, bool>;
 
     class Token {
-    private:
         TokenType type;
         std::string_view lexeme;
         Literal literal;
         unsigned int line;
 
     public:
-        explicit Token(const TokenType type, const std::string_view lexeme, const Literal literal, const unsigned int line)
+        explicit Token(const TokenType type, const std::string_view lexeme, const Literal &literal, const unsigned int line)
             : type{type}, lexeme{lexeme}, literal{literal}, line{line} {}
 
         [[nodiscard]] TokenType getType() const { return type; }
