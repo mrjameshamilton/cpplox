@@ -329,11 +329,11 @@ namespace lox {
 
         void operator()(const ClassStmtPtr &classStmt) {
             std::optional<std::shared_ptr<LoxClass>> superKlass;
-            if (classStmt->superClass.has_value()) {
-                const auto superclass = this->operator()(classStmt->superClass.value());
+            if (classStmt->super_class.has_value()) {
+                const auto superclass = this->operator()(classStmt->super_class.value());
                 if (!std::holds_alternative<LoxCallablePtr>(superclass) ||
                     !dynamic_cast<LoxClass *>(std::get<LoxCallablePtr>(superclass).get())) {
-                    throw runtime_error(classStmt->superClass.value()->name, "Superclass must be a class.");
+                    throw runtime_error(classStmt->super_class.value()->name, "Superclass must be a class.");
                 }
                 superKlass = std::reinterpret_pointer_cast<LoxClass>(std::get<LoxCallablePtr>(superclass));
             }

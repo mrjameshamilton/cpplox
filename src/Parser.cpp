@@ -201,7 +201,7 @@ namespace lox {
             }
 
             consume(SEMICOLON, "Expect ';' after return value.");
-            return std::make_unique<ReturnStmt>(std::move(value), keyword);
+            return std::make_unique<ReturnStmt>(keyword, std::move(value));
         }
 
         StmtList block() {

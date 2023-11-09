@@ -2,6 +2,8 @@
 #define LOX_LLVM_AST_H
 
 #include "Token.h"
+#include "Util.h"
+
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -60,46 +62,57 @@ namespace lox {
     using VarExprPtr = std::unique_ptr<VarExpr>;
     using AssignExprPtr = std::unique_ptr<AssignExpr>;
 
-    using Expr = std::variant<BinaryExprPtr, CallExprPtr, GetExprPtr, SetExprPtr, ThisExprPtr, SuperExprPtr, GroupingExprPtr, LiteralExprPtr, LogicalExprPtr, UnaryExprPtr, VarExprPtr, AssignExprPtr>;
+    using Expr = std::variant<
+            BinaryExprPtr,
+            CallExprPtr,
+            GetExprPtr,
+            SetExprPtr,
+            ThisExprPtr,
+            SuperExprPtr,
+            GroupingExprPtr,
+            LiteralExprPtr,
+            LogicalExprPtr,
+            UnaryExprPtr,
+            VarExprPtr,
+            AssignExprPtr>;
 
-    struct Uncopyable {
-        explicit Uncopyable() = default;
-        virtual ~Uncopyable() = default;
-        Uncopyable(const Uncopyable &) = delete;
-        auto operator=(const Uncopyable &) -> Uncopyable & = delete;
-        Uncopyable(Uncopyable &&) = delete;
-        auto operator=(Uncopyable &&) -> Uncopyable & = delete;
-    };// struct Uncopyable*/
-
-    struct Assignable {
+    struct Assignable : private Uncopyable {
         Token name;
         mutable signed long distance = -1;
         explicit Assignable(const Token &name) : name{name} {
         }
     };
 
-    struct BinaryExpr {
+    struct BinaryExpr final : private Uncopyable {
         Expr left;
         Token token;
         BinaryOp op;
         Expr right;
+        explicit BinaryExpr(Expr left, const Token &token, const BinaryOp op, Expr right)
+            : left(std::move(left)), token{token}, op{op}, right{std::move(right)} {}
     };
 
-    struct CallExpr {
+    struct CallExpr : private Uncopyable {
         Expr callee;
         Token keyword;
         std::vector<Expr> arguments;
+        explicit CallExpr(Expr callee, const Token &keyword, std::vector<Expr> arguments)
+            : callee{std::move(callee)}, keyword{keyword}, arguments{std::move(arguments)} {}
     };
 
-    struct GetExpr {
+    struct GetExpr : private Uncopyable {
         Expr object;
         Token name;
+        explicit GetExpr(Expr object, const Token &name)
+            : object{std::move(object)}, name{name} {}
     };
 
-    struct SetExpr {
+    struct SetExpr : Uncopyable {
         Expr object;
         Token name;
         Expr value;
+        explicit SetExpr(Expr object, const Token &name, Expr value)
+            : object{std::move(object)}, name{name}, value{std::move(value)} {}
     };
 
     struct ThisExpr : Assignable {
@@ -108,27 +121,34 @@ namespace lox {
 
     struct SuperExpr : Assignable {
         Token method;
-        explicit SuperExpr(const Token &name, const Token &method) : Assignable(name), method{method} {}
+        explicit SuperExpr(const Token &name, const Token &method)
+            : Assignable(name), method{method} {}
     };
 
-    struct UnaryExpr {
+    struct UnaryExpr : Uncopyable {
         Token token;
         UnaryOp op;
         Expr expression;
+        explicit UnaryExpr(const Token &token, const UnaryOp op, Expr expression)
+            : token{token}, op{op}, expression{std::move(expression)} {}
     };
 
-    struct GroupingExpr {
+    struct GroupingExpr : Uncopyable {
         Expr expression;
+        explicit GroupingExpr(Expr expression) : expression{std::move(expression)} {}
     };
 
-    struct LiteralExpr {
+    struct LiteralExpr : Uncopyable {
         Literal literal;
+        explicit LiteralExpr(const Literal &literal) : literal{literal} {}
     };
 
-    struct LogicalExpr {
+    struct LogicalExpr : Uncopyable {
         Expr left;
         LogicalOp op;
         Expr right;
+        explicit LogicalExpr(Expr left, const LogicalOp op, Expr right)
+            : left{std::move(left)}, op{op}, right{std::move(right)} {}
     };
 
     struct VarExpr : Assignable {
@@ -160,52 +180,80 @@ namespace lox {
     using WhileStmtPtr = std::unique_ptr<WhileStmt>;
     using ClassStmtPtr = std::unique_ptr<ClassStmt>;
 
-    using Stmt = std::variant<ExpressionStmtPtr, FunctionStmtPtr, ReturnStmtPtr, IfStmtPtr, PrintStmtPtr, VarStmtPtr, BlockStmtPtr, WhileStmtPtr, ClassStmtPtr>;
+    using Stmt = std::variant<
+            ExpressionStmtPtr,
+            FunctionStmtPtr,
+            ReturnStmtPtr,
+            IfStmtPtr,
+            PrintStmtPtr,
+            VarStmtPtr,
+            BlockStmtPtr,
+            WhileStmtPtr,
+            ClassStmtPtr>;
+
     using StmtList = std::vector<Stmt>;
 
-    struct ExpressionStmt {
+    struct ExpressionStmt : Uncopyable {
         Expr expression;
+        explicit ExpressionStmt(Expr expression) : expression{std::move(expression)} {}
     };
 
-    struct IfStmt {
+    struct IfStmt : Uncopyable {
         Expr condition;
         Stmt thenBranch;
         std::optional<Stmt> elseBranch;
+        explicit IfStmt(Expr condition, Stmt thenBranch, std::optional<Stmt> elseBranch)
+            : condition{std::move(condition)}, thenBranch{std::move(thenBranch)}, elseBranch{std::move(elseBranch)} {}
     };
 
-    struct FunctionStmt {
+    struct FunctionStmt : Uncopyable {
         Token name;
         std::vector<Token> parameters;
         StmtList body;
+        explicit FunctionStmt(const Token &name, std::vector<Token> parameters, StmtList body)
+            : name{name}, parameters{std::move(parameters)}, body{std::move(body)} {}
     };
 
-    struct ReturnStmt {
-        std::optional<Expr> expression;
+    struct ReturnStmt : Uncopyable {
         Token keyword;
+        std::optional<Expr> expression;
+        explicit ReturnStmt(const Token &keyword, std::optional<Expr> expression)
+            : keyword{keyword}, expression{std::move(expression)} {}
     };
 
-    struct PrintStmt {
+    struct PrintStmt : Uncopyable {
         Expr expression;
+        explicit PrintStmt(Expr expression) : expression{std::move(expression)} {}
     };
 
-    struct VarStmt {
+    struct VarStmt : Uncopyable {
         Token name;
         Expr initializer;
+        explicit VarStmt(const Token &name, Expr initializer) : name{name}, initializer{std::move(initializer)} {}
     };
 
-    struct BlockStmt {
+    struct BlockStmt : Uncopyable {
         StmtList statements;
+        explicit BlockStmt(StmtList statements)
+            : statements{std::move(statements)} {}
     };
 
-    struct WhileStmt {
+    struct WhileStmt : Uncopyable {
         Expr condition;
         Stmt body;
+        WhileStmt(Expr condition, Stmt body)
+            : condition{std::move(condition)},
+              body{std::move(body)} {}
     };
 
     struct ClassStmt {
         Token name;
-        std::optional<VarExprPtr> superClass;
+        std::optional<VarExprPtr> super_class;
         std::vector<FunctionStmtPtr> methods;
+        ClassStmt(const Token &name, std::optional<VarExprPtr> super_class, std::vector<FunctionStmtPtr> methods)
+            : name{name},
+              super_class{std::move(super_class)},
+              methods{std::move(methods)} {}
     };
 
     using Program = std::vector<Stmt>;

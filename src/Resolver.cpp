@@ -127,18 +127,18 @@ namespace lox {
             declare(classStmt->name);
             define(classStmt->name);
 
-            if (classStmt->superClass.has_value() &&
-                classStmt->name.getLexeme() == classStmt->superClass.value()->name.getLexeme()) {
-                lox::error(classStmt->superClass.value()->name,
+            if (classStmt->super_class.has_value() &&
+                classStmt->name.getLexeme() == classStmt->super_class.value()->name.getLexeme()) {
+                lox::error(classStmt->super_class.value()->name,
                            "A class can't inherit from itself.");
             }
 
-            if (classStmt->superClass.has_value()) {
+            if (classStmt->super_class.has_value()) {
                 currentClass = ClassType::SUBCLASS;
-                this->operator()(classStmt->superClass.value());
+                this->operator()(classStmt->super_class.value());
             }
 
-            if (classStmt->superClass.has_value()) {
+            if (classStmt->super_class.has_value()) {
                 beginScope();
                 scopes.back()["super"] = true;
             }
@@ -153,7 +153,7 @@ namespace lox {
 
             endScope();
 
-            if (classStmt->superClass.has_value()) {
+            if (classStmt->super_class.has_value()) {
                 endScope();
             }
 
