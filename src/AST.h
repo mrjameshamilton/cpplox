@@ -60,8 +60,7 @@ namespace lox {
     using VarExprPtr = std::unique_ptr<VarExpr>;
     using AssignExprPtr = std::unique_ptr<AssignExpr>;
 
-    // TODO: do we need to allow null here?
-    using Expr = std::variant<BinaryExprPtr, CallExprPtr, GetExprPtr, SetExprPtr, ThisExprPtr, SuperExprPtr, GroupingExprPtr, LiteralExprPtr, LogicalExprPtr, UnaryExprPtr, VarExprPtr, AssignExprPtr, std::nullptr_t>;
+    using Expr = std::variant<BinaryExprPtr, CallExprPtr, GetExprPtr, SetExprPtr, ThisExprPtr, SuperExprPtr, GroupingExprPtr, LiteralExprPtr, LogicalExprPtr, UnaryExprPtr, VarExprPtr, AssignExprPtr>;
 
     struct Uncopyable {
         explicit Uncopyable() = default;

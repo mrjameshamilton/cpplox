@@ -37,49 +37,6 @@ namespace lox {
 
         using parserFn = Expr (Parser::*)();
 
-        static Expr createBinaryExpr(Expr left, Token token, BinaryOp op, Expr right) {
-            return std::make_unique<BinaryExpr>(std::move(left), token, op, std::move(right));
-        }
-
-        static Expr createUnaryExpr(Token token, UnaryOp op, Expr right) {
-            return std::make_unique<UnaryExpr>(token, op, std::move(right));
-        }
-
-        static Expr createGroupingExpr(Expr right) {
-            return std::make_unique<GroupingExpr>(std::move(right));
-        }
-
-        static Expr createLiteralExpr(Literal literal) {
-            return std::make_unique<LiteralExpr>(literal);
-        }
-
-        static VarExprPtr createVarExpr(const Token &name) {
-            return std::make_unique<VarExpr>(name);
-        }
-
-        static Expr createAssignExpr(const Token &name, Expr value) {
-            return std::make_unique<AssignExpr>(name, std::move(value));
-        }
-
-        static Stmt createExpressionStatement(Expr expr) {
-            return std::make_unique<ExpressionStmt>(std::move(expr));
-        }
-
-        static Stmt createIfStatement(Expr condition, Stmt thenBranch, std::optional<Stmt> elseBranch) {
-            return std::make_unique<IfStmt>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
-        }
-
-        static Stmt createPrintStatement(Expr expr) {
-            return std::make_unique<PrintStmt>(std::move(expr));
-        }
-        static Stmt createVarStatement(const Token &name, Expr initializer) {
-            return std::make_unique<VarStmt>(name, std::move(initializer));
-        }
-
-        static Stmt createBlockStatement(StmtList statements) {
-            return std::make_unique<BlockStmt>(std::move(statements));
-        }
-
         std::optional<Stmt> declaration() {
             try {
                 if (match(CLASS)) return classDeclaration();
@@ -93,13 +50,13 @@ namespace lox {
             }
         }
 
-        Stmt classDeclaration() {
+        ClassStmtPtr classDeclaration() {
             auto name = consume(IDENTIFIER, "Expect class name.");
 
             std::optional<VarExprPtr> superclass;
             if (match(LESS)) {
                 consume(IDENTIFIER, "Expect superclass name.");
-                superclass = createVarExpr(previous());
+                superclass = std::make_unique<VarExpr>(previous());
             }
 
             consume(LEFT_BRACE, "Expect '{' before class body.");
@@ -114,14 +71,14 @@ namespace lox {
             return std::make_unique<ClassStmt>(name, std::move(superclass), std::move(methods));
         }
 
-        Stmt varDeclaration() {
+        VarStmtPtr varDeclaration() {
             const Token name = consume(IDENTIFIER, "Expect variable name.");
-            Expr initializer = match(EQUAL) ? expression() : nullptr;
+            Expr initializer = match(EQUAL) ? expression() : std::make_unique<LiteralExpr>(nullptr);
             consume(SEMICOLON, "Expect ';' after variable declaration.");
-            return createVarStatement(name, std::move(initializer));
+            return std::make_unique<VarStmt>(name, std::move(initializer));
         }
 
-        Stmt whileStatement() {
+        WhileStmtPtr whileStatement() {
             consume(LEFT_PAREN, "Expect '(' after 'while'.");
             Expr condition = expression();
             consume(RIGHT_PAREN, "Expect ')' after condition.");
@@ -136,7 +93,7 @@ namespace lox {
             if (match(WHILE)) return whileStatement();
             if (match(FOR)) return forStatement();
             if (match(IF)) return ifStatement();
-            if (match(LEFT_BRACE)) return createBlockStatement(block());
+            if (match(LEFT_BRACE)) return std::make_unique<BlockStmt>(block());
 
             return expressionStatement();
         }
@@ -170,12 +127,12 @@ namespace lox {
             if (increment.has_value()) {
                 StmtList statements;
                 statements.push_back(std::move(body));
-                statements.push_back(createExpressionStatement(std::move(increment.value())));
-                body = createBlockStatement(std::move(statements));
+                statements.emplace_back(std::make_unique<ExpressionStmt>(std::move(increment.value())));
+                body = std::make_unique<BlockStmt>(std::move(statements));
             }
 
             if (!condition.has_value()) {
-                condition = createLiteralExpr(true);
+                condition = std::make_unique<LiteralExpr>(true);
             }
 
             body = std::make_unique<WhileStmt>(std::move(condition.value()), std::move(body));
@@ -184,19 +141,19 @@ namespace lox {
                 StmtList b;
                 b.push_back(std::move(initializer.value()));
                 b.push_back(std::move(body));
-                body = createBlockStatement(std::move(b));
+                body = std::make_unique<BlockStmt>(std::move(b));
             }
 
             return body;
         }
 
-        Stmt printStatement() {
+        PrintStmtPtr printStatement() {
             Expr value = expression();
             consume(SEMICOLON, "Expect ';' after value.");
-            return createPrintStatement(std::move(value));
+            return std::make_unique<PrintStmt>(std::move(value));
         }
 
-        Stmt ifStatement() {
+        IfStmtPtr ifStatement() {
             consume(LEFT_PAREN, "Expect '(' after 'if'.");
             auto condition = expression();
             consume(RIGHT_PAREN, "Expect ')' after if condition.");
@@ -207,13 +164,13 @@ namespace lox {
                 elseBranch = statement();
             }
 
-            return createIfStatement(std::move(condition), std::move(thenBranch), std::move(elseBranch));
+            return std::make_unique<IfStmt>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
         }
 
-        Stmt expressionStatement() {
+        ExpressionStmtPtr expressionStatement() {
             Expr expr = expression();
             consume(SEMICOLON, "Expect ';' after expression.");
-            return createExpressionStatement(std::move(expr));
+            return std::make_unique<ExpressionStmt>(std::move(expr));
         }
 
         FunctionStmtPtr function(const std::string &kind) {
@@ -236,9 +193,9 @@ namespace lox {
             return std::make_unique<FunctionStmt>(name, parameters, std::move(body));
         }
 
-        Stmt returnStatement() {
+        ReturnStmtPtr returnStatement() {
             Token keyword = previous();
-            std::optional<Expr> value = {};
+            std::optional<Expr> value;
             if (!check(SEMICOLON)) {
                 value = expression();
             }
@@ -268,7 +225,7 @@ namespace lox {
 
             while (match(types)) {
                 auto token = previous();
-                expr = createBinaryExpr(std::move(expr), token, static_cast<BinaryOp>(token.getType()), std::invoke(f, this));
+                expr = std::make_unique<BinaryExpr>(std::move(expr), token, static_cast<BinaryOp>(token.getType()), std::invoke(f, this));
             }
 
             return expr;
@@ -281,14 +238,15 @@ namespace lox {
         Expr assignment() {
             auto expr = or_();
 
-            if (match(TokenType::EQUAL)) {
+            if (match(EQUAL)) {
                 const auto equals = previous();
                 auto value = assignment();
 
                 if (std::holds_alternative<VarExprPtr>(expr)) {
                     const auto name = std::get<VarExprPtr>(expr)->name;
-                    return createAssignExpr(name, std::move(value));
-                } else if (std::holds_alternative<GetExprPtr>(expr)) {
+                    return std::make_unique<AssignExpr>(name, std::move(value));
+                }
+                if (std::holds_alternative<GetExprPtr>(expr)) {
                     const auto &getExpr = std::get<GetExprPtr>(expr);
                     return std::make_unique<SetExpr>(std::move(getExpr->object), getExpr->name, std::move(value));
                 }
@@ -349,7 +307,7 @@ namespace lox {
             if (match({BANG, MINUS})) {
                 const Token token = previous();
                 auto right = unary();
-                return createUnaryExpr(token, static_cast<UnaryOp>(token.getType()), std::move(right));
+                return std::make_unique<UnaryExpr>(token, static_cast<UnaryOp>(token.getType()), std::move(right));
             }
 
             return call();
@@ -391,12 +349,12 @@ namespace lox {
         }
 
         Expr primary() {
-            if (match(FALSE)) return createLiteralExpr(false);
-            if (match(TRUE)) return createLiteralExpr(true);
-            if (match(NIL)) return createLiteralExpr(nullptr);
+            if (match(FALSE)) return std::make_unique<LiteralExpr>(false);
+            if (match(TRUE)) return std::make_unique<LiteralExpr>(true);
+            if (match(NIL)) return std::make_unique<LiteralExpr>(nullptr);
 
             if (match({NUMBER, STRING})) {
-                return createLiteralExpr(previous().getLiteral());
+                return std::make_unique<LiteralExpr>(previous().getLiteral());
             }
 
             if (match(THIS)) return std::make_unique<ThisExpr>(previous());
@@ -410,13 +368,13 @@ namespace lox {
             }
 
             if (match(IDENTIFIER)) {
-                return createVarExpr(previous());
+                return std::make_unique<VarExpr>(previous());
             }
 
             if (match(LEFT_PAREN)) {
                 auto expr = expression();
                 consume(RIGHT_PAREN, "Expect ')' after expression.");
-                return createGroupingExpr(std::move(expr));
+                return std::make_unique<GroupingExpr>(std::move(expr));
             }
 
             throw error(peek(), "Expect expression.");
