@@ -149,7 +149,6 @@ namespace lox {
         std::shared_ptr<Environment> getEnclosing() const { return enclosing; }
 
         void define(const std::string_view &name, const LoxObject &value = LoxNil{}) {
-
             values[name] = value;
         }
 
