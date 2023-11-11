@@ -36,9 +36,9 @@ int main(const int argc, char **argv) {
     }
 
     Scanner Scanner(read_string_from_file(InputFilename));
-    const auto tokens = Scanner.scanTokens();
+    const auto& tokens = Scanner.scanTokens();
     Parser Parser(tokens);
-    Program ast = Parser.parse();
+    const auto& ast = Parser.parse();
     if (hadError) return 65;
 
     Resolver resolver;

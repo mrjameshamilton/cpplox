@@ -9,7 +9,7 @@ namespace lox {
     public:
         explicit Scanner(std::string Source) : source{std::move(Source)} {}
 
-        std::vector<Token> scanTokens() {
+        std::vector<Token>& scanTokens() {
             while (!isAtEnd()) {
                 // We are at the beginning of the next lexeme.
                 start = current;
