@@ -193,7 +193,7 @@ namespace lox {
         }
     };
 
-    inline void executeBlock(Interpreter &interpreter, StmtList &statements, std::shared_ptr<Environment> &newEnvironment);
+    inline void executeBlock(Interpreter &interpreter, StmtList &statements, const std::shared_ptr<Environment> &newEnvironment);
 
     struct LoxFunction final : LoxCallable {
         std::shared_ptr<FunctionStmt> declaration;
@@ -207,7 +207,7 @@ namespace lox {
         ~LoxFunction() override = default;
 
         LoxObject operator()(Interpreter &interpreter, const std::vector<LoxObject> &arguments) override {
-            auto environment = std::make_shared<Environment>(closure);
+            const auto environment = std::make_shared<Environment>(closure);
             for (int i = 0; i < static_cast<int>(declaration->parameters.size()); i++) {
                 environment->define(declaration->parameters[i].getLexeme(),
                                     arguments[i]);
@@ -571,7 +571,7 @@ namespace lox {
         }
     };
 
-    inline void executeBlock(Interpreter &interpreter, StmtList &statements, std::shared_ptr<Environment> &newEnvironment) {
+    inline void executeBlock(Interpreter &interpreter, StmtList &statements, const std::shared_ptr<Environment> &newEnvironment) {
         interpreter.executeBlock(statements, newEnvironment);
     }
 
