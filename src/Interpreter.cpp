@@ -54,7 +54,7 @@ namespace lox {
     struct NativeFunction final : LoxCallable {
         std::function<LoxObject(const std::vector<LoxObject> &)> function;
 
-        explicit NativeFunction(std::function<LoxObject(const std::vector<LoxObject> &)> function) : LoxCallable(0), function{std::move(function)} {
+        explicit NativeFunction(std::function<LoxObject(const std::vector<LoxObject> &)> function, const int arity = 0) : LoxCallable(arity), function{std::move(function)} {
         }
 
         ~NativeFunction() override = default;
@@ -261,6 +261,12 @@ namespace lox {
                                 const auto now = std::chrono::system_clock::now().time_since_epoch();
                                 return static_cast<double>(std::chrono::duration_cast<std::chrono::seconds>(now).count());
                             }));
+            globals->define("exit",
+                            std::make_shared<NativeFunction>([](const std::vector<LoxObject> &arguments) -> LoxObject {
+                                const Token token = Token(IDENTIFIER, "", nullptr, 0);
+                                exit(static_cast<int>(checkNumberOperand(token, arguments.at(0))));
+                            },
+                                                             1));
         }
 
         void operator()(const ExpressionStmtPtr &expressionStmt) {
@@ -503,8 +509,7 @@ namespace lox {
             const auto result = evaluate(unaryExpr->expression);
             switch (unaryExpr->op) {
                 case UnaryOp::MINUS: {
-                    checkNumberOperand(unaryExpr->token, result);
-                    return -std::get<LoxNumber>(result);
+                    return -checkNumberOperand(unaryExpr->token, result);
                 }
                 case UnaryOp::BANG:
                     return !isTruthy(result);
@@ -513,8 +518,8 @@ namespace lox {
             std::unreachable();
         }
 
-        static void checkNumberOperand(const Token &op, const LoxObject &operand) {
-            if (std::holds_alternative<LoxNumber>(operand)) return;
+        static LoxNumber checkNumberOperand(const Token &op, const LoxObject &operand) {
+            if (std::holds_alternative<LoxNumber>(operand)) return std::get<LoxNumber>(operand);
             throw runtime_error(op, "Operand must be a number.");
         }
 
