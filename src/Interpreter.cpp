@@ -31,13 +31,13 @@ namespace lox {
     using LoxObject = std::variant<LoxNil, LoxString, LoxNumber, LoxBoolean, LoxCallablePtr, LoxInstancePtr>;
     static std::string to_string(const LoxObject &);
     static LoxInstancePtr createLoxInstance(const LoxClassPtr &klass);
-    inline LoxFunctionPtr bind(LoxFunctionPtr &, LoxInstancePtr &);
+    inline LoxFunctionPtr bind(const LoxFunctionPtr &, const LoxInstancePtr &);
     inline LoxObject execute(const LoxFunctionPtr &, Interpreter &, const std::vector<LoxObject> &);
     inline int functionArity(const LoxFunctionPtr &);
 
     struct ReturnException final : std::runtime_error {
         LoxObject value;
-        explicit ReturnException(const LoxObject& value) : runtime_error("return exception: " + lox::to_string(value)), value{value} {
+        explicit ReturnException(const LoxObject &value) : runtime_error("return exception: " + lox::to_string(value)), value{value} {
         }
     };
 
@@ -83,9 +83,9 @@ namespace lox {
         ~LoxClass() override = default;
 
         LoxObject operator()(Interpreter &interpreter, const std::vector<LoxObject> &arguments) override {
-            auto instance = createLoxInstance(shared_from_this());
-            if (initializer != nullptr) {
-                const auto function = bind(initializer, instance);
+            const auto &instance = createLoxInstance(shared_from_this());
+            if (const auto &initializer = this->initializer; initializer != nullptr) {
+                const auto &function = bind(initializer, instance);
                 execute(function, interpreter, arguments);
             }
             return instance;
@@ -120,8 +120,8 @@ namespace lox {
                 return fields[name.getLexeme()];
             }
 
-            if (auto method = klass->findMethod(name.getLexeme()); method != nullptr) {
-                auto instance = shared_from_this();
+            if (const auto method = klass->findMethod(name.getLexeme()); method != nullptr) {
+                const auto instance = shared_from_this();
                 return std::reinterpret_pointer_cast<LoxCallable>(bind(method, instance));
             }
 
@@ -146,7 +146,7 @@ namespace lox {
         explicit Environment(std::shared_ptr<Environment> environment) : enclosing{std::move(environment)} {
         }
 
-        std::shared_ptr<Environment> getEnclosing() const { return enclosing; }
+        std::shared_ptr<Environment> get_enclosing() const { return enclosing; }
 
         void define(const std::string_view &name, const LoxObject &value = LoxNil{}) {
             values[name] = value;
@@ -213,9 +213,8 @@ namespace lox {
                                     arguments[i]);
             }
 
-            auto &statements = declaration->body;
             try {
-                executeBlock(interpreter, statements, environment);
+                executeBlock(interpreter, declaration->body, environment);
             } catch (ReturnException &e) {
                 if (isInitializer) return closure->getAt(0, "this");
 
@@ -229,7 +228,7 @@ namespace lox {
             return nullptr;
         }
 
-        LoxFunctionPtr bind(LoxInstancePtr &instance) {
+        LoxFunctionPtr bind(const LoxInstancePtr &instance) {
             auto environment = std::make_shared<Environment>(closure);
             environment->define("this", instance);
             return std::make_shared<LoxFunction>(declaration, environment, isInitializer);
@@ -240,7 +239,7 @@ namespace lox {
         }
     };
 
-    inline LoxFunctionPtr bind(LoxFunctionPtr &function, LoxInstancePtr &instance) {
+    inline LoxFunctionPtr bind(const LoxFunctionPtr &function, const LoxInstancePtr &instance) {
         return function->bind(instance);
     }
 
@@ -354,7 +353,7 @@ namespace lox {
 
             auto klass = std::make_shared<LoxClass>(classStmt->name.getLexeme(), superKlass, std::move(methods));
             if (superKlass.has_value()) {
-                environment = environment->getEnclosing();
+                environment = environment->get_enclosing();
             }
 
             environment->assign(classStmt->name, klass);
@@ -529,7 +528,7 @@ namespace lox {
             return lookUpVariable(varExpr->name, *varExpr);
         }
 
-        [[nodiscard]] LoxObject& lookUpVariable(const Token &name, const Assignable &expr) const {
+        [[nodiscard]] LoxObject &lookUpVariable(const Token &name, const Assignable &expr) const {
             if (expr.distance == -1) {
                 return globals->get(name);
             }
