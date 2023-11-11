@@ -193,7 +193,7 @@ namespace lox {
         }
     };
 
-    inline void executeBlock(Interpreter &interpreter, StmtList &statements, const std::shared_ptr<Environment> &newEnvironment);
+    inline void executeBlock(Interpreter &interpreter, const StmtList &statements, const std::shared_ptr<Environment> &newEnvironment);
 
     struct LoxFunction final : LoxCallable {
         std::shared_ptr<FunctionStmt> declaration;
@@ -571,7 +571,7 @@ namespace lox {
         }
     };
 
-    inline void executeBlock(Interpreter &interpreter, StmtList &statements, const std::shared_ptr<Environment> &newEnvironment) {
+    inline void executeBlock(Interpreter &interpreter, const StmtList &statements, const std::shared_ptr<Environment> &newEnvironment) {
         interpreter.executeBlock(statements, newEnvironment);
     }
 
