@@ -152,7 +152,7 @@ namespace lox {
             values[name] = value;
         }
 
-        LoxObject getAt(const unsigned long distance, const std::string_view &name) {
+        LoxObject& getAt(const unsigned long distance, const std::string_view &name) {
             return ancestor(distance)->values[name];
         }
 
@@ -164,7 +164,7 @@ namespace lox {
             return environment;
         }
 
-        LoxObject get(const Token &name) {
+        LoxObject& get(const Token &name) {
             if (values.contains(name.getLexeme())) {
                 return values[name.getLexeme()];
             }
