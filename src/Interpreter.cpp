@@ -5,6 +5,7 @@
 #include "Util.h"
 
 #include <chrono>
+#include <cstring>
 #include <format>
 #include <functional>
 #include <iostream>
@@ -33,7 +34,6 @@ namespace lox {
     static LoxInstancePtr createLoxInstance(const LoxClassPtr &klass);
     inline LoxFunctionPtr bind(const LoxFunctionPtr &, const LoxInstancePtr &);
     inline LoxObject execute(const LoxFunctionPtr &, Interpreter &, const std::vector<LoxObject> &);
-    inline int functionArity(const LoxFunctionPtr &);
 
     struct ReturnException final : std::runtime_error {
         LoxObject value;
@@ -42,13 +42,14 @@ namespace lox {
     };
 
     struct LoxCallable {
-        int arity = 0;
-
-        explicit LoxCallable(const int arity) : arity{arity} {}
+        int _arity = 0;
+        explicit LoxCallable(const int arity) : _arity{arity} {}
         virtual ~LoxCallable() = default;
 
         virtual LoxObject operator()(Interpreter &interpreter, const std::vector<LoxObject> &arguments) = 0;
         virtual std::string to_string() = 0;
+
+        virtual int arity() = 0;
     };
 
     struct NativeFunction final : LoxCallable {
@@ -61,6 +62,10 @@ namespace lox {
 
         LoxObject operator()(Interpreter &, const std::vector<LoxObject> &arguments) override {
             return function(arguments);
+        }
+
+        int arity() override {
+            return this->_arity;
         }
 
         std::string to_string() override {
@@ -77,7 +82,6 @@ namespace lox {
         explicit LoxClass(const std::string_view &name, const std::optional<std::shared_ptr<LoxClass>> &superClass, const std::unordered_map<std::string_view, LoxFunctionPtr> &methods)
             : LoxCallable(0), name{name}, superClass{superClass}, methods{methods} {
             this->initializer = findMethod("init");
-            this->arity = functionArity(initializer);
         }
 
         ~LoxClass() override = default;
@@ -101,6 +105,11 @@ namespace lox {
             }
 
             return nullptr;
+        }
+
+        int arity() override {
+            return this->initializer == nullptr ? 0
+                                                : std::reinterpret_pointer_cast<LoxCallable>(this->initializer)->arity();
         }
 
         std::string to_string() override {
@@ -234,6 +243,10 @@ namespace lox {
             return std::make_shared<LoxFunction>(declaration, environment, isInitializer);
         }
 
+        int arity() override {
+            return this->_arity;
+        }
+
         std::string to_string() override {
             return std::format("<fn {}>", std::string(declaration->name.getLexeme()));
         }
@@ -247,33 +260,59 @@ namespace lox {
         return (*function)(interpreter, arguments);
     }
 
-    inline int functionArity(const LoxFunctionPtr &function) {
-        return function == nullptr ? 0 : function->arity;
-    }
-
     struct Interpreter {
         std::shared_ptr<Environment> globals = std::make_shared<Environment>();
         std::shared_ptr<Environment> environment = globals;
         int function_depth = 0;
 
         Interpreter() {
-            globals->define("clock", std::make_shared<NativeFunction>([](const std::vector<LoxObject> &) -> LoxObject {
-                                const auto now = std::chrono::system_clock::now().time_since_epoch();
-                                return static_cast<double>(std::chrono::duration_cast<std::chrono::seconds>(now).count());
-                            }));
-            globals->define("exit",
-                            std::make_shared<NativeFunction>([](const std::vector<LoxObject> &arguments) -> LoxObject {
+            globals->define(
+                    "clock", std::make_shared<NativeFunction>([](const std::vector<LoxObject> &) -> LoxObject {
+                        const auto now = std::chrono::system_clock::now().time_since_epoch();
+                        return static_cast<double>(std::chrono::duration_cast<std::chrono::seconds>(now).count());
+                    }));
+            globals->define(
+                    "exit",
+                    std::make_shared<NativeFunction>([](const std::vector<LoxObject> &arguments) -> LoxObject {
+                        const Token token = Token(IDENTIFIER, "", nullptr, 0);
+                        exit(static_cast<int>(checkNumberOperand(token, arguments.at(0))));
+                    },
+                                                     1));
+            globals->define(
+                    "read",
+                    std::make_shared<NativeFunction>([](const std::vector<LoxObject> &) -> LoxObject {
+                        if (const int c = getchar(); c == -1)
+                            return nullptr;
+                        else
+                            return static_cast<LoxNumber>(static_cast<uint8_t>(c));
+                    }));
+            globals->define(
+                    "utf",
+                    std::make_shared<NativeFunction>([](const std::vector<LoxObject> &args) -> LoxObject {
+                        int byte_count = 0;
+                        for (int i = 0; i < 4; i++) {
+                            if (i > 0 && std::holds_alternative<LoxNil>(args[i])) continue;
+
+                            if (!std::holds_alternative<LoxNumber>(args[i]) || (std::get<LoxNumber>(args[i]) < 0 || std::get<LoxNumber>(args[i]) > 255)) {
                                 const Token token = Token(IDENTIFIER, "", nullptr, 0);
-                                exit(static_cast<int>(checkNumberOperand(token, arguments.at(0))));
-                            },
-                                                             1));
-            globals->define("read",
-                            std::make_shared<NativeFunction>([](const std::vector<LoxObject> &arguments) -> LoxObject {
-                                if (const int c = getchar(); c == -1)
-                                    return nullptr;
-                                else
-                                    return static_cast<LoxNumber>(static_cast<uint8_t>(c));
-                            }));
+                                throw lox::runtime_error(token, "utf parameter should be a number between 0 and 255.");
+                            }
+
+                            byte_count++;
+                        }
+
+                        char bytes[byte_count];
+                        std::transform(
+                                args.begin(),
+                                args.end() - 4 + byte_count,
+                                bytes,
+                                [](const LoxObject &value) -> char {
+                                    return std::holds_alternative<LoxNil>(value) ? 0 : static_cast<char>(std::get<LoxNumber>(value));
+                                });
+
+                        return std::string(bytes, byte_count);
+                    },
+                                                     4));
         }
 
         void operator()(const ExpressionStmtPtr &expressionStmt) {
@@ -437,9 +476,9 @@ namespace lox {
 
             if (std::holds_alternative<LoxCallablePtr>(callee)) {
                 const auto callable = std::get<LoxCallablePtr>(callee);
-                if (static_cast<int>(arguments.size()) != callable->arity) {
+                if (static_cast<int>(arguments.size()) != callable->arity()) {
                     throw runtime_error(callExpr->keyword, "Expected " +
-                                                                   std::to_string(callable->arity) + " arguments but got " +
+                                                                   std::to_string(callable->arity()) + " arguments but got " +
                                                                    std::to_string(arguments.size()) + ".");
                 }
                 function_depth++;
