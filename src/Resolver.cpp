@@ -223,7 +223,7 @@ namespace lox {
             resolve(groupingExpr->expression);
         }
 
-        void operator()(LiteralExprPtr &) const {}
+        void operator()(const LiteralExprPtr &) const {}
 
         void operator()(const LogicalExprPtr &logicalExpr) {
             resolve(logicalExpr->left);
@@ -234,22 +234,19 @@ namespace lox {
             resolve(unaryExpr->expression);
         }
 
-        void operator()(std::nullptr_t) {
-        }
-
-        inline void resolve(std::optional<Expr> &opt) {
+        void resolve(const std::optional<Expr> &opt) {
             if (opt.has_value()) resolve(opt.value());
         }
 
-        void resolve(Expr &expr) {
+        void resolve(const Expr &expr) {
             std::visit(*this, expr);
         }
 
-        void resolve(Stmt &stmt) {
+        void resolve(const Stmt &stmt) {
             std::visit(*this, stmt);
         }
 
-        void resolve(Program &program) {
+        void resolve(const Program &program) {
             for (auto &item: program) {
                 resolve(item);
             }
