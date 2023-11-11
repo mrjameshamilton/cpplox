@@ -286,7 +286,7 @@ namespace lox {
             environment->define(varStmt->name.getLexeme(), value);
         }
 
-        void operator()(FunctionStmtPtr &functionStmt) {
+        void operator()(const FunctionStmtPtr &functionStmt) {
             const auto name = functionStmt->name.getLexeme();
             auto function = std::make_shared<LoxFunction>(functionStmt, environment);
             environment->define(name, std::move(function));
@@ -474,7 +474,7 @@ namespace lox {
             return method->bind(instance);
         }
 
-        LoxObject operator()(GroupingExprPtr &groupingExpr) {
+        LoxObject operator()(const GroupingExprPtr &groupingExpr) {
             return evaluate(groupingExpr->expression);
         }
 
@@ -552,15 +552,15 @@ namespace lox {
             return true;
         }
 
-        LoxObject evaluate(Expr &expr) {
+        LoxObject evaluate(const Expr &expr) {
             return std::visit(*this, expr);
         }
 
-        void evaluate(Stmt &stmt) {
+        void evaluate(const Stmt &stmt) {
             std::visit(*this, stmt);
         }
 
-        void evaluate(Program &program) {
+        void evaluate(const Program &program) {
             try {
                 for (auto &stmt: program) {
                     evaluate(stmt);
