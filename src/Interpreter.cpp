@@ -37,7 +37,7 @@ namespace lox {
 
     struct ReturnException final : std::runtime_error {
         LoxObject value;
-        explicit ReturnException(const LoxObject &value) : runtime_error("return exception: " + lox::to_string(value)), value{value} {
+        explicit ReturnException(const LoxObject &value) : runtime_error(std::format("return exception: {}", lox::to_string(value))), value{value} {
         }
     };
 
@@ -484,9 +484,9 @@ namespace lox {
             if (std::holds_alternative<LoxCallablePtr>(callee)) {
                 const auto callable = std::get<LoxCallablePtr>(callee);
                 if (static_cast<int>(arguments.size()) != callable->arity()) {
-                    throw runtime_error(callExpr->keyword, "Expected " +
-                                                                   std::to_string(callable->arity()) + " arguments but got " +
-                                                                   std::to_string(arguments.size()) + ".");
+                    throw runtime_error(callExpr->keyword, std::format("Expected {} arguments but got {}.",
+                                                                   std::to_string(callable->arity()),
+                                                                   std::to_string(arguments.size())));
                 }
                 function_depth++;
                 auto lox_object = (*callable)(*this, arguments);
@@ -527,7 +527,7 @@ namespace lox {
             const auto instance = std::get<LoxInstancePtr>(environment->getAt(superExpr->distance - 1, "this"));
             const auto method = super_class->findMethod(superExpr->method.getLexeme());
             if (method == nullptr) {
-                throw runtime_error(superExpr->method, "Undefined property '" + std::string(superExpr->method.getLexeme()) + "'.");
+                throw runtime_error(superExpr->method, std::format("Undefined property '{}'.", std::string(superExpr->method.getLexeme())));
             }
             return method->bind(instance);
         }
