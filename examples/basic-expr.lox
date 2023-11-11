@@ -110,6 +110,5 @@ class BostonCream < Doughnut {
 }
 
 BostonCream().cook();
-
 print "End";
 exit(0);

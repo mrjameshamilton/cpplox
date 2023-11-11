@@ -267,6 +267,13 @@ namespace lox {
                                 exit(static_cast<int>(checkNumberOperand(token, arguments.at(0))));
                             },
                                                              1));
+            globals->define("read",
+                            std::make_shared<NativeFunction>([](const std::vector<LoxObject> &arguments) -> LoxObject {
+                                if (const int c = getchar(); c == -1)
+                                    return nullptr;
+                                else
+                                    return static_cast<LoxNumber>(static_cast<uint8_t>(c));
+                            }));
         }
 
         void operator()(const ExpressionStmtPtr &expressionStmt) {
