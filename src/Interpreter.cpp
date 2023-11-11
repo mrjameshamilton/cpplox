@@ -459,11 +459,11 @@ namespace lox {
             return value;
         }
 
-        LoxObject operator()(const ThisExprPtr &thisExpr) {
+        LoxObject operator()(const ThisExprPtr &thisExpr) const {
             return lookUpVariable(thisExpr->name, *thisExpr);
         }
 
-        LoxObject operator()(const SuperExprPtr &superExpr) {
+        LoxObject operator()(const SuperExprPtr &superExpr) const {
             const auto callable = std::get<LoxCallablePtr>(environment->getAt(superExpr->distance, "super"));
             const auto superClass = std::reinterpret_pointer_cast<LoxClass>(callable);
             auto instance = std::get<LoxInstancePtr>(environment->getAt(superExpr->distance - 1, "this"));
@@ -529,7 +529,7 @@ namespace lox {
             return lookUpVariable(varExpr->name, *varExpr);
         }
 
-        [[nodiscard]] LoxObject lookUpVariable(const Token &name, const Assignable &expr) const {
+        [[nodiscard]] LoxObject& lookUpVariable(const Token &name, const Assignable &expr) const {
             if (expr.distance == -1) {
                 return globals->get(name);
             }
