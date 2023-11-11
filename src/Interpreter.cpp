@@ -552,10 +552,6 @@ namespace lox {
             return true;
         }
 
-        LoxObject operator()(std::nullptr_t) {
-            return nullptr;
-        }
-
         LoxObject evaluate(Expr &expr) {
             return std::visit(*this, expr);
         }
