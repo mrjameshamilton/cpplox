@@ -578,7 +578,7 @@ namespace lox {
     static std::string to_string(const LoxObject &object) {
         return std::visit(overloaded{
                                   [](const LoxBoolean value) -> std::string { return value ? "true" : "false"; },
-                                  [](LoxNumber value) -> std::string { return std::format("{:g}", value); },
+                                  [](const LoxNumber value) -> std::string { return std::format("{:g}", value); },
                                   [](LoxString value) -> std::string { return value; },
                                   [](const LoxCallablePtr &callable) -> std::string { return callable->to_string(); },
                                   [](const LoxInstancePtr &instance) -> std::string { return std::string(instance->klass->name) + " instance"; },
