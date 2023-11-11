@@ -523,9 +523,9 @@ namespace lox {
 
         LoxObject operator()(const SuperExprPtr &superExpr) const {
             const auto callable = std::get<LoxCallablePtr>(environment->getAt(superExpr->distance, "super"));
-            const auto superClass = std::reinterpret_pointer_cast<LoxClass>(callable);
-            auto instance = std::get<LoxInstancePtr>(environment->getAt(superExpr->distance - 1, "this"));
-            const auto method = superClass->findMethod(superExpr->method.getLexeme());
+            const auto super_class = std::reinterpret_pointer_cast<LoxClass>(callable);
+            const auto instance = std::get<LoxInstancePtr>(environment->getAt(superExpr->distance - 1, "this"));
+            const auto method = super_class->findMethod(superExpr->method.getLexeme());
             if (method == nullptr) {
                 throw runtime_error(superExpr->method, "Undefined property '" + std::string(superExpr->method.getLexeme()) + "'.");
             }
@@ -542,7 +542,7 @@ namespace lox {
                             [](const bool value) -> LoxObject { return value; },
                             [](const double value) -> LoxObject { return value; },
                             [](const std::string_view value) -> LoxObject { return std::string(value); },
-                            [](const std::nullptr_t value) -> LoxObject { return nullptr; }},
+                            [](const std::nullptr_t) -> LoxObject { return nullptr; }},
                     literalExpr->literal);
         }
 
