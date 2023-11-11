@@ -407,7 +407,7 @@ namespace lox {
 
             for (auto &method: classStmt->methods) {
                 auto name = method->name.getLexeme();
-                methods[name] = std::make_shared<LoxFunction>(std::move(method), environment, name == "init");
+                methods[name] = std::make_shared<LoxFunction>(method, environment, name == "init");
             }
 
             auto klass = std::make_shared<LoxClass>(classStmt->name.getLexeme(), superKlass, std::move(methods));
