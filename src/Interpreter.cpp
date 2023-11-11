@@ -152,7 +152,7 @@ namespace lox {
             values[name] = value;
         }
 
-        LoxObject& getAt(const unsigned long distance, const std::string_view &name) {
+        LoxObject &getAt(const unsigned long distance, const std::string_view &name) {
             return ancestor(distance)->values[name];
         }
 
@@ -164,7 +164,7 @@ namespace lox {
             return environment;
         }
 
-        LoxObject& get(const Token &name) {
+        LoxObject &get(const Token &name) {
             if (values.contains(name.getLexeme())) {
                 return values[name.getLexeme()];
             }
@@ -255,6 +255,7 @@ namespace lox {
     struct Interpreter {
         std::shared_ptr<Environment> globals = std::make_shared<Environment>();
         std::shared_ptr<Environment> environment = globals;
+        int function_depth = 0;
 
         Interpreter() {
             globals->define("clock", std::make_shared<NativeFunction>([](const std::vector<LoxObject> &) -> LoxObject {
@@ -411,6 +412,10 @@ namespace lox {
         }
 
         LoxObject operator()(const CallExprPtr &callExpr) {
+            if (function_depth > 512) {
+                throw lox::runtime_error(callExpr->keyword, "Stack overflow.");
+            }
+
             const auto callee = evaluate(callExpr->callee);
 
             std::vector<LoxObject> arguments;
@@ -425,7 +430,10 @@ namespace lox {
                                                                    std::to_string(callable->arity) + " arguments but got " +
                                                                    std::to_string(arguments.size()) + ".");
                 }
-                return (*callable)(*this, arguments);
+                function_depth++;
+                auto lox_object = (*callable)(*this, arguments);
+                function_depth--;
+                return lox_object;
             }
 
             throw runtime_error(callExpr->keyword, "Can only call functions and classes.");
