@@ -110,6 +110,7 @@ class BostonCream < Doughnut {
 }
 
 BostonCream().cook();
-print utf(65, 34, nil, nil);
+print utf(65, nil, nil, nil);
+printerr("Error");
 print "End";
 exit(0);

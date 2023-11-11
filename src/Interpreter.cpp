@@ -313,6 +313,13 @@ namespace lox {
                         return std::string(bytes, byte_count);
                     },
                                                      4));
+            globals->define(
+                    "printerr",
+                    std::make_shared<NativeFunction>([](const std::vector<LoxObject> &arguments) -> LoxObject {
+                        std::cerr << lox::to_string(arguments[0]) << std::endl;
+                        return nullptr;
+                    },
+                                                     1));
         }
 
         void operator()(const ExpressionStmtPtr &expressionStmt) {
@@ -329,7 +336,7 @@ namespace lox {
 
         void operator()(const PrintStmtPtr &printStmt) {
             const auto object = evaluate(printStmt->expression);
-            std::cout << lox::to_string(object) << "\n";
+            std::cout << lox::to_string(object) << std::endl;
         }
 
         void operator()(const VarStmtPtr &varStmt) {
