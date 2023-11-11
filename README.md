@@ -5,6 +5,13 @@ cpplox is a Lox interpreter written in C++.
 The implementation is similar to the `jlox` Java implementation from the [Crafting Interpreters](https://craftinginterpreters.com/) book
 with the main implementation difference being the language and the use of `std::variant` instead of the visitor pattern.
 
+The following additional native functions are implemented to allow running [Lox.lox](https://github.com/mrjameshamilton/loxlox), an Lox interpreter written in Lox:
+
+  - `read()` reads a byte from `stdin` or `nil` if end of stream
+  - `utf(byte, byte, byte, byte)` converts 1, 2, 3, or 4 bytes into a UTF string
+  - `printerr(string)` prints a string to `stderr`
+  - `exit(number)` exits with the specific exit code
+
 # Build & run
 
 ```shell
