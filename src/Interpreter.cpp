@@ -304,7 +304,7 @@ namespace lox {
             executeBlock(blockStmt->statements, std::make_shared<Environment>(environment));
         }
 
-        void executeBlock(StmtList &statements, const std::shared_ptr<Environment> &newEnvironment) {
+        void executeBlock(const StmtList &statements, const std::shared_ptr<Environment> &newEnvironment) {
             const auto previous = environment;
             environment = newEnvironment;
 
