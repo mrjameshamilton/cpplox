@@ -37,7 +37,7 @@ namespace lox {
 
     struct ReturnException final : std::runtime_error {
         LoxObject value;
-        explicit ReturnException(LoxObject value) : runtime_error("return exception: " + lox::to_string(value)), value{std::move(value)} {
+        explicit ReturnException(const LoxObject& value) : runtime_error("return exception: " + lox::to_string(value)), value{value} {
         }
     };
 
