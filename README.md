@@ -13,3 +13,11 @@ $ cd build
 $ ninja
 $ ./cpplox ../examples/helloworld.lox
 ```
+
+# Running tests
+
+The interpreter passes the [jlox test suite](https://github.com/munificent/craftinginterpreters/tree/master/test):
+
+```shell
+$ dart tool/bin/test.dart -i cpplox jlox
+```
