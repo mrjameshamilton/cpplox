@@ -69,7 +69,7 @@ namespace lox {
             currentFunction = functionType;
 
             beginScope();
-            for (auto param: function->parameters) {
+            for (auto& param: function->parameters) {
                 declare(param);
                 define(param);
             }
