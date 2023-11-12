@@ -485,8 +485,8 @@ namespace lox {
                 const auto &callable = std::get<LoxCallablePtr>(callee);
                 if (static_cast<int>(arguments.size()) != callable->arity()) {
                     throw runtime_error(callExpr->keyword, std::format("Expected {} arguments but got {}.",
-                                                                       std::to_string(callable->arity()),
-                                                                       std::to_string(arguments.size())));
+                                                                       callable->arity(),
+                                                                       arguments.size()));
                 }
                 function_depth++;
                 auto lox_object = (*callable)(*this, arguments);
