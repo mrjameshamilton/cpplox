@@ -387,7 +387,7 @@ namespace lox {
         void operator()(const ClassStmtPtr &classStmt) {
             std::optional<std::shared_ptr<LoxClass>> super_class;
             if (classStmt->super_class.has_value()) {
-                if (const auto &s = this->operator()(classStmt->super_class.value());
+                if (const auto &s = (*this)(classStmt->super_class.value());
                     std::holds_alternative<LoxCallablePtr>(s) && dynamic_cast<LoxClass *>(std::get<LoxCallablePtr>(s).get())) {
                     super_class = std::reinterpret_pointer_cast<LoxClass>(std::get<LoxCallablePtr>(s));
                 } else {
