@@ -385,36 +385,37 @@ namespace lox {
         }
 
         void operator()(const ClassStmtPtr &classStmt) {
-            std::optional<std::shared_ptr<LoxClass>> superKlass;
+            std::optional<std::shared_ptr<LoxClass>> super_class;
             if (classStmt->super_class.has_value()) {
-                const auto superclass = this->operator()(classStmt->super_class.value());
-                if (!std::holds_alternative<LoxCallablePtr>(superclass) ||
-                    !dynamic_cast<LoxClass *>(std::get<LoxCallablePtr>(superclass).get())) {
+                if (const auto &s = this->operator()(classStmt->super_class.value());
+                    std::holds_alternative<LoxCallablePtr>(s) && dynamic_cast<LoxClass *>(std::get<LoxCallablePtr>(s).get())) {
+                    super_class = std::reinterpret_pointer_cast<LoxClass>(std::get<LoxCallablePtr>(s));
+                } else {
                     throw runtime_error(classStmt->super_class.value()->name, "Superclass must be a class.");
                 }
-                superKlass = std::reinterpret_pointer_cast<LoxClass>(std::get<LoxCallablePtr>(superclass));
             }
 
             environment->define(classStmt->name.getLexeme());
 
-            if (superKlass.has_value()) {
+            if (super_class.has_value()) {
                 environment = std::make_shared<Environment>(environment);
-                environment->define("super", superKlass.value());
+                environment->define("super", super_class.value());
             }
 
             std::unordered_map<std::string_view, LoxFunctionPtr> methods;
 
             for (auto &method: classStmt->methods) {
-                auto name = method->name.getLexeme();
-                methods[name] = std::make_shared<LoxFunction>(method, environment, name == "init");
+                methods[method->name.getLexeme()] =
+                        std::make_shared<LoxFunction>(method, environment, method->name.getLexeme() == "init");
             }
 
-            auto klass = std::make_shared<LoxClass>(classStmt->name.getLexeme(), superKlass, std::move(methods));
-            if (superKlass.has_value()) {
+            if (super_class.has_value()) {
                 environment = environment->get_enclosing();
             }
 
-            environment->assign(classStmt->name, klass);
+            environment->assign(
+                    classStmt->name,
+                    std::make_shared<LoxClass>(classStmt->name.getLexeme(), super_class, std::move(methods)));
         }
 
         LoxObject operator()(const BinaryExprPtr &binaryExpr) {
