@@ -638,7 +638,7 @@ namespace lox {
                                   [](const LoxNumber value) -> std::string { return std::format("{:g}", value); },
                                   [](LoxString value) -> std::string { return value; },
                                   [](const LoxCallablePtr &callable) -> std::string { return callable->to_string(); },
-                                  [](const LoxInstancePtr &instance) -> std::string { return std::string(instance->klass->name) + " instance"; },
+                                  [](const LoxInstancePtr &instance) -> std::string { return std::format("{} instance", instance->klass->name); },
                                   [](LoxNil) -> std::string { return "nil"; }},
                           object);
     }
