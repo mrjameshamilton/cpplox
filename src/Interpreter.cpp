@@ -16,7 +16,11 @@ using namespace std::literals;
 
 namespace lox {
 
-    struct Interpreter;
+    // Lox runtime types.
+    using LoxNil = std::nullptr_t;
+    using LoxString = std::string;
+    using LoxNumber = double;
+    using LoxBoolean = bool;
     struct LoxCallable;
     struct LoxFunction;
     struct LoxClass;
@@ -25,20 +29,13 @@ namespace lox {
     using LoxFunctionPtr = std::shared_ptr<LoxFunction>;
     using LoxInstancePtr = std::shared_ptr<LoxInstance>;
     using LoxClassPtr = std::shared_ptr<LoxClass>;
-    using LoxString = std::string;
-    using LoxNumber = double;
-    using LoxBoolean = bool;
-    using LoxNil = std::nullptr_t;
     using LoxObject = std::variant<LoxNil, LoxString, LoxNumber, LoxBoolean, LoxCallablePtr, LoxInstancePtr>;
-    static std::string to_string(const LoxObject &);
-    static LoxInstancePtr createLoxInstance(const LoxClassPtr &klass);
-    inline LoxFunctionPtr bind(const LoxFunctionPtr &, const LoxInstancePtr &);
 
-    struct ReturnException final : std::runtime_error {
-        LoxObject value;
-        explicit ReturnException(const LoxObject &value) : runtime_error(std::format("return exception: {}", lox::to_string(value))), value{value} {
-        }
-    };
+    // Forward declarations.
+    static std::string to_string(const LoxObject &);
+    static LoxInstancePtr make_lox_instance(const LoxClassPtr &klass);
+    inline LoxFunctionPtr bind(const LoxFunctionPtr &, const LoxInstancePtr &);
+    struct Interpreter;
 
     struct LoxCallable {
         int _arity = 0;
@@ -47,14 +44,14 @@ namespace lox {
 
         virtual LoxObject operator()(Interpreter &interpreter, const std::vector<LoxObject> &arguments) = 0;
         virtual std::string to_string() = 0;
-
         virtual int arity() = 0;
     };
 
     struct NativeFunction final : LoxCallable {
-        std::function<LoxObject(const std::vector<LoxObject> &)> function;
+        using NativeFnType = std::function<LoxObject(const std::vector<LoxObject> &)>;
+        NativeFnType function;
 
-        explicit NativeFunction(std::function<LoxObject(const std::vector<LoxObject> &)> function, const int arity = 0) : LoxCallable(arity), function{std::move(function)} {
+        explicit NativeFunction(NativeFnType function, const int arity = 0) : LoxCallable(arity), function{std::move(function)} {
         }
 
         ~NativeFunction() override = default;
@@ -86,7 +83,7 @@ namespace lox {
         ~LoxClass() override = default;
 
         LoxObject operator()(Interpreter &interpreter, const std::vector<LoxObject> &arguments) override {
-            const auto &instance = createLoxInstance(shared_from_this());
+            const auto &instance = make_lox_instance(shared_from_this());
             if (const auto &initializer = this->initializer; initializer != nullptr) {
                 const auto &function = bind(initializer, instance);
                 const auto &callable = std::reinterpret_pointer_cast<LoxCallable>(function);
@@ -142,7 +139,7 @@ namespace lox {
         }
     };
 
-    static LoxInstancePtr createLoxInstance(const LoxClassPtr &klass) {
+    static LoxInstancePtr make_lox_instance(const LoxClassPtr &klass) {
         return std::make_shared<LoxInstance>(klass);
     }
 
@@ -194,7 +191,7 @@ namespace lox {
                 return;
             }
 
-            throw runtime_error(name, "Undefined variable '" + std::string(name.getLexeme()) + "'.");
+            throw runtime_error(name, std::format("Undefined variable '{}'.", name.getLexeme()));
         }
 
         void assignAt(const unsigned long distance, const Token &name, const LoxObject &value) {
@@ -204,13 +201,19 @@ namespace lox {
 
     inline void executeBlock(Interpreter &interpreter, const StmtList &statements, const std::shared_ptr<Environment> &newEnvironment);
 
+    struct ReturnException final : std::runtime_error {
+        LoxObject value;
+        explicit ReturnException(LoxObject value) : runtime_error("return value"), value{std::move(value)} {
+        }
+    };
+
     struct LoxFunction final : LoxCallable {
         std::shared_ptr<FunctionStmt> declaration;
         std::shared_ptr<Environment> closure;
         bool isInitializer;
 
-        explicit LoxFunction(std::shared_ptr<FunctionStmt> declaration, const std::shared_ptr<Environment> &closure, const bool isInitializer = false)
-            : LoxCallable(static_cast<int>(declaration->parameters.size())), declaration{std::move(declaration)}, closure{closure}, isInitializer{isInitializer} {
+        explicit LoxFunction(const std::shared_ptr<FunctionStmt> &declaration, const std::shared_ptr<Environment> &closure, const bool isInitializer = false)
+            : LoxCallable(static_cast<int>(declaration->parameters.size())), declaration{declaration}, closure{closure}, isInitializer{isInitializer} {
         }
 
         ~LoxFunction() override = default;
@@ -225,13 +228,13 @@ namespace lox {
             try {
                 executeBlock(interpreter, declaration->body, environment);
             } catch (ReturnException &e) {
-                if (isInitializer) return closure->getAt(0, "this");
+                if (isInitializer) return std::move(closure->getAt(0, "this"));
 
-                return e.value;
+                return std::move(e.value);
             }
 
             if (isInitializer) {
-                return closure->getAt(0, "this");
+                return std::move(closure->getAt(0, "this"));
             }
 
             return nullptr;
@@ -351,7 +354,7 @@ namespace lox {
             if (returnStmt->expression.has_value())
                 value = evaluate(returnStmt->expression.value());
 
-            throw ReturnException(value);
+            throw ReturnException(std::move(value));
         }
 
         void operator()(const BlockStmtPtr &blockStmt) {
@@ -415,8 +418,8 @@ namespace lox {
         }
 
         LoxObject operator()(const BinaryExprPtr &binaryExpr) {
-            const auto left = evaluate(binaryExpr->left);
-            const auto right = evaluate(binaryExpr->right);
+            const auto &left = evaluate(binaryExpr->left);
+            const auto &right = evaluate(binaryExpr->right);
 
             switch (binaryExpr->op) {
                 case BinaryOp::PLUS: {
@@ -470,7 +473,7 @@ namespace lox {
                 throw lox::runtime_error(callExpr->keyword, "Stack overflow.");
             }
 
-            const auto callee = evaluate(callExpr->callee);
+            const auto &callee = evaluate(callExpr->callee);
 
             std::vector<LoxObject> arguments;
             for (auto &argument: callExpr->arguments) {
@@ -478,7 +481,7 @@ namespace lox {
             }
 
             if (std::holds_alternative<LoxCallablePtr>(callee)) {
-                const auto callable = std::get<LoxCallablePtr>(callee);
+                const auto &callable = std::get<LoxCallablePtr>(callee);
                 if (static_cast<int>(arguments.size()) != callable->arity()) {
                     throw runtime_error(callExpr->keyword, std::format("Expected {} arguments but got {}.",
                                                                        std::to_string(callable->arity()),
@@ -494,7 +497,7 @@ namespace lox {
         }
 
         LoxObject operator()(const GetExprPtr &getExpr) {
-            if (const auto object = evaluate(getExpr->object); std::holds_alternative<LoxInstancePtr>(object)) {
+            if (const auto &object = evaluate(getExpr->object); std::holds_alternative<LoxInstancePtr>(object)) {
                 return std::get<LoxInstancePtr>(object)->get(getExpr->name);
             }
 
@@ -502,7 +505,7 @@ namespace lox {
         }
 
         LoxObject operator()(const SetExprPtr &setExpr) {
-            const auto object = evaluate(setExpr->object);
+            const auto &object = evaluate(setExpr->object);
 
             if (!std::holds_alternative<LoxInstancePtr>(object)) {
                 throw runtime_error(setExpr->name, "Only instances have fields.");
@@ -518,10 +521,10 @@ namespace lox {
         }
 
         LoxObject operator()(const SuperExprPtr &superExpr) const {
-            const auto callable = std::get<LoxCallablePtr>(environment->getAt(superExpr->distance, "super"));
-            const auto super_class = std::reinterpret_pointer_cast<LoxClass>(callable);
-            const auto instance = std::get<LoxInstancePtr>(environment->getAt(superExpr->distance - 1, "this"));
-            const auto method = super_class->findMethod(superExpr->method.getLexeme());
+            const auto &callable = std::get<LoxCallablePtr>(environment->getAt(superExpr->distance, "super"));
+            const auto &super_class = std::reinterpret_pointer_cast<LoxClass>(callable);
+            const auto &instance = std::get<LoxInstancePtr>(environment->getAt(superExpr->distance - 1, "this"));
+            const auto &method = super_class->findMethod(superExpr->method.getLexeme());
             if (method == nullptr) {
                 throw runtime_error(superExpr->method, std::format("Undefined property '{}'.", std::string(superExpr->method.getLexeme())));
             }
@@ -555,7 +558,7 @@ namespace lox {
         }
 
         LoxObject operator()(const UnaryExprPtr &unaryExpr) {
-            const auto result = evaluate(unaryExpr->expression);
+            const auto &result = evaluate(unaryExpr->expression);
             switch (unaryExpr->op) {
                 case UnaryOp::MINUS: {
                     return -checkNumberOperand(unaryExpr->token, result);
@@ -590,7 +593,7 @@ namespace lox {
         }
 
         LoxObject operator()(const AssignExprPtr &assignExpr) {
-            LoxObject value = evaluate(assignExpr->value);
+            const auto &value = evaluate(assignExpr->value);
             if (assignExpr->distance == -1) {
                 globals->assign(assignExpr->name, value);
             } else {
