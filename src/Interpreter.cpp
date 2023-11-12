@@ -33,7 +33,6 @@ namespace lox {
     static std::string to_string(const LoxObject &);
     static LoxInstancePtr createLoxInstance(const LoxClassPtr &klass);
     inline LoxFunctionPtr bind(const LoxFunctionPtr &, const LoxInstancePtr &);
-    inline LoxObject execute(const LoxFunctionPtr &, Interpreter &, const std::vector<LoxObject> &);
 
     struct ReturnException final : std::runtime_error {
         LoxObject value;
@@ -90,7 +89,8 @@ namespace lox {
             const auto &instance = createLoxInstance(shared_from_this());
             if (const auto &initializer = this->initializer; initializer != nullptr) {
                 const auto &function = bind(initializer, instance);
-                execute(function, interpreter, arguments);
+                const auto &callable = std::reinterpret_pointer_cast<LoxCallable>(function);
+                (*callable)(interpreter, arguments);
             }
             return instance;
         }
@@ -254,10 +254,6 @@ namespace lox {
 
     inline LoxFunctionPtr bind(const LoxFunctionPtr &function, const LoxInstancePtr &instance) {
         return function->bind(instance);
-    }
-
-    inline LoxObject execute(const LoxFunctionPtr &function, Interpreter &interpreter, const std::vector<LoxObject> &arguments) {
-        return (*function)(interpreter, arguments);
     }
 
     struct Interpreter {
@@ -485,8 +481,8 @@ namespace lox {
                 const auto callable = std::get<LoxCallablePtr>(callee);
                 if (static_cast<int>(arguments.size()) != callable->arity()) {
                     throw runtime_error(callExpr->keyword, std::format("Expected {} arguments but got {}.",
-                                                                   std::to_string(callable->arity()),
-                                                                   std::to_string(arguments.size())));
+                                                                       std::to_string(callable->arity()),
+                                                                       std::to_string(arguments.size())));
                 }
                 function_depth++;
                 auto lox_object = (*callable)(*this, arguments);
