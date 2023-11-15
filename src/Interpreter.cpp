@@ -458,8 +458,6 @@ namespace lox {
                 case BinaryOp::LESS_EQUAL:
                     checkNumberOperands(binaryExpr->token, left, right);
                     return std::get<LoxNumber>(left) <= std::get<LoxNumber>(right);
-                case BinaryOp::BANG:
-                    return left == right;
                 case BinaryOp::BANG_EQUAL:
                     return left != right;
                 case BinaryOp::EQUAL_EQUAL:

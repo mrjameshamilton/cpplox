@@ -26,7 +26,6 @@ namespace lox {
         GREATER_EQUAL = TokenType::GREATER_EQUAL,
         LESS = TokenType::LESS,
         LESS_EQUAL = TokenType::LESS_EQUAL,
-        BANG = TokenType::BANG,
         BANG_EQUAL = TokenType::BANG_EQUAL,
         EQUAL_EQUAL = TokenType::EQUAL_EQUAL
     };
