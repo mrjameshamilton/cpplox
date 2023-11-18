@@ -221,8 +221,7 @@ namespace lox {
         LoxObject operator()(Interpreter &interpreter, const std::vector<LoxObject> &arguments) override {
             const auto environment = std::make_shared<Environment>(closure);
             for (int i = 0; i < static_cast<int>(declaration->parameters.size()); i++) {
-                environment->define(declaration->parameters[i].getLexeme(),
-                                    arguments[i]);
+                environment->define(declaration->parameters[i].getLexeme(), arguments[i]);
             }
 
             try {
@@ -266,59 +265,65 @@ namespace lox {
 
         Interpreter() {
             globals->define(
-                    "clock", std::make_shared<NativeFunction>([](const std::vector<LoxObject> &) -> LoxObject {
-                        const auto now = std::chrono::system_clock::now().time_since_epoch();
-                        return static_cast<double>(std::chrono::duration_cast<std::chrono::seconds>(now).count());
-                    }));
+                "clock", std::make_shared<NativeFunction>([](const std::vector<LoxObject> &) -> LoxObject {
+                    const auto now = std::chrono::system_clock::now().time_since_epoch();
+                    return static_cast<double>(std::chrono::duration_cast<std::chrono::seconds>(now).count());
+                })
+            );
             globals->define(
-                    "exit",
-                    std::make_shared<NativeFunction>([](const std::vector<LoxObject> &arguments) -> LoxObject {
-                        const Token token = Token(IDENTIFIER, "", nullptr, 0);
-                        exit(static_cast<int>(checkNumberOperand(token, arguments.at(0))));
-                    },
-                                                     1));
+                "exit",
+                std::make_shared<NativeFunction>([](const std::vector<LoxObject> &arguments) -> LoxObject {
+                    const Token token = Token(IDENTIFIER, "", nullptr, 0);
+                    exit(static_cast<int>(checkNumberOperand(token, arguments.at(0))));
+                },
+                                                 1)
+            );
             globals->define(
-                    "read",
-                    std::make_shared<NativeFunction>([](const std::vector<LoxObject> &) -> LoxObject {
-                        if (const int c = getchar(); c == -1)
-                            return nullptr;
-                        else
-                            return static_cast<LoxNumber>(static_cast<uint8_t>(c));
-                    }));
+                "read",
+                std::make_shared<NativeFunction>([](const std::vector<LoxObject> &) -> LoxObject {
+                    if (const int c = getchar(); c == -1)
+                        return nullptr;
+                    else
+                        return static_cast<LoxNumber>(static_cast<uint8_t>(c));
+                })
+            );
             globals->define(
-                    "utf",
-                    std::make_shared<NativeFunction>([](const std::vector<LoxObject> &args) -> LoxObject {
-                        int byte_count = 0;
-                        for (int i = 0; i < 4; i++) {
-                            if (i > 0 && std::holds_alternative<LoxNil>(args[i])) continue;
+                "utf",
+                std::make_shared<NativeFunction>([](const std::vector<LoxObject> &args) -> LoxObject {
+                    int byte_count = 0;
+                    for (int i = 0; i < 4; i++) {
+                        if (i > 0 && std::holds_alternative<LoxNil>(args[i])) continue;
 
-                            if (!std::holds_alternative<LoxNumber>(args[i]) || (std::get<LoxNumber>(args[i]) < 0 || std::get<LoxNumber>(args[i]) > 255)) {
-                                const Token token = Token(IDENTIFIER, "", nullptr, 0);
-                                throw lox::runtime_error(token, "utf parameter should be a number between 0 and 255.");
-                            }
-
-                            byte_count++;
+                        if (!std::holds_alternative<LoxNumber>(args[i]) || (std::get<LoxNumber>(args[i]) < 0 || std::get<LoxNumber>(args[i]) > 255)) {
+                            const Token token = Token(IDENTIFIER, "", nullptr, 0);
+                            throw lox::runtime_error(token, "utf parameter should be a number between 0 and 255.");
                         }
 
-                        char bytes[byte_count];
-                        std::transform(
-                                args.begin(),
-                                args.end() - 4 + byte_count,
-                                bytes,
-                                [](const LoxObject &value) -> char {
-                                    return std::holds_alternative<LoxNil>(value) ? 0 : static_cast<char>(std::get<LoxNumber>(value));
-                                });
+                        byte_count++;
+                    }
 
-                        return std::string(bytes, byte_count);
-                    },
-                                                     4));
+                    char bytes[byte_count];
+                    std::transform(
+                        args.begin(),
+                        args.end() - 4 + byte_count,
+                        bytes,
+                        [](const LoxObject &value) -> char {
+                            return std::holds_alternative<LoxNil>(value) ? 0 : static_cast<char>(std::get<LoxNumber>(value));
+                        }
+                    );
+
+                    return std::string(bytes, byte_count);
+                },
+                                                 4)
+            );
             globals->define(
-                    "printerr",
-                    std::make_shared<NativeFunction>([](const std::vector<LoxObject> &arguments) -> LoxObject {
-                        std::cerr << lox::to_string(arguments[0]) << std::endl;
-                        return nullptr;
-                    },
-                                                     1));
+                "printerr",
+                std::make_shared<NativeFunction>([](const std::vector<LoxObject> &arguments) -> LoxObject {
+                    std::cerr << lox::to_string(arguments[0]) << std::endl;
+                    return nullptr;
+                },
+                                                 1)
+            );
         }
 
         void operator()(const ExpressionStmtPtr &expressionStmt) {
@@ -406,7 +411,7 @@ namespace lox {
 
             for (auto &method: classStmt->methods) {
                 methods[method->name.getLexeme()] =
-                        std::make_shared<LoxFunction>(method, environment, method->name.getLexeme() == "init");
+                    std::make_shared<LoxFunction>(method, environment, method->name.getLexeme() == "init");
             }
 
             if (super_class.has_value()) {
@@ -414,8 +419,9 @@ namespace lox {
             }
 
             environment->assign(
-                    classStmt->name,
-                    std::make_shared<LoxClass>(classStmt->name.getLexeme(), super_class, std::move(methods)));
+                classStmt->name,
+                std::make_shared<LoxClass>(classStmt->name.getLexeme(), super_class, std::move(methods))
+            );
         }
 
         LoxObject operator()(const BinaryExprPtr &binaryExpr) {
@@ -434,8 +440,7 @@ namespace lox {
                         return std::get<LoxString>(left) + std::get<LoxString>(right);
                     }
 
-                    throw runtime_error(binaryExpr->token,
-                                        "Operands must be two numbers or two strings.");
+                    throw runtime_error(binaryExpr->token, "Operands must be two numbers or two strings.");
                 }
                 case BinaryOp::MINUS:
                     checkNumberOperands(binaryExpr->token, left, right);
@@ -482,9 +487,7 @@ namespace lox {
             if (std::holds_alternative<LoxCallablePtr>(callee)) {
                 const auto &callable = std::get<LoxCallablePtr>(callee);
                 if (static_cast<int>(arguments.size()) != callable->arity()) {
-                    throw runtime_error(callExpr->keyword, std::format("Expected {} arguments but got {}.",
-                                                                       callable->arity(),
-                                                                       arguments.size()));
+                    throw runtime_error(callExpr->keyword, std::format("Expected {} arguments but got {}.", callable->arity(), arguments.size()));
                 }
                 function_depth++;
                 auto lox_object = (*callable)(*this, arguments);
@@ -536,12 +539,14 @@ namespace lox {
 
         LoxObject operator()(const LiteralExprPtr &literalExpr) const {
             return std::visit(
-                    overloaded{
-                            [](const bool value) -> LoxObject { return value; },
-                            [](const double value) -> LoxObject { return value; },
-                            [](const std::string_view value) -> LoxObject { return std::string(value); },
-                            [](const std::nullptr_t) -> LoxObject { return nullptr; }},
-                    literalExpr->literal);
+                overloaded{
+                    [](const bool value) -> LoxObject { return value; },
+                    [](const double value) -> LoxObject { return value; },
+                    [](const std::string_view value) -> LoxObject { return std::string(value); },
+                    [](const std::nullptr_t) -> LoxObject { return nullptr; },
+                },
+                literalExpr->literal
+            );
         }
 
         LoxObject operator()(const LogicalExprPtr &logicalExpr) {
@@ -631,15 +636,16 @@ namespace lox {
     }
 
     static std::string to_string(const LoxObject &object) {
-        return std::visit(overloaded{
-                                  [](const LoxBoolean value) -> std::string { return value ? "true" : "false"; },
-                                  [](const LoxNumber value) -> std::string { return std::format("{:g}", value); },
-                                  [](LoxString value) -> std::string { return value; },
-                                  [](const LoxCallablePtr &callable) -> std::string { return callable->to_string(); },
-                                  [](const LoxInstancePtr &instance) -> std::string { return std::format("{} instance", instance->klass->name); },
-                                  [](LoxNil) -> std::string { return "nil"; }},
-                          object);
+        return std::visit(
+            overloaded{
+                [](const LoxBoolean value) -> std::string { return value ? "true" : "false"; },
+                [](const LoxNumber value) -> std::string { return std::format("{:g}", value); },
+                [](LoxString value) -> std::string { return value; },
+                [](const LoxCallablePtr &callable) -> std::string { return callable->to_string(); },
+                [](const LoxInstancePtr &instance) -> std::string { return std::format("{} instance", instance->klass->name); },
+                [](LoxNil) -> std::string { return "nil"; },
+            },
+            object
+        );
     }
-
-
 }// namespace lox

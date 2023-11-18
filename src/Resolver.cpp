@@ -69,7 +69,7 @@ namespace lox {
             currentFunction = functionType;
 
             beginScope();
-            for (auto& param: function->parameters) {
+            for (auto &param: function->parameters) {
                 declare(param);
                 define(param);
             }
@@ -95,10 +95,8 @@ namespace lox {
         void operator()(const ReturnStmtPtr &returnStmt) {
             if (currentFunction == FunctionType::NONE) {
                 lox::error(returnStmt->keyword, "Can't return from top-level code.");
-            } else if (returnStmt->expression.has_value() &&
-                       currentFunction == FunctionType::INITIALIZER) {
-                lox::error(returnStmt->keyword,
-                           "Can't return a value from an initializer.");
+            } else if (returnStmt->expression.has_value() && currentFunction == FunctionType::INITIALIZER) {
+                lox::error(returnStmt->keyword, "Can't return a value from an initializer.");
             }
 
             resolve(returnStmt->expression);
@@ -129,8 +127,7 @@ namespace lox {
 
             if (classStmt->super_class.has_value() &&
                 classStmt->name.getLexeme() == classStmt->super_class.value()->name.getLexeme()) {
-                lox::error(classStmt->super_class.value()->name,
-                           "A class can't inherit from itself.");
+                lox::error(classStmt->super_class.value()->name, "A class can't inherit from itself.");
             }
 
             if (classStmt->super_class.has_value()) {
@@ -188,8 +185,7 @@ namespace lox {
 
         void operator()(const ThisExprPtr &thisExpr) const {
             if (currentClass == ClassType::NONE) {
-                lox::error(thisExpr->name,
-                           "Can't use 'this' outside of a class.");
+                lox::error(thisExpr->name, "Can't use 'this' outside of a class.");
                 return;
             }
 
@@ -198,11 +194,9 @@ namespace lox {
 
         void operator()(const SuperExprPtr &superExpr) const {
             if (currentClass == ClassType::NONE) {
-                lox::error(superExpr->name,
-                           "Can't use 'super' outside of a class.");
+                lox::error(superExpr->name, "Can't use 'super' outside of a class.");
             } else if (currentClass != ClassType::SUBCLASS) {
-                lox::error(superExpr->name,
-                           "Can't use 'super' in a class with no superclass.");
+                lox::error(superExpr->name, "Can't use 'super' in a class with no superclass.");
             }
             resolveLocal(*superExpr, superExpr->name);
         }
@@ -211,8 +205,7 @@ namespace lox {
             if (!scopes.empty() &&
                 scopes.back().contains(varExpr->name.getLexeme()) &&
                 !scopes.back()[varExpr->name.getLexeme()]) {
-                lox::error(varExpr->name,
-                           "Can't read local variable in its own initializer.");
+                lox::error(varExpr->name, "Can't read local variable in its own initializer.");
                 return;
             }
 

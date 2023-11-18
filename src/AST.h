@@ -62,18 +62,18 @@ namespace lox {
     using AssignExprPtr = std::unique_ptr<AssignExpr>;
 
     using Expr = std::variant<
-            BinaryExprPtr,
-            CallExprPtr,
-            GetExprPtr,
-            SetExprPtr,
-            ThisExprPtr,
-            SuperExprPtr,
-            GroupingExprPtr,
-            LiteralExprPtr,
-            LogicalExprPtr,
-            UnaryExprPtr,
-            VarExprPtr,
-            AssignExprPtr>;
+        BinaryExprPtr,
+        CallExprPtr,
+        GetExprPtr,
+        SetExprPtr,
+        ThisExprPtr,
+        SuperExprPtr,
+        GroupingExprPtr,
+        LiteralExprPtr,
+        LogicalExprPtr,
+        UnaryExprPtr,
+        VarExprPtr,
+        AssignExprPtr>;
 
     struct Assignable : private Uncopyable {
         Token name;
@@ -180,15 +180,15 @@ namespace lox {
     using ClassStmtPtr = std::unique_ptr<ClassStmt>;
 
     using Stmt = std::variant<
-            ExpressionStmtPtr,
-            FunctionStmtPtr,
-            ReturnStmtPtr,
-            IfStmtPtr,
-            PrintStmtPtr,
-            VarStmtPtr,
-            BlockStmtPtr,
-            WhileStmtPtr,
-            ClassStmtPtr>;
+        ExpressionStmtPtr,
+        FunctionStmtPtr,
+        ReturnStmtPtr,
+        IfStmtPtr,
+        PrintStmtPtr,
+        VarStmtPtr,
+        BlockStmtPtr,
+        WhileStmtPtr,
+        ClassStmtPtr>;
 
     using StmtList = std::vector<Stmt>;
 
