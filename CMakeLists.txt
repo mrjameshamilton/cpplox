@@ -21,6 +21,7 @@ add_executable(cpplox src/main.cpp
         src/Interpreter.cpp
         src/Util.h
         src/Resolver.cpp
+        src/Compiler.cpp
 )
 
 target_compile_options(cpplox PRIVATE
