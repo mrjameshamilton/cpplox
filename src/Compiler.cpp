@@ -57,22 +57,18 @@ namespace lox {
 #define NIL_VAL ((uint64_t) (QNAN | TAG_NIL))
 
     struct Compiler {
-        std::unique_ptr<LLVMContext> Context;
-        std::unique_ptr<Module> LoxModule;
-        std::unique_ptr<IRBuilder<NoFolder>> Builder;
-        Function *MainFunction;
+        std::unique_ptr<LLVMContext> Context = std::make_unique<LLVMContext>();
+        std::unique_ptr<Module> LoxModule = std::make_unique<Module>("lox", *Context);
+        std::unique_ptr<IRBuilder<NoFolder>> Builder = std::make_unique<IRBuilder<NoFolder>>(*Context);
+        Function *MainFunction =
+            Function::Create(FunctionType::get(Builder->getInt32Ty(), false), Function::ExternalLinkage, "main", *LoxModule);
         using ScopedHTType = ScopedHashTable<std::string_view, Value *>;
         ScopedHTType variables;
         std::stack<ScopedHTType::ScopeTy> scopes;
         std::unordered_map<std::string_view, Value *> strings;
+        StructType *StringType = StructType::create(*Context, {Builder->getInt8PtrTy(), Builder->getInt32Ty()}, "String");
 
-        Compiler() {
-            Context = std::make_unique<LLVMContext>();
-            LoxModule = std::make_unique<Module>("lox", *Context);
-            Builder = std::make_unique<IRBuilder<NoFolder>>(*Context);
-            MainFunction =
-                Function::Create(FunctionType::get(Builder->getInt32Ty(), false), Function::ExternalLinkage, "main", *LoxModule);
-        }
+        Compiler() = default;
 
         Value *IsBool(Value *value) const {
             return Builder->CreateICmpEQ(Builder->CreateOr(value, 1), Builder->getInt64(TRUE_VAL));
@@ -192,8 +188,18 @@ namespace lox {
             return Builder->CreateIntToPtr(Builder->CreateAnd(value, ~(SIGN_BIT | QNAN)), Builder->getInt8PtrTy());
         }
 
+        Value *AsString(Value *value) const {
+            const auto string = Builder->CreateIntToPtr(Builder->CreateAnd(value, ~(SIGN_BIT | QNAN)), Builder->getInt8PtrTy());
+            return Builder->CreateLoad(Builder->getInt8PtrTy(), Builder->CreateStructGEP(StringType, string, 0));
+        }
+
         Value *NumberVal(Value *value) const {
             return Builder->CreateBitCast(value, Builder->getInt64Ty());
+        }
+
+        static AllocaInst *CreateEntryBlockAlloca(Function *TheFunction, Type *type, const std::string_view &VarName) {
+            IRBuilder TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
+            return TmpB.CreateAlloca(type, nullptr, VarName);
         }
 
         void beginScope() {
@@ -257,7 +263,7 @@ namespace lox {
             Builder->CreateCall(PrintF, {gfmt, AsNumber(value)});
             Builder->CreateBr(EndBlock);
             Builder->SetInsertPoint(ObjBlock);
-            Builder->CreateCall(PrintF, {fmt, AsObj(value)});
+            Builder->CreateCall(PrintF, {fmt, AsString(value)});
             Builder->CreateBr(EndBlock);
             Builder->SetInsertPoint(EndBlock);
         }
@@ -266,7 +272,7 @@ namespace lox {
         }
 
         void operator()(const VarStmtPtr &varStmt) {
-            const auto alloca = Builder->CreateAlloca(Builder->getInt64Ty(), nullptr, varStmt->name.getLexeme());
+            const auto alloca = CreateEntryBlockAlloca(MainFunction, Builder->getInt64Ty(), varStmt->name.getLexeme());
             Builder->CreateStore(evaluate(varStmt->initializer), alloca);
             variables.insert(varStmt->name.getLexeme(), alloca);
             /*LoxModule->getOrInsertGlobal(varStmt->name.getLexeme(), Builder->getInt64Ty());
@@ -436,8 +442,14 @@ namespace lox {
                         if (strings.contains(string_value))
                             return strings.at(string_value);
 
+                        const auto &String = CreateEntryBlockAlloca(MainFunction, StringType, "s");
+                        const auto &String_Ptr = Builder->CreateStructGEP(StringType, String, 0);
+                        const auto &String_Length = Builder->CreateStructGEP(StringType, String, 1);
+                        Builder->CreateStore(Builder->CreateGlobalStringPtr(string_value), String_Ptr);
+                        Builder->CreateStore(Builder->getInt32(string_value.length()), String_Length);
+
                         const auto &value =
-                            ObjVal(Builder->CreatePtrToInt(Builder->CreateGlobalStringPtr(string_value), Builder->getInt64Ty()));
+                            ObjVal(Builder->CreatePtrToInt(String, Builder->getInt64Ty()));
 
                         strings[string_value] = value;
 
