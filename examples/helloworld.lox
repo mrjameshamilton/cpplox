@@ -67,9 +67,11 @@
 //print b;
 //print a;
 //print "a" + "b";
+//print "hello";
+//var a = "hello";
+var a = "hello " + "world" + " testing";
+print a;
 print "hello";
-var a = "hello";
-print "a" + "b";
 //print true or false;
 //print (1==2) or false or true;
 //print false and true;

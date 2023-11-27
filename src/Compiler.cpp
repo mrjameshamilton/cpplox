@@ -126,6 +126,7 @@ namespace lox {
             return Builder->CreateCall(IsTruthyFunction, value);
         }
 
+
         Value *Concat(Value *a, Value *b) const {
             static auto ConcatFunction([this] {
                 const auto F = Function::Create(
@@ -135,23 +136,109 @@ namespace lox {
                         false
                     ),
                     Function::InternalLinkage,
-                    "Concat",
+                    "concat",
                     *LoxModule
-                );
-
-                const auto iterator = F->args().begin();
-                const auto p0 = iterator;
-                const auto p1 = iterator + 1;
-                const auto strcat = LoxModule->getOrInsertFunction(
-                    "strcat",
-                    FunctionType::get(Builder->getInt32Ty(), {Type::getInt32Ty(*Context), Type::getInt32Ty(*Context)}, false)
                 );
 
                 const auto InsertPoint = Builder->GetInsertBlock();
                 const auto EntryBasicBlock = BasicBlock::Create(*Context, "entry", F);
                 Builder->SetInsertPoint(EntryBasicBlock);
 
-                Builder->CreateRet(p1);
+                const auto iterator = F->args().begin();
+                const auto p0 = iterator;
+                const auto p1 = iterator + 1;
+
+                const auto p0str = CreateEntryBlockAlloca(F, Builder->getPtrTy(), "p0str");
+                Builder->CreateStore(AsObj(p0), p0str);
+                const auto p1str = CreateEntryBlockAlloca(F, Builder->getPtrTy(), "p1str");
+                Builder->CreateStore(AsObj(p1), p1str);
+
+                const auto p0Length = CreateEntryBlockAlloca(F, Builder->getInt32Ty(), "p0Length");
+                const auto p1Length = CreateEntryBlockAlloca(F, Builder->getInt32Ty(), "p1Length");
+
+                Builder->CreateStore(
+                    Builder->CreateLoad(Builder->getInt32Ty(), Builder->CreateStructGEP(StringType, Builder->CreateLoad(Builder->getPtrTy(), p0str), 1, "length0")),
+                    p0Length
+                );
+                Builder->CreateStore(
+                    Builder->CreateLoad(Builder->getInt32Ty(), Builder->CreateStructGEP(StringType, Builder->CreateLoad(Builder->getPtrTy(), p1str), 1, "length1")),
+                    p1Length
+                );
+
+                const auto NewLength = Builder->CreateNSWAdd(
+                    Builder->CreateLoad(Builder->getInt32Ty(), p0Length),
+                    Builder->CreateLoad(Builder->getInt32Ty(), p1Length),
+                    "NewLength"
+                );
+
+                const auto StringMalloc = Builder->CreateMalloc(
+                    IntegerType::getInt8Ty(*Context),
+                    IntegerType::getInt8Ty(*Context),
+                    Builder->CreateSExt(Builder->CreateNSWAdd(Builder->getInt32(1), NewLength), Builder->getInt64Ty()),
+                    nullptr
+                );
+
+                const auto StringTemp = CreateEntryBlockAlloca(F, Builder->getPtrTy(), "StringTemp");
+                Builder->CreateStore(StringMalloc, StringTemp);
+
+                const auto ptr_to_str0 = Builder->CreateStructGEP(StringType, Builder->CreateLoad(Builder->getPtrTy(), p0str), 0);
+                Builder->CreateMemCpy(
+                    Builder->CreateLoad(Builder->getPtrTy(), StringTemp),
+                    Align(1),
+                    Builder->CreateLoad(Builder->getPtrTy(), ptr_to_str0),
+                    Align(1),
+                    Builder->CreateSExt(Builder->CreateLoad(Builder->getInt32Ty(), p0Length), Builder->getInt64Ty())
+                );
+
+                Builder->CreateMemCpy(
+                    Builder->CreateInBoundsGEP(
+                        Builder->getInt8Ty(),
+                        Builder->CreateLoad(Builder->getPtrTy(), StringTemp),
+                        {Builder->CreateSExt(Builder->CreateLoad(Builder->getInt32Ty(), p0Length), Builder->getInt64Ty())}
+                    ),
+                    Align(1),
+                    Builder->CreateLoad(
+                        Builder->getPtrTy(),
+                        Builder->CreateStructGEP(StringType, Builder->CreateLoad(Builder->getPtrTy(), p1str), 0)
+                    ),
+                    Align(1),
+                    Builder->CreateSExt(
+                        Builder->CreateNSWAdd(
+                            Builder->CreateLoad(Builder->getInt32Ty(), p1Length),
+                            Builder->getInt32(1)
+                        ),
+                        Builder->getInt64Ty()
+                    )
+                );
+
+                const auto NewString = CreateEntryBlockAlloca(F, StringType, "NewString");
+                const auto NewStringMalloc = Builder->CreateMalloc(
+                    Builder->getInt8Ty(),
+                    Builder->getInt8Ty(),
+                    Builder->getInt32(1),
+                    nullptr
+                );
+                Builder->CreateStore(
+                    NewStringMalloc,
+                    NewString
+                );
+                Builder->CreateStore(
+                    Builder->CreateLoad(Builder->getPtrTy(), StringTemp),
+                    Builder->CreateStructGEP(StringType, Builder->CreateLoad(Builder->getPtrTy(), NewString), 0)
+                );
+                Builder->CreateStore(
+                    NewLength,
+                    Builder->CreateStructGEP(StringType, Builder->CreateLoad(Builder->getPtrTy(), NewString), 1)
+                );
+
+                Builder->CreateRet(
+                    ObjVal(
+                        Builder->CreatePtrToInt(
+                            Builder->CreateLoad(Builder->getPtrTy(), NewString),
+                            Builder->getInt64Ty()
+                        )
+                    )
+                );
 
                 Builder->SetInsertPoint(InsertPoint);
 
@@ -188,7 +275,7 @@ namespace lox {
             return Builder->CreateIntToPtr(Builder->CreateAnd(value, ~(SIGN_BIT | QNAN)), Builder->getInt8PtrTy());
         }
 
-        Value *AsString(Value *value) const {
+        Value *AsCString(Value *value) const {
             const auto string = Builder->CreateIntToPtr(Builder->CreateAnd(value, ~(SIGN_BIT | QNAN)), Builder->getInt8PtrTy());
             return Builder->CreateLoad(Builder->getInt8PtrTy(), Builder->CreateStructGEP(StringType, string, 0));
         }
@@ -263,7 +350,7 @@ namespace lox {
             Builder->CreateCall(PrintF, {gfmt, AsNumber(value)});
             Builder->CreateBr(EndBlock);
             Builder->SetInsertPoint(ObjBlock);
-            Builder->CreateCall(PrintF, {fmt, AsString(value)});
+            Builder->CreateCall(PrintF, {fmt, AsCString(value)});
             Builder->CreateBr(EndBlock);
             Builder->SetInsertPoint(EndBlock);
         }
