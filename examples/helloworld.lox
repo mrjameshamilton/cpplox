@@ -69,7 +69,7 @@
 //print "a" + "b";
 //print "hello";
 //var a = "hello";
-var a = "hello " + "world" + " testing";
+var a = "helloaaaaaaaaaaaaaaaaaaaaa " + "world" + " testing";
 print a;
 print "hello";
 //print true or false;
