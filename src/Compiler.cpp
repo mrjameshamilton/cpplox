@@ -172,8 +172,8 @@ namespace lox {
                 );
 
                 const auto StringMalloc = Builder->CreateMalloc(
-                    IntegerType::getInt8Ty(*Context),
-                    IntegerType::getInt8Ty(*Context),
+                    Builder->getInt32Ty(),
+                    Builder->getInt8PtrTy(),
                     Builder->CreateSExt(Builder->CreateNSWAdd(Builder->getInt32(1), NewLength), Builder->getInt64Ty()),
                     nullptr
                 );
@@ -211,17 +211,15 @@ namespace lox {
                     )
                 );
 
+                // TODO: need to free the memory.
                 const auto NewString = CreateEntryBlockAlloca(F, StringType, "NewString");
                 const auto NewStringMalloc = Builder->CreateMalloc(
-                    Builder->getInt8Ty(),
-                    Builder->getInt8Ty(),
-                    Builder->getInt32(1),
+                    Builder->getInt32Ty(),
+                    StringType,
+                    ConstantExpr::getSizeOf(StringType),
                     nullptr
                 );
-                Builder->CreateStore(
-                    NewStringMalloc,
-                    NewString
-                );
+                Builder->CreateStore(NewStringMalloc, NewString);
                 Builder->CreateStore(
                     Builder->CreateLoad(Builder->getPtrTy(), StringTemp),
                     Builder->CreateStructGEP(StringType, Builder->CreateLoad(Builder->getPtrTy(), NewString), 0)
@@ -230,7 +228,6 @@ namespace lox {
                     NewLength,
                     Builder->CreateStructGEP(StringType, Builder->CreateLoad(Builder->getPtrTy(), NewString), 1)
                 );
-
                 Builder->CreateRet(
                     ObjVal(
                         Builder->CreatePtrToInt(
