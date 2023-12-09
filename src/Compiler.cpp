@@ -163,30 +163,27 @@ namespace lox {
                 const auto EntryBasicBlock = BasicBlock::Create(*Context, "entry", F);
                 Builder->SetInsertPoint(EntryBasicBlock);
 
-                const auto iterator = F->args().begin();
-                const auto p0 = iterator;
-                const auto p1 = iterator + 1;
+                const auto arguments = F->args().begin();
 
                 const auto p0str = CreateEntryBlockAlloca(F, Builder->getPtrTy(), "p0str");
-                Builder->CreateStore(AsString(p0), p0str);
+                Builder->CreateStore(AsString(arguments), p0str);
                 const auto p1str = CreateEntryBlockAlloca(F, Builder->getPtrTy(), "p1str");
-                Builder->CreateStore(AsString(p1), p1str);
+                Builder->CreateStore(AsString(arguments + 1), p1str);
 
-                const auto p0Length = CreateEntryBlockAlloca(F, Builder->getInt32Ty(), "p0Length");
-                const auto p1Length = CreateEntryBlockAlloca(F, Builder->getInt32Ty(), "p1Length");
 
-                Builder->CreateStore(
-                    Builder->CreateLoad(Builder->getInt32Ty(), Builder->CreateStructGEP(StringType, Builder->CreateLoad(Builder->getPtrTy(), p0str), 2, "length0")),
-                    p0Length
-                );
-                Builder->CreateStore(
-                    Builder->CreateLoad(Builder->getInt32Ty(), Builder->CreateStructGEP(StringType, Builder->CreateLoad(Builder->getPtrTy(), p1str), 2, "length1")),
-                    p1Length
-                );
+#define LOAD_STRING_LENGTH(PTR) \
+    Builder->CreateLoad(Builder->getInt32Ty(), Builder->CreateStructGEP(StringType, Builder->CreateLoad(Builder->getPtrTy(), PTR), 2), "length")
+#define LOAD_STRING_STRING(PTR) \
+    Builder->CreateLoad(Builder->getPtrTy(), Builder->CreateStructGEP(StringType, Builder->CreateLoad(Builder->getPtrTy(), PTR), 1), "string")
+
+                const auto String0Length = LOAD_STRING_LENGTH(p0str);
+                const auto String1Length = LOAD_STRING_LENGTH(p1str);
+                const auto String0String = LOAD_STRING_STRING(p0str);
+                const auto String1String = LOAD_STRING_STRING(p1str);
 
                 const auto NewLength = Builder->CreateNSWAdd(
-                    Builder->CreateLoad(Builder->getInt32Ty(), p0Length),
-                    Builder->CreateLoad(Builder->getInt32Ty(), p1Length),
+                    String0Length,
+                    String1Length,
                     "NewLength"
                 );
 
@@ -200,30 +197,26 @@ namespace lox {
                 const auto StringTemp = CreateEntryBlockAlloca(F, Builder->getPtrTy(), "StringTemp");
                 Builder->CreateStore(StringMalloc, StringTemp);
 
-                const auto ptr_to_str0 = Builder->CreateStructGEP(StringType, Builder->CreateLoad(Builder->getPtrTy(), p0str), 1);
                 Builder->CreateMemCpy(
                     Builder->CreateLoad(Builder->getPtrTy(), StringTemp),
                     Align(1),
-                    Builder->CreateLoad(Builder->getPtrTy(), ptr_to_str0),
+                    String0String,
                     Align(1),
-                    Builder->CreateSExt(Builder->CreateLoad(Builder->getInt32Ty(), p0Length), Builder->getInt64Ty())
+                    Builder->CreateSExt(String0Length, Builder->getInt64Ty())
                 );
 
                 Builder->CreateMemCpy(
                     Builder->CreateInBoundsGEP(
                         Builder->getInt8Ty(),
                         Builder->CreateLoad(Builder->getPtrTy(), StringTemp),
-                        {Builder->CreateSExt(Builder->CreateLoad(Builder->getInt32Ty(), p0Length), Builder->getInt64Ty())}
+                        {Builder->CreateSExt(String0Length, Builder->getInt64Ty())}
                     ),
                     Align(1),
-                    Builder->CreateLoad(
-                        Builder->getPtrTy(),
-                        Builder->CreateStructGEP(StringType, Builder->CreateLoad(Builder->getPtrTy(), p1str), 1)
-                    ),
+                    String1String,
                     Align(1),
                     Builder->CreateSExt(
                         Builder->CreateNSWAdd(
-                            Builder->CreateLoad(Builder->getInt32Ty(), p1Length),
+                            String1Length,
                             Builder->getInt32(1)
                         ),
                         Builder->getInt64Ty()
@@ -269,6 +262,8 @@ namespace lox {
             }());
 
             return Builder->CreateCall(ConcatFunction, {a, b});
+#undef LOAD_STRING_LENGTH
+#undef LOAD_STRING_STRING
         }
 
         Value *IsNotTruthy(Value *value) const {
@@ -487,6 +482,8 @@ namespace lox {
                     // A == B if both are numbers and they're equal as fp numbers or they're both equal int64 values.
                     const auto IsNumBlock = BasicBlock::Create(*Context, "if.num", MainFunction);
                     const auto NotNumBlock = BasicBlock::Create(*Context, "not.num", MainFunction);
+                    const auto IsStringBlock = BasicBlock::Create(*Context, "is.string", MainFunction);
+                    const auto NotStringBlock = BasicBlock::Create(*Context, "not.string", MainFunction);
                     const auto EndBlock = BasicBlock::Create(*Context, "end", MainFunction);
 
                     Builder->CreateCondBr(Builder->CreateAnd(IsNumber(left), IsNumber(right)), IsNumBlock, NotNumBlock);
@@ -494,13 +491,19 @@ namespace lox {
                     const auto X = Builder->CreateFCmpOEQ(AsNumber(left), AsNumber(right));
                     Builder->CreateBr(EndBlock);
                     Builder->SetInsertPoint(NotNumBlock);
-                    const auto Y = Builder->CreateICmpEQ(left, right);
+                    Builder->CreateCondBr(Builder->CreateAnd(IsString(left), IsString(right)), IsStringBlock, NotStringBlock);
+                    Builder->SetInsertPoint(IsStringBlock);
+                    const auto Y = Builder->getTrue();// TODO
+                    Builder->CreateBr(EndBlock);
+                    Builder->SetInsertPoint(NotStringBlock);
+                    const auto Z = Builder->CreateICmpEQ(left, right);
                     Builder->CreateBr(EndBlock);
                     Builder->SetInsertPoint(EndBlock);
 
-                    const auto Result = Builder->CreatePHI(Builder->getInt1Ty(), 2);
+                    const auto Result = Builder->CreatePHI(Builder->getInt1Ty(), 3);
                     Result->addIncoming(X, IsNumBlock);
-                    Result->addIncoming(Y, NotNumBlock);
+                    Result->addIncoming(Y, IsStringBlock);
+                    Result->addIncoming(Z, NotStringBlock);
 
                     return Builder->CreateSelect(
                         Result,
@@ -559,19 +562,19 @@ namespace lox {
                         if (strings.contains(string_value))
                             return strings.at(string_value);
 
-                        const auto &String = CreateEntryBlockAlloca(MainFunction, StringType, "s");
+                        const auto String = CreateEntryBlockAlloca(MainFunction, StringType, "s");
 
                         Builder->CreateStore(
                             Builder->getInt8(static_cast<uint8_t>(ObjType::STRING)),
                             Builder->CreateStructGEP(ObjType, Builder->CreateBitCast(String, ObjType->getPointerTo()), 0)
                         );
 
-                        const auto &String_Ptr = Builder->CreateStructGEP(StringType, String, 1);
-                        const auto &String_Length = Builder->CreateStructGEP(StringType, String, 2);
+                        const auto String_Ptr = Builder->CreateStructGEP(StringType, String, 1);
+                        const auto String_Length = Builder->CreateStructGEP(StringType, String, 2);
                         Builder->CreateStore(Builder->CreateGlobalStringPtr(string_value), String_Ptr);
                         Builder->CreateStore(Builder->getInt32(string_value.length()), String_Length);
 
-                        const auto &value =
+                        const auto value =
                             ObjVal(Builder->CreatePtrToInt(String, Builder->getInt64Ty()));
 
                         strings[string_value] = value;
