@@ -145,6 +145,68 @@ namespace lox {
             return Builder->CreateCall(IsTruthyFunction, value);
         }
 
+#define LOAD_STRING_LENGTH(PTR) \
+    Builder->CreateLoad(Builder->getInt32Ty(), Builder->CreateStructGEP(StringType, Builder->CreateLoad(Builder->getPtrTy(), PTR), 2), "length")
+#define LOAD_STRING_STRING(PTR) \
+    Builder->CreateLoad(Builder->getPtrTy(), Builder->CreateStructGEP(StringType, Builder->CreateLoad(Builder->getPtrTy(), PTR), 1), "string")
+
+        Value *StrEquals(Value *a, Value *b) const {
+            static auto StrEqualsFunction([this] {
+                const auto F = Function::Create(
+                    FunctionType::get(
+                        Builder->getInt1Ty(),
+                        {Builder->getInt64Ty(), Builder->getInt64Ty()},
+                        false
+                    ),
+                    Function::InternalLinkage,
+                    "strEquals",
+                    *LoxModule
+                );
+
+                const auto InsertPoint = Builder->GetInsertBlock();
+                const auto EntryBasicBlock = BasicBlock::Create(*Context, "entry", F);
+                Builder->SetInsertPoint(EntryBasicBlock);
+
+                const auto arguments = F->args().begin();
+
+                const auto p0str = CreateEntryBlockAlloca(F, Builder->getPtrTy(), "p0str");
+                Builder->CreateStore(AsString(arguments), p0str);
+                const auto p1str = CreateEntryBlockAlloca(F, Builder->getPtrTy(), "p1str");
+                Builder->CreateStore(AsString(arguments + 1), p1str);
+
+                const auto String0Length = LOAD_STRING_LENGTH(p0str);
+                const auto String1Length = LOAD_STRING_LENGTH(p1str);
+                const auto String0String = LOAD_STRING_STRING(p0str);
+                const auto String1String = LOAD_STRING_STRING(p1str);
+
+                const auto NotEqualBlock = BasicBlock::Create(*Context, "not.equal", F);
+                const auto CheckContents = BasicBlock::Create(*Context, "check.contents", F);
+                Builder->CreateCondBr(Builder->CreateICmpNE(String0Length, String1Length), NotEqualBlock, CheckContents);
+
+                Builder->SetInsertPoint(CheckContents);
+
+                static const auto MemCmp = LoxModule->getOrInsertFunction(
+                    "memcmp",
+                    FunctionType::get(Builder->getInt32Ty(), {Builder->getPtrTy(), Builder->getPtrTy(), Builder->getInt64Ty()}, false)
+                );
+
+                Builder->CreateRet(
+                    Builder->CreateICmpEQ(
+                        Builder->CreateCall(MemCmp, {String0String, String1String, String0Length}),
+                        Builder->getInt32(0)
+                    )
+                );
+
+                Builder->SetInsertPoint(NotEqualBlock);
+                Builder->CreateRet(Builder->getFalse());
+
+                Builder->SetInsertPoint(InsertPoint);
+
+                return F;
+            }());
+
+            return Builder->CreateCall(StrEqualsFunction, {a, b});
+        }
 
         Value *Concat(Value *a, Value *b) const {
             static auto ConcatFunction([this] {
@@ -169,12 +231,6 @@ namespace lox {
                 Builder->CreateStore(AsString(arguments), p0str);
                 const auto p1str = CreateEntryBlockAlloca(F, Builder->getPtrTy(), "p1str");
                 Builder->CreateStore(AsString(arguments + 1), p1str);
-
-
-#define LOAD_STRING_LENGTH(PTR) \
-    Builder->CreateLoad(Builder->getInt32Ty(), Builder->CreateStructGEP(StringType, Builder->CreateLoad(Builder->getPtrTy(), PTR), 2), "length")
-#define LOAD_STRING_STRING(PTR) \
-    Builder->CreateLoad(Builder->getPtrTy(), Builder->CreateStructGEP(StringType, Builder->CreateLoad(Builder->getPtrTy(), PTR), 1), "string")
 
                 const auto String0Length = LOAD_STRING_LENGTH(p0str);
                 const auto String1Length = LOAD_STRING_LENGTH(p1str);
@@ -262,9 +318,9 @@ namespace lox {
             }());
 
             return Builder->CreateCall(ConcatFunction, {a, b});
+        }
 #undef LOAD_STRING_LENGTH
 #undef LOAD_STRING_STRING
-        }
 
         Value *IsNotTruthy(Value *value) const {
             return Builder->CreateNot(IsTruthy(value));
@@ -493,7 +549,7 @@ namespace lox {
                     Builder->SetInsertPoint(NotNumBlock);
                     Builder->CreateCondBr(Builder->CreateAnd(IsString(left), IsString(right)), IsStringBlock, NotStringBlock);
                     Builder->SetInsertPoint(IsStringBlock);
-                    const auto Y = Builder->getTrue();// TODO
+                    const auto Y = StrEquals(left, right);
                     Builder->CreateBr(EndBlock);
                     Builder->SetInsertPoint(NotStringBlock);
                     const auto Z = Builder->CreateICmpEQ(left, right);
