@@ -21,9 +21,9 @@ namespace lox {
     }
 
     Value *Compiler::IsString(Value *value) const {
-        return Builder->CreateICmpEQ(
-            ObjType(value),
-            Builder->getInt8(static_cast<uint8_t>(ObjType::STRING))
+        return Builder->CreateAnd(
+            IsObj(value),
+            Builder->CreateICmpEQ(ObjType(value), Builder->getInt8(static_cast<uint8_t>(ObjType::STRING)))
         );
     }
 

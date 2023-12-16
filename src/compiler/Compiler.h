@@ -139,6 +139,19 @@ namespace lox {
             out.close();
             return ec.value() == 0;
         }
+
+        void DebugPrint(const std::string &stringFormat, Value *value) const {
+            static const auto fmt = Builder->CreateGlobalStringPtr(stringFormat);
+            static const auto PrintF = LoxModule->getOrInsertFunction(
+                "printf",
+                FunctionType::get(Builder->getInt8Ty(), {Type::getInt8PtrTy(*Context)}, true)
+            );
+            Builder->CreateCall(PrintF, {fmt, value});
+        }
+
+        void DebugPrint(const std::string &string) const {
+            DebugPrint("%s\n", Builder->CreateGlobalStringPtr(string));
+        }
     };
 }// namespace lox
 

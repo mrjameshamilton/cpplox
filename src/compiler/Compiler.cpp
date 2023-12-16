@@ -146,22 +146,33 @@ namespace lox {
 
         switch (binaryExpr->op) {
             case BinaryOp::PLUS: {
-                const auto IsStringBlock = BasicBlock::Create(*Context, "if.num", MainFunction);
-                const auto IsNumBlock = BasicBlock::Create(*Context, "if.str", MainFunction);
+                const auto IsMaybeStringBlock = BasicBlock::Create(*Context, "if.string", MainFunction);
+                const auto IsStringBlock = BasicBlock::Create(*Context, "is.string", MainFunction);
+                const auto IsNumBlock = BasicBlock::Create(*Context, "if.num", MainFunction);
+                const auto InvalidBlock = BasicBlock::Create(*Context, "invalid", MainFunction);
                 const auto EndBlock = BasicBlock::Create(*Context, "if.end", MainFunction);
-                Builder->CreateCondBr(Builder->CreateAnd(IsNumber(left), IsNumber(right)), IsNumBlock, IsStringBlock);
+                Builder->CreateCondBr(Builder->CreateAnd(IsNumber(left), IsNumber(right)), IsNumBlock, IsMaybeStringBlock);
                 Builder->SetInsertPoint(IsNumBlock);
                 const auto &X = NumberVal(Builder->CreateFAdd(AsNumber(left), AsNumber(right)));
                 Builder->CreateBr(EndBlock);
+
+                Builder->SetInsertPoint(IsMaybeStringBlock);
+                Builder->CreateCondBr(Builder->CreateAnd(IsString(left), IsString(right)), IsStringBlock, InvalidBlock);
                 Builder->SetInsertPoint(IsStringBlock);
-                // TODO: check is string
                 const auto &Y = Concat(left, right);
                 Builder->CreateBr(EndBlock);
+
+                Builder->SetInsertPoint(InvalidBlock);
+                // TODO: Throw exception here.
+                const auto &Z = Builder->getInt64(NIL_VAL);
+                Builder->CreateBr(EndBlock);
+
                 Builder->SetInsertPoint(EndBlock);
 
-                const auto &Result = Builder->CreatePHI(Builder->getInt64Ty(), 2);
+                const auto &Result = Builder->CreatePHI(Builder->getInt64Ty(), 3);
                 Result->addIncoming(X, IsNumBlock);
                 Result->addIncoming(Y, IsStringBlock);
+                Result->addIncoming(Z, InvalidBlock);
 
                 return Result;
             }
