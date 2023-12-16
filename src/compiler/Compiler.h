@@ -141,7 +141,7 @@ namespace lox {
         }
 
         void DebugPrint(const std::string &stringFormat, Value *value) const {
-            static const auto fmt = Builder->CreateGlobalStringPtr(stringFormat);
+            const auto fmt = Builder->CreateGlobalStringPtr(stringFormat);
             static const auto PrintF = LoxModule->getOrInsertFunction(
                 "printf",
                 FunctionType::get(Builder->getInt8Ty(), {Type::getInt8PtrTy(*Context)}, true)
