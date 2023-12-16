@@ -1,8 +1,8 @@
-#include "Compiler.cpp"
 #include "Interpreter.cpp"
 #include "Parser.cpp"
 #include "Resolver.cpp"
 #include "Scanner.cpp"
+#include "compiler/Compiler.h"
 #include "llvm/Support/CommandLine.h"
 #include <fstream>
 #include <iostream>
