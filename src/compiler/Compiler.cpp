@@ -49,35 +49,27 @@ namespace lox {
         const auto ObjBlock = BasicBlock::Create(*Context, "if.obj", MainFunction);
         const auto EndBlock = BasicBlock::Create(*Context, "if.end", MainFunction);
 
-        static const auto fmt = Builder->CreateGlobalStringPtr("%s\n");
-        static const auto true_ = Builder->CreateGlobalStringPtr("true");
-        static const auto false_ = Builder->CreateGlobalStringPtr("false");
-        static const auto nil = Builder->CreateGlobalStringPtr("nil");
-        static const auto gfmt = Builder->CreateGlobalStringPtr("%g\n");
-        static const auto PrintF = LoxModule->getOrInsertFunction(
-            "printf",
-            FunctionType::get(Builder->getInt8Ty(), {Type::getInt8PtrTy(*Context)}, true)
-        );
-
         Builder->CreateCondBr(IsBool(value), BoolBlock, EndBoolBlock);
         Builder->SetInsertPoint(BoolBlock);
-        Builder->CreateCall(PrintF, {fmt, (Builder->CreateSelect(AsBool(value), true_, false_))});
+        PrintBool(value);
         Builder->CreateBr(EndBlock);
         Builder->SetInsertPoint(EndBoolBlock);
 
         Builder->CreateCondBr(IsNil(value), NilBlock, EndNilBlock);
         Builder->SetInsertPoint(NilBlock);
-        Builder->CreateCall(PrintF, {fmt, nil});
+        PrintNil();
         Builder->CreateBr(EndBlock);
         Builder->SetInsertPoint(EndNilBlock);
 
         Builder->CreateCondBr(IsNumber(value), NumBlock, ObjBlock);
         Builder->SetInsertPoint(NumBlock);
-        Builder->CreateCall(PrintF, {gfmt, AsNumber(value)});
+        PrintNumber(value);
         Builder->CreateBr(EndBlock);
+
         Builder->SetInsertPoint(ObjBlock);
-        Builder->CreateCall(PrintF, {fmt, AsCString(value)});
+        PrintString(value);
         Builder->CreateBr(EndBlock);
+
         Builder->SetInsertPoint(EndBlock);
     }
 
