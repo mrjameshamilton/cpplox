@@ -83,7 +83,7 @@ namespace lox {
         Value *AsNumber(Value *value) const;
 
         // Code generation for getting the type of Lox object.
-        Value *ObjType_(Value *value) const;
+        Value *ObjType(Value *value) const;
 
         // Code generation for internal Lox functions.
         Value *IsTruthy(Value *value) const;

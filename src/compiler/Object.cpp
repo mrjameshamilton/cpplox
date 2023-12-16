@@ -22,12 +22,12 @@ namespace lox {
 
     Value *Compiler::IsString(Value *value) const {
         return Builder->CreateICmpEQ(
-            ObjType_(value),
+            ObjType(value),
             Builder->getInt8(static_cast<uint8_t>(ObjType::STRING))
         );
     }
 
-    Value *Compiler::ObjType_(Value *value) const {
+    Value *Compiler::ObjType(Value *value) const {
         return Builder->CreateLoad(
             Builder->getInt8Ty(),
             Builder->CreateStructGEP(ObjStructType, AsObj(value), 0)
