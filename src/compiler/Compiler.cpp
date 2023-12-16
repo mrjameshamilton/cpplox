@@ -297,18 +297,26 @@ namespace lox {
             case LogicalOp::OR: {
                 const auto LeftIsTruthyBlock = BasicBlock::Create(*Context, "if.left.truthy", MainFunction);
                 const auto LeftNotTruthyBlock = BasicBlock::Create(*Context, "if.left.nottruthy", MainFunction);
-                const auto Result = Builder->CreateAlloca(Builder->getInt1Ty(), nullptr, "logical.result");
-                Builder->CreateStore(IsTruthy(left), Result);
+                const auto EndBlock = BasicBlock::Create(*Context, "end", MainFunction);
                 Builder->CreateCondBr(
-                    Builder->CreateLoad(Builder->getInt1Ty(), Result),
+                    IsTruthy(left),
                     logicalExpr->op == LogicalOp::OR ? LeftIsTruthyBlock : LeftNotTruthyBlock,
                     logicalExpr->op == LogicalOp::OR ? LeftNotTruthyBlock : LeftIsTruthyBlock
                 );
                 Builder->SetInsertPoint(LeftNotTruthyBlock);
-                Builder->CreateStore(IsTruthy(evaluate(logicalExpr->right)), Result);
-                Builder->CreateBr(LeftIsTruthyBlock);
+                const auto X = IsTruthy(evaluate(logicalExpr->right));
+                const auto EndLeftNotTruthyBlock = Builder->GetInsertBlock();
+                Builder->CreateBr(EndBlock);
                 Builder->SetInsertPoint(LeftIsTruthyBlock);
-                return BoolVal(Builder->CreateLoad(Builder->getInt1Ty(), Result));
+                const auto Y = logicalExpr->op == LogicalOp::OR ? Builder->getTrue() : Builder->getFalse();
+                Builder->CreateBr(EndBlock);
+                Builder->SetInsertPoint(EndBlock);
+
+                const auto Result = Builder->CreatePHI(Builder->getInt1Ty(), 2);
+                Result->addIncoming(X, EndLeftNotTruthyBlock);
+                Result->addIncoming(Y, LeftIsTruthyBlock);
+
+                return BoolVal(Result);
             }
         }
         std::unreachable();

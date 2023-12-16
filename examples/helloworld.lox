@@ -78,3 +78,7 @@ print "hello";
 print "a" + "b" == "ab";
 print "a" + "B" == "ab";
 print "a" + "b" + "c" == "ab";
+//print true or false;
+//print false or true;
+//print false or false;
+//print (1== 2) and (1==1);
