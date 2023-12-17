@@ -123,6 +123,7 @@ namespace lox {
         void PrintString(const std::string &string) const;
         void PrintNumber(Value *value) const;
         void PrintNil() const;
+        void PrintObject(Value *value) const;
         void PrintString(Value *value) const;
         void PrintBool(Value *value) const;
 

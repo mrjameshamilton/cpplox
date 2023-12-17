@@ -100,6 +100,19 @@ namespace lox {
         PrintF(fmt, nil);
     }
 
+    void Compiler::PrintObject(Value *value) const {
+        const auto IsStringBlock = BasicBlock::Create(*Context, "string", MainFunction);
+        const auto DefaultBlock = BasicBlock::Create(*Context, "default", MainFunction);
+
+        const auto Switch = Builder->CreateSwitch(ObjType(value), DefaultBlock);
+        Switch->addCase(Builder->getInt8(static_cast<uint8_t>(ObjType::STRING)), IsStringBlock);
+
+        Builder->SetInsertPoint(IsStringBlock);
+        PrintString(value);
+        Builder->CreateBr(DefaultBlock);
+        Builder->SetInsertPoint(DefaultBlock);
+    }
+
     void Compiler::PrintString(Value *value) const {
         static const auto fmt = Builder->CreateGlobalStringPtr("%s\n");
         PrintF(fmt, AsCString(value));

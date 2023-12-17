@@ -67,7 +67,7 @@ namespace lox {
         Builder->CreateBr(EndBlock);
 
         Builder->SetInsertPoint(ObjBlock);
-        PrintString(value);
+        PrintObject(value);
         Builder->CreateBr(EndBlock);
 
         Builder->SetInsertPoint(EndBlock);
