@@ -83,4 +83,5 @@ print "a" + "b" + "c" == "ab";
 //print false or false;
 //print (1== 2) and (1==1);
 //print "a" + 1;
+print "a" + "b" == "ab";
 print 2==2;

@@ -263,20 +263,10 @@ namespace lox {
                     if (strings.contains(string_value))
                         return strings.at(string_value);
 
-                    const auto String = CreateEntryBlockAlloca(MainFunction, StringStructType, "s");
-
-                    Builder->CreateStore(
-                        Builder->getInt8(static_cast<uint8_t>(ObjType::STRING)),
-                        Builder->CreateStructGEP(ObjStructType, Builder->CreateBitCast(String, ObjStructType->getPointerTo()), 0)
+                    const auto value = AllocateString(
+                        Builder->CreateGlobalStringPtr(string_value),
+                        Builder->getInt32(string_value.length())
                     );
-
-                    const auto String_Ptr = Builder->CreateStructGEP(StringStructType, String, 1);
-                    const auto String_Length = Builder->CreateStructGEP(StringStructType, String, 2);
-                    Builder->CreateStore(Builder->CreateGlobalStringPtr(string_value), String_Ptr);
-                    Builder->CreateStore(Builder->getInt32(string_value.length()), String_Length);
-
-                    const auto value =
-                        ObjVal(Builder->CreatePtrToInt(String, Builder->getInt64Ty()));
 
                     strings[string_value] = value;
 

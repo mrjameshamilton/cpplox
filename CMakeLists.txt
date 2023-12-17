@@ -27,6 +27,7 @@ add_executable(cpplox src/main.cpp
         src/compiler/Value.cpp
         src/compiler/String.cpp
         src/compiler/Truthy.cpp
+        src/compiler/Memory.cpp
 )
 
 target_compile_options(cpplox PRIVATE

@@ -8,6 +8,24 @@ namespace lox {
     Builder->CreateLoad(Builder->getInt32Ty(), Builder->CreateStructGEP(StringStructType, Builder->CreateLoad(Builder->getPtrTy(), PTR), 2), "length")
 #define LOAD_STRING_STRING(PTR) \
     Builder->CreateLoad(Builder->getPtrTy(), Builder->CreateStructGEP(StringStructType, Builder->CreateLoad(Builder->getPtrTy(), PTR), 1), "string")
+#define STORE_STRING_LENGTH(PTR, LENGTH) \
+    Builder->CreateStore(LENGTH, Builder->CreateStructGEP(StringStructType, Builder->CreateLoad(Builder->getPtrTy(), PTR), 2))
+#define STORE_STRING_STRING(PTR, STRING) \
+    Builder->CreateStore(STRING, Builder->CreateStructGEP(StringStructType, Builder->CreateLoad(Builder->getPtrTy(), PTR), 1))
+
+    Value *Compiler::AllocateString(Value *String, Value *Length, const std::string_view name) const {
+        const auto NewString = AllocateObj(ObjType::STRING, name);
+
+        STORE_STRING_STRING(NewString, String);
+        STORE_STRING_LENGTH(NewString, Length);
+
+        return ObjVal(
+            Builder->CreatePtrToInt(
+                Builder->CreateLoad(Builder->getPtrTy(), NewString),
+                Builder->getInt64Ty()
+            )
+        );
+    }
 
     Value *Compiler::StrEquals(Value *a, Value *b) const {
         static auto StrEqualsFunction([this] {
@@ -138,45 +156,13 @@ namespace lox {
                 )
             );
 
-            const auto NewObj = CreateEntryBlockAlloca(F, ObjStructType, "NewString");
-
-
-            Type *IntPtrTy = IntegerType::getInt32Ty(*Context);
-            // The malloc size IR that is generated with getSizeOf uses a hack described here:
-            // https://mukulrathi.com/create-your-own-programming-language/concurrency-runtime-language-tutorial/#malloc
-            Constant *allocsize = ConstantExpr::getSizeOf(StringStructType);
-            allocsize = ConstantExpr::getTruncOrBitCast(allocsize, IntPtrTy);
-
-            const auto NewObjMalloc = Builder->CreateMalloc(
-                IntPtrTy,
-                StringStructType,
-                allocsize,
-                nullptr
-            );
-
-            Builder->CreateStore(
-                Builder->getInt8(static_cast<uint8_t>(ObjType::STRING)),
-                Builder->CreateStructGEP(ObjStructType, NewObjMalloc, 0)
-            );
-            Builder->CreateStore(NewObjMalloc, NewObj);
-
-            const auto NewString = Builder->CreateBitCast(NewObj, StringStructType->getPointerTo());
-            Builder->CreateStore(
+            const auto NewString = AllocateString(
                 Builder->CreateLoad(Builder->getPtrTy(), StringTemp),
-                Builder->CreateStructGEP(StringStructType, Builder->CreateLoad(Builder->getPtrTy(), NewString), 1)
-            );
-            Builder->CreateStore(
                 NewLength,
-                Builder->CreateStructGEP(StringStructType, Builder->CreateLoad(Builder->getPtrTy(), NewString), 2)
+                "NewString"
             );
-            Builder->CreateRet(
-                ObjVal(
-                    Builder->CreatePtrToInt(
-                        Builder->CreateLoad(Builder->getPtrTy(), NewString),
-                        Builder->getInt64Ty()
-                    )
-                )
-            );
+
+            Builder->CreateRet(NewString);
 
             Builder->SetInsertPoint(InsertPoint);
 

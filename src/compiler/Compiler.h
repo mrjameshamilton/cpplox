@@ -1,6 +1,7 @@
 #ifndef COMPILER_H
 #define COMPILER_H
 #include "../AST.h"
+#include "Value.h"
 #include <llvm/ADT/DenseMapInfo.h>
 #include <llvm/ADT/ScopedHashTable.h>
 #include <llvm/ADT/StringExtras.h>
@@ -91,6 +92,8 @@ namespace lox {
         Value *StrEquals(Value *a, Value *b) const;
         Value *Concat(Value *a, Value *b) const;
 
+        Value *AllocateObj(lox::ObjType objType, std::string_view name = "") const;
+        Value *AllocateString(Value *String, Value *Length, std::string_view name = "") const;
 
         // Statement code generation.
         void operator()(const BlockStmtPtr &blockStmt);
