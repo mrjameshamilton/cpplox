@@ -140,10 +140,17 @@ namespace lox {
 
             const auto NewObj = CreateEntryBlockAlloca(F, ObjStructType, "NewString");
 
+
+            Type *IntPtrTy = IntegerType::getInt32Ty(*Context);
+            // The malloc size IR that is generated with getSizeOf uses a hack described here:
+            // https://mukulrathi.com/create-your-own-programming-language/concurrency-runtime-language-tutorial/#malloc
+            Constant *allocsize = ConstantExpr::getSizeOf(StringStructType);
+            allocsize = ConstantExpr::getTruncOrBitCast(allocsize, IntPtrTy);
+
             const auto NewObjMalloc = Builder->CreateMalloc(
-                Builder->getInt32Ty(),
+                IntPtrTy,
                 StringStructType,
-                Builder->getInt32(1),
+                allocsize,
                 nullptr
             );
 

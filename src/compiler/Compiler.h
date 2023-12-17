@@ -58,7 +58,7 @@ namespace lox {
         ScopedHTType variables;
         std::stack<ScopedHTType::ScopeTy> scopes;
         std::unordered_map<std::string_view, Value *> strings;
-        StructType *ObjStructType = StructType::create(*Context, {Builder->getInt8Ty()}, "Obj");
+        StructType *ObjStructType = StructType::create(*Context, {Builder->getInt8Ty(), Builder->getPtrTy()}, "Obj");
         StructType *StringStructType = StructType::create(*Context, {ObjStructType, Builder->getInt8PtrTy(), Builder->getInt32Ty()}, "String");
 
         Compiler() = default;
