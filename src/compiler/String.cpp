@@ -1,5 +1,5 @@
 #include "Compiler.h"
-#include "Object.h"
+#include "Value.h"
 #include <llvm/IR/Value.h>
 
 namespace lox {

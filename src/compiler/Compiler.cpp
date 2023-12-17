@@ -3,7 +3,7 @@
 #define COMPILER_CPP
 #include "Compiler.h"
 #include "../AST.h"
-#include "Object.h"
+#include "Value.h"
 #include <iostream>
 #include <llvm/ADT/DenseMapInfo.h>
 #include <llvm/ADT/ScopedHashTable.h>

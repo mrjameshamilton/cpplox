@@ -23,8 +23,8 @@ add_executable(cpplox src/main.cpp
         src/Resolver.cpp
         src/compiler/Compiler.cpp
         src/compiler/Compiler.h
-        src/compiler/Object.h
-        src/compiler/Object.cpp
+        src/compiler/Value.h
+        src/compiler/Value.cpp
         src/compiler/String.cpp
         src/compiler/Truthy.cpp
 )
