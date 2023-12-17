@@ -117,6 +117,15 @@ namespace lox {
         Value *operator()(const LogicalExprPtr &logicalExpr);
         Value *operator()(const UnaryExprPtr &unaryExpr);
 
+
+        void PrintF(const std::string &stringFormat, Value *value) const;
+        void PrintF(Value *strFormat, Value *value) const;
+        void PrintString(const std::string &string) const;
+        void PrintNumber(Value *value) const;
+        void PrintNil() const;
+        void PrintString(Value *value) const;
+        void PrintBool(Value *value) const;
+
         void beginScope() {
             scopes.emplace(variables);
         }
@@ -138,46 +147,6 @@ namespace lox {
             LoxModule->print(out, nullptr);
             out.close();
             return ec.value() == 0;
-        }
-
-        void PrintF(const std::string &stringFormat, Value *value) const {
-            PrintF(Builder->CreateGlobalStringPtr(stringFormat), value);
-        }
-
-        void PrintF(Value *strFormat, Value *value) const {
-            static const auto PrintF = LoxModule->getOrInsertFunction(
-                "printf",
-                FunctionType::get(Builder->getInt8Ty(), {Type::getInt8PtrTy(*Context)}, true)
-            );
-            Builder->CreateCall(PrintF, {strFormat, value});
-        }
-
-        void PrintString(const std::string &string) const {
-            static const auto fmt = Builder->CreateGlobalStringPtr("%s\n");
-            PrintF(fmt, Builder->CreateGlobalStringPtr(string));
-        }
-
-        void PrintNumber(Value *value) const {
-            static const auto gfmt = Builder->CreateGlobalStringPtr("%g\n");
-            PrintF(gfmt, AsNumber(value));
-        }
-
-        void PrintNil() const {
-            static const auto fmt = Builder->CreateGlobalStringPtr("%s\n");
-            static const auto nil = Builder->CreateGlobalStringPtr("nil");
-            PrintF(fmt, nil);
-        }
-
-        void PrintString(Value *value) const {
-            static const auto fmt = Builder->CreateGlobalStringPtr("%s\n");
-            PrintF(fmt, AsCString(value));
-        }
-
-        void PrintBool(Value *value) const {
-            static const auto fmt = Builder->CreateGlobalStringPtr("%s\n");
-            static const auto true_ = Builder->CreateGlobalStringPtr("true");
-            static const auto false_ = Builder->CreateGlobalStringPtr("false");
-            PrintF(fmt, Builder->CreateSelect(AsBool(value), true_, false_));
         }
     };
 }// namespace lox

@@ -72,4 +72,43 @@ namespace lox {
         return Builder->CreateBitCast(value, Builder->getInt64Ty());
     }
 
+    void Compiler::PrintF(const std::string &stringFormat, Value *value) const {
+        PrintF(Builder->CreateGlobalStringPtr(stringFormat), value);
+    }
+
+    void Compiler::PrintF(Value *strFormat, Value *value) const {
+        static const auto PrintF = LoxModule->getOrInsertFunction(
+            "printf",
+            FunctionType::get(Builder->getInt8Ty(), {Type::getInt8PtrTy(*Context)}, true)
+        );
+        Builder->CreateCall(PrintF, {strFormat, value});
+    }
+
+    void Compiler::PrintString(const std::string &string) const {
+        static const auto fmt = Builder->CreateGlobalStringPtr("%s\n");
+        PrintF(fmt, Builder->CreateGlobalStringPtr(string));
+    }
+
+    void Compiler::PrintNumber(Value *value) const {
+        static const auto gfmt = Builder->CreateGlobalStringPtr("%g\n");
+        PrintF(gfmt, AsNumber(value));
+    }
+
+    void Compiler::PrintNil() const {
+        static const auto fmt = Builder->CreateGlobalStringPtr("%s\n");
+        static const auto nil = Builder->CreateGlobalStringPtr("nil");
+        PrintF(fmt, nil);
+    }
+
+    void Compiler::PrintString(Value *value) const {
+        static const auto fmt = Builder->CreateGlobalStringPtr("%s\n");
+        PrintF(fmt, AsCString(value));
+    }
+
+    void Compiler::PrintBool(Value *value) const {
+        static const auto fmt = Builder->CreateGlobalStringPtr("%s\n");
+        static const auto true_ = Builder->CreateGlobalStringPtr("true");
+        static const auto false_ = Builder->CreateGlobalStringPtr("false");
+        PrintF(fmt, Builder->CreateSelect(AsBool(value), true_, false_));
+    }
 }// namespace lox

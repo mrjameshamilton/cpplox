@@ -210,7 +210,7 @@ namespace lox {
                 Result->addIncoming(Y, IsStringBlock);
                 Result->addIncoming(Z, NotStringBlock);
 
-            return BoolVal(binaryExpr->op == BinaryOp::EQUAL_EQUAL ? Result : Builder->CreateNot(Result));
+                return BoolVal(binaryExpr->op == BinaryOp::EQUAL_EQUAL ? Result : Builder->CreateNot(Result));
         }
 
         std::unreachable();
