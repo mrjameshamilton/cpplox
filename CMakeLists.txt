@@ -21,13 +21,14 @@ add_executable(cpplox src/main.cpp
         src/Interpreter.cpp
         src/Util.h
         src/Resolver.cpp
-        src/compiler/Compiler.cpp
+        src/compiler/Expr.cpp
         src/compiler/Compiler.h
         src/compiler/Value.h
         src/compiler/Value.cpp
         src/compiler/String.cpp
         src/compiler/Truthy.cpp
         src/compiler/Memory.cpp
+        src/compiler/Stmt.cpp
 )
 
 target_compile_options(cpplox PRIVATE
