@@ -2,12 +2,22 @@
 namespace lox {
 
     void Compiler::evaluate(const Program &program) {
+        LoxModule->getOrInsertGlobal("objects", Builder->getPtrTy());
+        const auto global = LoxModule->getNamedGlobal("objects");
+        global->setLinkage(GlobalValue::PrivateLinkage);
+        global->setAlignment(Align(8));
+        global->setConstant(false);
+        global->setInitializer(ConstantPointerNull::get(ObjStructType->getPointerTo()));
+
         beginScope();
         const auto EntryBasicBlock = BasicBlock::Create(*Context, "entry", MainFunction);
         Builder->SetInsertPoint(EntryBasicBlock);
         for (auto &stmt: program) {
             evaluate(stmt);
         }
+
+        freeObjects();
+
         Builder->CreateRet(Builder->getInt32(0));
         endScope();
     }

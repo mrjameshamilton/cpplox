@@ -59,7 +59,13 @@ namespace lox {
         ScopedHTType variables;
         std::stack<ScopedHTType::ScopeTy> scopes;
         std::unordered_map<std::string_view, Value *> strings;
-        StructType *ObjStructType = StructType::create(*Context, {Builder->getInt8Ty(), Builder->getPtrTy()}, "Obj");
+        StructType *ObjStructType = StructType::create(
+            *Context,
+            {Builder->getInt8Ty(),// ObjType
+             Builder->getInt1Ty(),// isMarked
+             Builder->getPtrTy()},// next
+            "Obj"
+        );
         StructType *StringStructType = StructType::create(*Context, {ObjStructType, Builder->getInt8PtrTy(), Builder->getInt32Ty()}, "String");
 
         Compiler() = default;
@@ -94,6 +100,8 @@ namespace lox {
 
         Value *AllocateObj(lox::ObjType objType, std::string_view name = "") const;
         Value *AllocateString(Value *String, Value *Length, std::string_view name = "") const;
+        void freeObjects() const;
+        void freeObject(Value *value) const;
 
         // Statement code generation.
         void operator()(const BlockStmtPtr &blockStmt);
@@ -122,7 +130,7 @@ namespace lox {
 
 
         void PrintF(const std::string &stringFormat, Value *value) const;
-        void PrintF(Value *strFormat, Value *value) const;
+        void PrintF(const std::initializer_list<Value *> value) const;
         void PrintString(const std::string &string) const;
         void PrintNumber(Value *value) const;
         void PrintNil() const;
