@@ -100,8 +100,8 @@ namespace lox {
 
         Value *AllocateObj(lox::ObjType objType, std::string_view name = "") const;
         Value *AllocateString(Value *String, Value *Length, std::string_view name = "") const;
-        void freeObjects() const;
-        void freeObject(Value *value) const;
+        void FreeObjects() const;
+        void FreeObject(Value *value) const;
 
         // Statement code generation.
         void operator()(const BlockStmtPtr &blockStmt);

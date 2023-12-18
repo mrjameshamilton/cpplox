@@ -16,7 +16,7 @@ namespace lox {
             evaluate(stmt);
         }
 
-        freeObjects();
+        FreeObjects();
 
         Builder->CreateRet(Builder->getInt32(0));
         endScope();

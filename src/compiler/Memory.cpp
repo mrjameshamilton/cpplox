@@ -76,7 +76,7 @@ namespace lox {
         return Builder->CreateBitCast(NewObj, StructType->getPointerTo());
     }
 
-    void Compiler::freeObjects() const {
+    void Compiler::FreeObjects() const {
         const auto global = LoxModule->getNamedGlobal("objects");
         const auto object = CreateEntryBlockAlloca(MainFunction, Builder->getPtrTy(), "object");
         const auto next = CreateEntryBlockAlloca(MainFunction, Builder->getPtrTy(), "next");
@@ -102,7 +102,7 @@ namespace lox {
             next
         );
 
-        freeObject(Builder->CreateLoad(Builder->getInt64Ty(), object));
+        FreeObject(Builder->CreateLoad(Builder->getInt64Ty(), object));
 
         Builder->CreateStore(
             Builder->CreateLoad(Builder->getPtrTy(), next),
@@ -114,7 +114,7 @@ namespace lox {
         Builder->SetInsertPoint(WhileEnd);
     }
 
-    void Compiler::freeObject(Value *value) const {
+    void Compiler::FreeObject(Value *value) const {
         const auto IsStringBlock = BasicBlock::Create(*Context, "string", MainFunction);
         const auto DefaultBlock = BasicBlock::Create(*Context, "default", MainFunction);
 
