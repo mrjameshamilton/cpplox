@@ -1,8 +1,18 @@
 #include "Value.h"
 #include "Compiler.h"
 
-#include <iostream>
+#include <llvm/ADT/DenseMapInfo.h>
+#include <llvm/ADT/StringExtras.h>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Value.h>
+#include <llvm/Passes/PassBuilder.h>
+
+using namespace llvm;
+using namespace llvm::sys;
 
 namespace lox {
     Value *Compiler::IsBool(Value *value) const {

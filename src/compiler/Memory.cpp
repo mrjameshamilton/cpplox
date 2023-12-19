@@ -1,5 +1,4 @@
 #include "Compiler.h"
-#include "String.h"
 #include "Value.h"
 
 #include <llvm/IR/Value.h>
@@ -7,6 +6,11 @@
 #define DEBUG_LOG_GC true
 
 namespace lox {
+
+    AllocaInst *CreateEntryBlockAlloca(Function *TheFunction, Type *type, const std::string_view &VarName) {
+        IRBuilder TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
+        return TmpB.CreateAlloca(type, nullptr, VarName);
+    }
 
     Value *Compiler::AllocateObj(lox::ObjType objType, const std::string_view name) const {
         Type *StructType;
@@ -126,7 +130,7 @@ namespace lox {
 #ifdef DEBUG_LOG_GC
         static const auto fmt = Builder->CreateGlobalStringPtr("free '%s' @ %p\n");
         PrintF({fmt, AsCString(value), value});
-        //Builder->CreateFree(); TODO: free string chars? but their not allocated by malloc.
+        //Builder->CreateFree(); TODO: free string chars? but they're not allocated by malloc.
         Builder->CreateFree(value);
 #endif
 

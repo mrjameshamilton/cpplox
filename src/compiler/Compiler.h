@@ -1,20 +1,16 @@
 #ifndef COMPILER_H
 #define COMPILER_H
+
 #include "../AST.h"
 #include "Value.h"
-#include <llvm/ADT/DenseMapInfo.h>
+
 #include <llvm/ADT/ScopedHashTable.h>
-#include <llvm/ADT/StringExtras.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
-#include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Function.h>
-#include <llvm/IR/IRBuilder.h>
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/Module.h>
 #include <llvm/IR/NoFolder.h>
+#include <llvm/IR/Value.h>
 #include <llvm/Passes/PassBuilder.h>
-#include <ranges>
 #include <stack>
 
 using namespace llvm;
@@ -44,10 +40,8 @@ inline bool DenseMapInfo<std::string_view>::isEqual(const std::string_view LHS, 
 }
 
 namespace lox {
-    static AllocaInst *CreateEntryBlockAlloca(Function *TheFunction, Type *type, const std::string_view &VarName) {
-        IRBuilder TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
-        return TmpB.CreateAlloca(type, nullptr, VarName);
-    }
+
+    AllocaInst *CreateEntryBlockAlloca(Function *TheFunction, Type *type, const std::string_view &VarName);
 
     struct Compiler {
         std::unique_ptr<LLVMContext> Context = std::make_unique<LLVMContext>();
@@ -103,7 +97,10 @@ namespace lox {
         void FreeObjects() const;
         void FreeObject(Value *value) const;
 
+        void evaluate(const Program &program);
+
         // Statement code generation.
+        void evaluate(const Stmt &stmt);
         void operator()(const BlockStmtPtr &blockStmt);
         void operator()(const FunctionStmtPtr &functionStmt) const;
         void operator()(const ExpressionStmtPtr &expressionStmt);
@@ -115,6 +112,7 @@ namespace lox {
         void operator()(const ClassStmtPtr &classStmt) const;
 
         // Expression code generation.
+        Value *evaluate(const Expr &expr);
         Value *operator()(const AssignExprPtr &assignExpr);
         Value *operator()(const BinaryExprPtr &binaryExpr);
         Value *operator()(const CallExprPtr &callExpr) const;
@@ -127,7 +125,6 @@ namespace lox {
         Value *operator()(const LiteralExprPtr &literalExpr);
         Value *operator()(const LogicalExprPtr &logicalExpr);
         Value *operator()(const UnaryExprPtr &unaryExpr);
-
 
         void PrintF(const std::string &stringFormat, Value *value) const;
         void PrintF(const std::initializer_list<Value *> value) const;
@@ -146,21 +143,9 @@ namespace lox {
             scopes.pop();
         }
 
-        void evaluate(const Program &program);
-        Value *evaluate(const Expr &expr) {
-            return std::visit(*this, expr);
-        }
-        void evaluate(const Stmt &stmt) {
-            std::visit(*this, stmt);
-        }
-        bool writeIR(const std::string &Filename) const {
-            std::error_code ec;
-            auto out = raw_fd_ostream(Filename, ec);
-            LoxModule->print(out, nullptr);
-            out.close();
-            return ec.value() == 0;
-        }
+        bool writeIR(const std::string &Filename) const;
     };
+
 }// namespace lox
 
 #endif//COMPILER_H

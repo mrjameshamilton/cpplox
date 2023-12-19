@@ -5,6 +5,10 @@ using namespace llvm::sys;
 
 namespace lox {
 
+    Value *Compiler::evaluate(const Expr &expr) {
+        return std::visit(*this, expr);
+    }
+
     Value *Compiler::operator()(const AssignExprPtr &assignExpr) {
         const auto value = evaluate(assignExpr->value);
         /*const auto global = LoxModule->getNamedGlobal(assignExpr->name.getLexeme());
