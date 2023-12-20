@@ -1,5 +1,5 @@
-#include "Compiler.h"
 #include "../AST.h"
+#include "LoxCompiler.h"
 
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
@@ -12,7 +12,7 @@ using namespace llvm::sys;
 
 namespace lox {
 
-    void Compiler::evaluate(const Program &program) {
+    void LoxCompiler::evaluate(const Program &program) {
         LoxModule->getOrInsertGlobal("objects", Builder->getPtrTy());
         const auto global = LoxModule->getNamedGlobal("objects");
         global->setLinkage(GlobalValue::PrivateLinkage);
@@ -33,7 +33,7 @@ namespace lox {
         endScope();
     }
 
-    bool Compiler::writeIR(const std::string &Filename) const {
+    bool LoxCompiler::writeIR(const std::string &Filename) const {
         std::error_code ec;
         auto out = raw_fd_ostream(Filename, ec);
         LoxModule->print(out, nullptr);

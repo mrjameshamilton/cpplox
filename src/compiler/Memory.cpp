@@ -1,4 +1,4 @@
-#include "Compiler.h"
+#include "LoxCompiler.h"
 #include "Value.h"
 
 #include <llvm/IR/Value.h>
@@ -12,7 +12,7 @@ namespace lox {
         return TmpB.CreateAlloca(type, nullptr, VarName);
     }
 
-    Value *Compiler::AllocateObj(lox::ObjType objType, const std::string_view name) const {
+    Value *LoxCompiler::AllocateObj(lox::ObjType objType, const std::string_view name) const {
         Type *StructType;
 
         switch (objType) {
@@ -80,7 +80,7 @@ namespace lox {
         return Builder->CreateBitCast(NewObj, StructType->getPointerTo());
     }
 
-    void Compiler::FreeObjects() const {
+    void LoxCompiler::FreeObjects() const {
         const auto global = LoxModule->getNamedGlobal("objects");
         const auto object = CreateEntryBlockAlloca(MainFunction, Builder->getPtrTy(), "object");
         const auto next = CreateEntryBlockAlloca(MainFunction, Builder->getPtrTy(), "next");
@@ -118,7 +118,7 @@ namespace lox {
         Builder->SetInsertPoint(WhileEnd);
     }
 
-    void Compiler::FreeObject(Value *value) const {
+    void LoxCompiler::FreeObject(Value *value) const {
         const auto IsStringBlock = BasicBlock::Create(*Context, "string", MainFunction);
         const auto DefaultBlock = BasicBlock::Create(*Context, "default", MainFunction);
 

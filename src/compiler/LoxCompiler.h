@@ -43,7 +43,7 @@ namespace lox {
 
     AllocaInst *CreateEntryBlockAlloca(Function *TheFunction, Type *type, const std::string_view &VarName);
 
-    struct Compiler {
+    struct LoxCompiler {
         std::unique_ptr<LLVMContext> Context = std::make_unique<LLVMContext>();
         std::unique_ptr<Module> LoxModule = std::make_unique<Module>("lox", *Context);
         std::unique_ptr<IRBuilder<NoFolder>> Builder = std::make_unique<IRBuilder<NoFolder>>(*Context);
@@ -62,7 +62,7 @@ namespace lox {
         );
         StructType *StringStructType = StructType::create(*Context, {ObjStructType, Builder->getInt8PtrTy(), Builder->getInt32Ty()}, "String");
 
-        Compiler() = default;
+        LoxCompiler() = default;
 
         // Code generation for checking types of values.
         Value *IsBool(Value *) const;

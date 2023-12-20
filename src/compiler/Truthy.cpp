@@ -1,8 +1,8 @@
-#include "Compiler.h"
+#include "LoxCompiler.h"
 #include <llvm/IR/Value.h>
 
 namespace lox {
-    Value *Compiler::IsTruthy(Value *value) const {
+    Value *LoxCompiler::IsTruthy(Value *value) const {
         static auto IsTruthyFunction([this] {
             const auto F = Function::Create(
                 FunctionType::get(
@@ -42,7 +42,7 @@ namespace lox {
         return Builder->CreateCall(IsTruthyFunction, value);
     }
 
-    Value *Compiler::IsNotTruthy(Value *value) const {
+    Value *LoxCompiler::IsNotTruthy(Value *value) const {
         return Builder->CreateNot(IsTruthy(value));
     }
 }// namespace lox

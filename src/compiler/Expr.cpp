@@ -1,15 +1,15 @@
-#include "Compiler.h"
+#include "LoxCompiler.h"
 
 using namespace llvm;
 using namespace llvm::sys;
 
 namespace lox {
 
-    Value *Compiler::evaluate(const Expr &expr) {
+    Value *LoxCompiler::evaluate(const Expr &expr) {
         return std::visit(*this, expr);
     }
 
-    Value *Compiler::operator()(const AssignExprPtr &assignExpr) {
+    Value *LoxCompiler::operator()(const AssignExprPtr &assignExpr) {
         const auto value = evaluate(assignExpr->value);
         /*const auto global = LoxModule->getNamedGlobal(assignExpr->name.getLexeme());
             Builder->CreateStore(value, global);*/
@@ -18,7 +18,7 @@ namespace lox {
         return value;
     }
 
-    Value *Compiler::operator()(const BinaryExprPtr &binaryExpr) {
+    Value *LoxCompiler::operator()(const BinaryExprPtr &binaryExpr) {
         const auto left = evaluate(binaryExpr->left);
         const auto right = evaluate(binaryExpr->right);
 
@@ -102,27 +102,27 @@ namespace lox {
         std::unreachable();
     }
 
-    Value *Compiler::operator()(const CallExprPtr &callExpr) const {
+    Value *LoxCompiler::operator()(const CallExprPtr &callExpr) const {
         throw std::runtime_error("not implemented");
     }
 
-    Value *Compiler::operator()(const GetExprPtr &getExpr) const {
+    Value *LoxCompiler::operator()(const GetExprPtr &getExpr) const {
         throw std::runtime_error("not implemented");
     }
 
-    Value *Compiler::operator()(const SetExprPtr &setExpr) const {
+    Value *LoxCompiler::operator()(const SetExprPtr &setExpr) const {
         throw std::runtime_error("not implemented");
     }
 
-    Value *Compiler::operator()(const ThisExprPtr &thisExpr) const {
+    Value *LoxCompiler::operator()(const ThisExprPtr &thisExpr) const {
         throw std::runtime_error("not implemented");
     }
 
-    Value *Compiler::operator()(const SuperExprPtr &superExpr) const {
+    Value *LoxCompiler::operator()(const SuperExprPtr &superExpr) const {
         throw std::runtime_error("not implemented");
     }
 
-    Value *Compiler::operator()(const VarExprPtr &varExpr) const {
+    Value *LoxCompiler::operator()(const VarExprPtr &varExpr) const {
         const auto value = variables.lookup(varExpr->name.getLexeme());
         return Builder->CreateLoad(Builder->getInt64Ty(), value);
         //if (varExpr->distance == -1) {
@@ -131,11 +131,11 @@ namespace lox {
         //}
     }
 
-    Value *Compiler::operator()(const GroupingExprPtr &groupingExpr) {
+    Value *LoxCompiler::operator()(const GroupingExprPtr &groupingExpr) {
         return evaluate(groupingExpr->expression);
     }
 
-    Value *Compiler::operator()(const LiteralExprPtr &literalExpr) {
+    Value *LoxCompiler::operator()(const LiteralExprPtr &literalExpr) {
         return std::visit(
             overloaded{
                 [this](const bool value) -> Value * { return value ? Builder->getInt64(TRUE_VAL) : Builder->getInt64(FALSE_VAL); },
@@ -164,7 +164,7 @@ namespace lox {
         );
     }
 
-    Value *Compiler::operator()(const LogicalExprPtr &logicalExpr) {
+    Value *LoxCompiler::operator()(const LogicalExprPtr &logicalExpr) {
         const auto left = evaluate(logicalExpr->left);
 
         switch (logicalExpr->op) {
@@ -197,7 +197,7 @@ namespace lox {
         std::unreachable();
     }
 
-    Value *Compiler::operator()(const UnaryExprPtr &unaryExpr) {
+    Value *LoxCompiler::operator()(const UnaryExprPtr &unaryExpr) {
         const auto left = evaluate(unaryExpr->expression);
 
         switch (unaryExpr->op) {

@@ -1,11 +1,11 @@
 #include "String.h"
-#include "Compiler.h"
+#include "LoxCompiler.h"
 #include "Value.h"
 #include <llvm/IR/Value.h>
 
 namespace lox {
 
-    Value *Compiler::AllocateString(Value *String, Value *Length, const std::string_view name) const {
+    Value *LoxCompiler::AllocateString(Value *String, Value *Length, const std::string_view name) const {
         const auto NewString = AllocateObj(ObjType::STRING, name);
 
         STORE_STRING_STRING(NewString, String);
@@ -19,7 +19,7 @@ namespace lox {
         );
     }
 
-    Value *Compiler::StrEquals(Value *a, Value *b) const {
+    Value *LoxCompiler::StrEquals(Value *a, Value *b) const {
         static auto StrEqualsFunction([this] {
             const auto F = Function::Create(
                 FunctionType::get(
@@ -77,7 +77,7 @@ namespace lox {
         return Builder->CreateCall(StrEqualsFunction, {a, b});
     }
 
-    Value *Compiler::Concat(Value *a, Value *b) const {
+    Value *LoxCompiler::Concat(Value *a, Value *b) const {
         static auto ConcatFunction([this] {
             const auto F = Function::Create(
                 FunctionType::get(

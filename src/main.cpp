@@ -2,7 +2,7 @@
 #include "Parser.cpp"
 #include "Resolver.cpp"
 #include "Scanner.cpp"
-#include "compiler/Compiler.h"
+#include "compiler/LoxCompiler.h"
 #include "llvm/Support/CommandLine.h"
 #include <fstream>
 #include <iostream>
@@ -47,10 +47,10 @@ int main(const int argc, char **argv) {
     if (hadError) return 65;
 
 
-    Compiler Compiler;
-    Compiler.evaluate(ast);
+    LoxCompiler LoxCompiler;
+    LoxCompiler.evaluate(ast);
     if (!OutputFilename.empty()) {
-        Compiler.writeIR(OutputFilename.getValue());
+        LoxCompiler.writeIR(OutputFilename.getValue());
     }
 
     Interpreter Interpreter;

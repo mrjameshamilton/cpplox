@@ -1,11 +1,11 @@
-#include "Compiler.h"
+#include "LoxCompiler.h"
 namespace lox {
 
-    void Compiler::evaluate(const Stmt &stmt) {
+    void LoxCompiler::evaluate(const Stmt &stmt) {
         std::visit(*this, stmt);
     }
 
-    void Compiler::operator()(const BlockStmtPtr &blockStmt) {
+    void LoxCompiler::operator()(const BlockStmtPtr &blockStmt) {
         beginScope();
         for (auto &statement: blockStmt->statements) {
             evaluate(statement);
@@ -13,14 +13,14 @@ namespace lox {
         endScope();
     }
 
-    void Compiler::operator()(const FunctionStmtPtr &functionStmt) const {
+    void LoxCompiler::operator()(const FunctionStmtPtr &functionStmt) const {
     }
 
-    void Compiler::operator()(const ExpressionStmtPtr &expressionStmt) {
+    void LoxCompiler::operator()(const ExpressionStmtPtr &expressionStmt) {
         evaluate(expressionStmt->expression);
     }
 
-    void Compiler::operator()(const PrintStmtPtr &printStmt) {
+    void LoxCompiler::operator()(const PrintStmtPtr &printStmt) {
         const auto value = evaluate(printStmt->expression);
 
         const auto BoolBlock = BasicBlock::Create(*Context, "if.bool", MainFunction);
@@ -55,10 +55,10 @@ namespace lox {
         Builder->SetInsertPoint(EndBlock);
     }
 
-    void Compiler::operator()(const ReturnStmtPtr &returnStmt) const {
+    void LoxCompiler::operator()(const ReturnStmtPtr &returnStmt) const {
     }
 
-    void Compiler::operator()(const VarStmtPtr &varStmt) {
+    void LoxCompiler::operator()(const VarStmtPtr &varStmt) {
         const auto alloca = CreateEntryBlockAlloca(MainFunction, Builder->getInt64Ty(), varStmt->name.getLexeme());
         Builder->CreateStore(evaluate(varStmt->initializer), alloca);
         variables.insert(varStmt->name.getLexeme(), alloca);
@@ -72,7 +72,7 @@ namespace lox {
                 Builder->CreateStore(evaluate(varStmt->initializer), global);*/
     }
 
-    void Compiler::operator()(const WhileStmtPtr &whileStmt) {
+    void LoxCompiler::operator()(const WhileStmtPtr &whileStmt) {
         const auto Cond = BasicBlock::Create(*Context, "Cond", MainFunction);
         const auto Body = BasicBlock::Create(*Context, "Loop", MainFunction);
         const auto Exit = BasicBlock::Create(*Context, "Exit", MainFunction);
@@ -86,7 +86,7 @@ namespace lox {
         Builder->SetInsertPoint(Exit);
     }
 
-    void Compiler::operator()(const IfStmtPtr &ifStmt) {
+    void LoxCompiler::operator()(const IfStmtPtr &ifStmt) {
         const auto TrueBlock = BasicBlock::Create(*Context, "if.true", MainFunction);
         const auto FalseBlock = BasicBlock::Create(*Context, "else", MainFunction);
         const auto EndBlock = BasicBlock::Create(*Context, "if.end", MainFunction);
@@ -102,6 +102,6 @@ namespace lox {
         Builder->SetInsertPoint(EndBlock);
     }
 
-    void Compiler::operator()(const ClassStmtPtr &classStmt) const {
+    void LoxCompiler::operator()(const ClassStmtPtr &classStmt) const {
     }
 }// namespace lox
