@@ -12,7 +12,7 @@ namespace lox {
                 ),
                 Function::InternalLinkage,
                 "IsTruthy",
-                this->LoxModule
+                this->getModule()
             );
 
             const auto EntryBasicBlock = BasicBlock::Create(getContext(), "entry", F);

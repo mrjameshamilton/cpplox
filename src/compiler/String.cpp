@@ -29,7 +29,7 @@ namespace lox {
                 ),
                 Function::InternalLinkage,
                 "strEquals",
-                this->LoxModule
+                this->getModule()
             );
 
             const auto InsertPoint = GetInsertBlock();
@@ -54,7 +54,7 @@ namespace lox {
 
             SetInsertPoint(CheckContents);
 
-            static const auto MemCmp = this->LoxModule.getOrInsertFunction(
+            static const auto MemCmp = this->getModule().getOrInsertFunction(
                 "memcmp",
                 FunctionType::get(getInt32Ty(), {getPtrTy(), getPtrTy(), getInt64Ty()}, false)
             );
@@ -87,7 +87,7 @@ namespace lox {
                 ),
                 Function::InternalLinkage,
                 "concat",
-                this->LoxModule
+                this->getModule()
             );
 
             const auto InsertPoint = GetInsertBlock();
@@ -149,7 +149,7 @@ namespace lox {
             );
 
             const auto NewString = AllocateString(
-                this->LoxModule.getNamedGlobal("objects"),
+                this->getModule().getNamedGlobal("objects"),
                 CreateLoad(getPtrTy(), StringTemp),
                 NewLength, "NewString"
             );
