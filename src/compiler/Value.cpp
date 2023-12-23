@@ -2,12 +2,10 @@
 #include "LoxBuilder.h"
 #include "LoxCompiler.h"
 
-#include <llvm/ADT/DenseMapInfo.h>
 #include <llvm/ADT/StringExtras.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/DerivedTypes.h>
-#include <llvm/IR/Function.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Value.h>
 #include <llvm/Passes/PassBuilder.h>
@@ -16,12 +14,17 @@ using namespace llvm;
 using namespace llvm::sys;
 
 namespace lox {
+
+    Value* LoxBuilder::getNilVal() {
+        return getInt64(NIL_VAL);
+    }
+
     Value *LoxBuilder::IsBool(Value *value) {
         return CreateICmpEQ(CreateOr(value, 1), getInt64(TRUE_VAL));
     }
 
     Value *LoxBuilder::IsNil(Value *value) {
-        return CreateICmpEQ(value, getInt64(NIL_VAL));
+        return CreateICmpEQ(value, getNilVal());
     }
 
     Value *LoxBuilder::IsNumber(Value *value) {
@@ -35,7 +38,7 @@ namespace lox {
     Value *LoxBuilder::IsString(Value *value) {
         return CreateAnd(
             IsObj(value),
-            CreateICmpEQ(ObjType(value), getInt8(static_cast<uint8_t>(ObjType::STRING)))
+            CreateICmpEQ(ObjType(value), ObjTypeInt(ObjType::STRING))
         );
     }
 
@@ -45,6 +48,11 @@ namespace lox {
             CreateStructGEP(ObjStructType, AsObj(value), 0)
         );
     }
+
+    ConstantInt *LoxBuilder::ObjTypeInt(enum ObjType objType) {
+        return getInt8(static_cast<uint8_t>(objType));
+    }
+
 
     Value *LoxBuilder::BoolVal(Value *value) {
         assert(value->getType() == getInt1Ty());
@@ -117,7 +125,7 @@ namespace lox {
         const auto DefaultBlock = BasicBlock::Create(getContext(), "default", getFunction());
 
         const auto Switch = CreateSwitch(ObjType(value), DefaultBlock);
-        Switch->addCase(getInt8(static_cast<uint8_t>(ObjType::STRING)), IsStringBlock);
+        Switch->addCase(ObjTypeInt(ObjType::STRING), IsStringBlock);
 
         SetInsertPoint(IsStringBlock);
         PrintString(value);

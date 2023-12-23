@@ -51,8 +51,10 @@ namespace lox {
         Value *AsString(Value *value);
         Value *AsCString(Value *value);
         Value *AsNumber(Value *value);
+        Value *getNilVal();
 
         Value *ObjType(Value *value);
+        ConstantInt *ObjTypeInt(enum ObjType);
 
         Value *AllocateObj(Value *objects, enum ObjType objType, std::string_view name = "");
         Value *AllocateString(Value *objects, Value *String, Value *Length, std::string_view name = "");

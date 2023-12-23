@@ -29,7 +29,7 @@ namespace lox {
         );
 
         CreateStore(
-            getInt8(static_cast<uint8_t>(objType)),
+            ObjTypeInt(objType),
             CreateStructGEP(ObjStructType, NewObjMalloc, 0, "ObjType")
         );
 
@@ -108,7 +108,7 @@ namespace lox {
         const auto DefaultBlock = BasicBlock::Create(Builder->getContext(), "default", Builder->getFunction());
 
         const auto Switch = Builder->CreateSwitch(Builder->ObjType(value), DefaultBlock);
-        Switch->addCase(Builder->getInt8(static_cast<uint8_t>(ObjType::STRING)), IsStringBlock);
+        Switch->addCase(Builder->ObjTypeInt(ObjType::STRING), IsStringBlock);
 
 
         Builder->SetInsertPoint(IsStringBlock);

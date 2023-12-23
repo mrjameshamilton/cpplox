@@ -85,3 +85,5 @@ print "a" + "b" + "c" == "ab";
 //print "a" + 1;
 print "a" + "b" == "ab";
 print 2==2;
+print !true;
+print nil == nil;

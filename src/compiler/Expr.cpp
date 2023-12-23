@@ -42,7 +42,7 @@ namespace lox {
 
                 Builder->SetInsertPoint(InvalidBlock);
                 // TODO: Throw exception here.
-                const auto &Z = Builder->getInt64(NIL_VAL);
+                const auto &Z = Builder->getNilVal();
                 Builder->CreateBr(EndBlock);
 
                 Builder->SetInsertPoint(EndBlock);
@@ -138,7 +138,7 @@ namespace lox {
     Value *LoxCompiler::operator()(const LiteralExprPtr &literalExpr) {
         return std::visit(
             overloaded{
-                [this](const bool value) -> Value * { return value ? Builder->getInt64(TRUE_VAL) : Builder->getInt64(FALSE_VAL); },
+                [this](const bool value) -> Value * { return Builder->BoolVal(value ? Builder->getTrue() : Builder->getFalse()); },
                 [this](const double double_value) -> Value * {
                     // bitcast double -> i64.
                     uint64_t value;
@@ -159,7 +159,7 @@ namespace lox {
 
                     return value;
                 },
-                [this](const std::nullptr_t) -> Value * { return Builder->getInt64(NIL_VAL); },
+                [this](const std::nullptr_t) -> Value * { return Builder->getNilVal(); },
             },
             literalExpr->literal
         );
@@ -203,7 +203,7 @@ namespace lox {
 
         switch (unaryExpr->op) {
             case UnaryOp::BANG:
-                return Builder->CreateSelect(Builder->IsTruthy(left), Builder->getInt64(FALSE_VAL), Builder->getInt64(TRUE_VAL));
+                return Builder->BoolVal(Builder->CreateSelect(Builder->IsTruthy(left), Builder->getFalse(), Builder->getTrue()));
             case UnaryOp::MINUS:
                 return Builder->NumberVal(Builder->CreateFNeg(Builder->AsNumber(left)));
         }
