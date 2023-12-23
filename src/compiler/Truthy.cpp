@@ -15,11 +15,11 @@ namespace lox {
                 this->getModule()
             );
 
-            const auto EntryBasicBlock = BasicBlock::Create(getContext(), "entry", F);
-            const auto IsNullBlock = BasicBlock::Create(getContext(), "if.null", F);
-            const auto IsNotNullBlock = BasicBlock::Create(getContext(), "if.not.bool", F);
-            const auto IsBoolBlock = BasicBlock::Create(getContext(), "if.bool", F);
-            const auto EndBlock = BasicBlock::Create(getContext(), "if.end", F);
+            const auto EntryBasicBlock = CreateBasicBlock("entry", F);
+            const auto IsNullBlock = CreateBasicBlock("if.null", F);
+            const auto IsNotNullBlock = CreateBasicBlock("if.not.bool", F);
+            const auto IsBoolBlock = CreateBasicBlock("if.bool", F);
+            const auto EndBlock = CreateBasicBlock("if.end", F);
 
             const auto InsertPoint = GetInsertBlock();
             SetInsertPoint(EntryBasicBlock);

@@ -33,7 +33,7 @@ namespace lox {
             );
 
             const auto InsertPoint = GetInsertBlock();
-            const auto EntryBasicBlock = BasicBlock::Create(getContext(), "entry", F);
+            const auto EntryBasicBlock = CreateBasicBlock("entry", F);
             SetInsertPoint(EntryBasicBlock);
 
             const auto arguments = F->args().begin();
@@ -48,8 +48,8 @@ namespace lox {
             const auto String0String = LOAD_STRING_STRING(p0str);
             const auto String1String = LOAD_STRING_STRING(p1str);
 
-            const auto NotEqualBlock = BasicBlock::Create(getContext(), "not.equal", F);
-            const auto CheckContents = BasicBlock::Create(getContext(), "check.contents", F);
+            const auto NotEqualBlock = CreateBasicBlock("not.equal", F);
+            const auto CheckContents = CreateBasicBlock("check.contents", F);
             CreateCondBr(CreateICmpNE(String0Length, String1Length), NotEqualBlock, CheckContents);
 
             SetInsertPoint(CheckContents);
@@ -91,7 +91,7 @@ namespace lox {
             );
 
             const auto InsertPoint = GetInsertBlock();
-            const auto EntryBasicBlock = BasicBlock::Create(this->getContext(), "entry", F);
+            const auto EntryBasicBlock = CreateBasicBlock("entry", F);
             SetInsertPoint(EntryBasicBlock);
 
             const auto arguments = F->args().begin();

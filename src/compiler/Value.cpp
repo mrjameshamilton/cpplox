@@ -15,7 +15,7 @@ using namespace llvm::sys;
 
 namespace lox {
 
-    Value* LoxBuilder::getNilVal() {
+    Value *LoxBuilder::getNilVal() {
         return getInt64(NIL_VAL);
     }
 
@@ -121,8 +121,8 @@ namespace lox {
     }
 
     void LoxBuilder::PrintObject(Value *value) {
-        const auto IsStringBlock = BasicBlock::Create(getContext(), "string", getFunction());
-        const auto DefaultBlock = BasicBlock::Create(getContext(), "default", getFunction());
+        const auto IsStringBlock = CreateBasicBlock("string");
+        const auto DefaultBlock = CreateBasicBlock("default");
 
         const auto Switch = CreateSwitch(ObjType(value), DefaultBlock);
         Switch->addCase(ObjTypeInt(ObjType::STRING), IsStringBlock);

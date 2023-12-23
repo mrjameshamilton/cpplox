@@ -74,9 +74,9 @@ namespace lox {
             object
         );
 
-        const auto WhileCond = BasicBlock::Create(Builder->getContext(), "while.cond", Builder->getFunction());
-        const auto WhileBody = BasicBlock::Create(Builder->getContext(), "while.body", Builder->getFunction());
-        const auto WhileEnd = BasicBlock::Create(Builder->getContext(), "while.end", Builder->getFunction());
+        const auto WhileCond = Builder->CreateBasicBlock("while.cond");
+        const auto WhileBody = Builder->CreateBasicBlock("while.body");
+        const auto WhileEnd = Builder->CreateBasicBlock("while.end");
 
         Builder->CreateBr(WhileCond);
         Builder->SetInsertPoint(WhileCond);
@@ -104,8 +104,8 @@ namespace lox {
     }
 
     void LoxCompiler::FreeObject(Value *value) const {
-        const auto IsStringBlock = BasicBlock::Create(Builder->getContext(), "string", Builder->getFunction());
-        const auto DefaultBlock = BasicBlock::Create(Builder->getContext(), "default", Builder->getFunction());
+        const auto IsStringBlock = Builder->CreateBasicBlock("string");
+        const auto DefaultBlock = Builder->CreateBasicBlock("default");
 
         const auto Switch = Builder->CreateSwitch(Builder->ObjType(value), DefaultBlock);
         Switch->addCase(Builder->ObjTypeInt(ObjType::STRING), IsStringBlock);

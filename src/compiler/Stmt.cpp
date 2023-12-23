@@ -23,13 +23,13 @@ namespace lox {
     void LoxCompiler::operator()(const PrintStmtPtr &printStmt) {
         const auto value = evaluate(printStmt->expression);
 
-        const auto BoolBlock = BasicBlock::Create(Builder->getContext(), "if.bool", Builder->getFunction());
-        const auto EndBoolBlock = BasicBlock::Create(Builder->getContext(), "if.bool.end", Builder->getFunction());
-        const auto NilBlock = BasicBlock::Create(Builder->getContext(), "if.nil", Builder->getFunction());
-        const auto EndNilBlock = BasicBlock::Create(Builder->getContext(), "if.nil.end", Builder->getFunction());
-        const auto NumBlock = BasicBlock::Create(Builder->getContext(), "if.num", Builder->getFunction());
-        const auto ObjBlock = BasicBlock::Create(Builder->getContext(), "if.obj", Builder->getFunction());
-        const auto EndBlock = BasicBlock::Create(Builder->getContext(), "if.end", Builder->getFunction());
+        const auto BoolBlock = Builder->CreateBasicBlock("if.bool");
+        const auto EndBoolBlock = Builder->CreateBasicBlock("if.bool.end");
+        const auto NilBlock = Builder->CreateBasicBlock("if.nil");
+        const auto EndNilBlock = Builder->CreateBasicBlock("if.nil.end");
+        const auto NumBlock = Builder->CreateBasicBlock("if.num");
+        const auto ObjBlock = Builder->CreateBasicBlock("if.obj");
+        const auto EndBlock = Builder->CreateBasicBlock("if.end");
 
         Builder->CreateCondBr(Builder->IsBool(value), BoolBlock, EndBoolBlock);
         Builder->SetInsertPoint(BoolBlock);
@@ -73,9 +73,9 @@ namespace lox {
     }
 
     void LoxCompiler::operator()(const WhileStmtPtr &whileStmt) {
-        const auto Cond = BasicBlock::Create(Builder->getContext(), "Cond", Builder->getFunction());
-        const auto Body = BasicBlock::Create(Builder->getContext(), "Loop", Builder->getFunction());
-        const auto Exit = BasicBlock::Create(Builder->getContext(), "Exit", Builder->getFunction());
+        const auto Cond = Builder->CreateBasicBlock("Cond");
+        const auto Body = Builder->CreateBasicBlock("Loop");
+        const auto Exit = Builder->CreateBasicBlock("Exit");
 
         Builder->CreateBr(Cond);
         Builder->SetInsertPoint(Cond);
@@ -87,9 +87,9 @@ namespace lox {
     }
 
     void LoxCompiler::operator()(const IfStmtPtr &ifStmt) {
-        const auto TrueBlock = BasicBlock::Create(Builder->getContext(), "if.true", Builder->getFunction());
-        const auto FalseBlock = BasicBlock::Create(Builder->getContext(), "else", Builder->getFunction());
-        const auto EndBlock = BasicBlock::Create(Builder->getContext(), "if.end", Builder->getFunction());
+        const auto TrueBlock = Builder->CreateBasicBlock("if.true");
+        const auto FalseBlock = Builder->CreateBasicBlock("else");
+        const auto EndBlock = Builder->CreateBasicBlock("if.end");
         Builder->CreateCondBr(Builder->IsTruthy(evaluate(ifStmt->condition)), TrueBlock, FalseBlock);
         Builder->SetInsertPoint(TrueBlock);
         evaluate(ifStmt->thenBranch);
