@@ -1,5 +1,5 @@
-#include "../AST.h"
 #include "LoxCompiler.h"
+#include "../AST.h"
 
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
@@ -18,7 +18,7 @@ namespace lox {
         global->setLinkage(GlobalValue::PrivateLinkage);
         global->setAlignment(Align(8));
         global->setConstant(false);
-        global->setInitializer(ConstantPointerNull::get(ObjStructType->getPointerTo()));
+        global->setInitializer(ConstantPointerNull::get(Builder->getObjStructType()->getPointerTo()));
 
         beginScope();
         const auto EntryBasicBlock = BasicBlock::Create(*Context, "entry", MainFunction);

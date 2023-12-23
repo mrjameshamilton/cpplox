@@ -29,15 +29,15 @@ namespace lox {
                 const auto IsNumBlock = BasicBlock::Create(*Context, "if.num", MainFunction);
                 const auto InvalidBlock = BasicBlock::Create(*Context, "invalid", MainFunction);
                 const auto EndBlock = BasicBlock::Create(*Context, "if.end", MainFunction);
-                Builder->CreateCondBr(Builder->CreateAnd(IsNumber(left), IsNumber(right)), IsNumBlock, IsMaybeStringBlock);
+                Builder->CreateCondBr(Builder->CreateAnd(Builder->IsNumber(left), Builder->IsNumber(right)), IsNumBlock, IsMaybeStringBlock);
                 Builder->SetInsertPoint(IsNumBlock);
-                const auto &X = NumberVal(Builder->CreateFAdd(AsNumber(left), AsNumber(right)));
+                const auto &X = Builder->NumberVal(Builder->CreateFAdd(Builder->AsNumber(left), Builder->AsNumber(right)));
                 Builder->CreateBr(EndBlock);
 
                 Builder->SetInsertPoint(IsMaybeStringBlock);
-                Builder->CreateCondBr(Builder->CreateAnd(IsString(left), IsString(right)), IsStringBlock, InvalidBlock);
+                Builder->CreateCondBr(Builder->CreateAnd(Builder->IsString(left), Builder->IsString(right)), IsStringBlock, InvalidBlock);
                 Builder->SetInsertPoint(IsStringBlock);
-                const auto &Y = Concat(left, right);
+                const auto &Y = Builder->Concat(left, right);
                 Builder->CreateBr(EndBlock);
 
                 Builder->SetInsertPoint(InvalidBlock);
@@ -55,19 +55,19 @@ namespace lox {
                 return Result;
             }
             case BinaryOp::MINUS:
-                return NumberVal(Builder->CreateFSub(AsNumber(left), AsNumber(right)));
+                return Builder->NumberVal(Builder->CreateFSub(Builder->AsNumber(left), Builder->AsNumber(right)));
             case BinaryOp::SLASH:
-                return NumberVal(Builder->CreateFDiv(AsNumber(left), AsNumber(right)));
+                return Builder->NumberVal(Builder->CreateFDiv(Builder->AsNumber(left), Builder->AsNumber(right)));
             case BinaryOp::STAR:
-                return NumberVal(Builder->CreateFMul(AsNumber(left), AsNumber(right)));
+                return Builder->NumberVal(Builder->CreateFMul(Builder->AsNumber(left), Builder->AsNumber(right)));
             case BinaryOp::GREATER:
-                return BoolVal(Builder->CreateFCmpOGT(AsNumber(left), AsNumber(right)));
+                return Builder->BoolVal(Builder->CreateFCmpOGT(Builder->AsNumber(left), Builder->AsNumber(right)));
             case BinaryOp::GREATER_EQUAL:
-                return BoolVal(Builder->CreateFCmpOGE(AsNumber(left), AsNumber(right)));
+                return Builder->BoolVal(Builder->CreateFCmpOGE(Builder->AsNumber(left), Builder->AsNumber(right)));
             case BinaryOp::LESS:
-                return BoolVal(Builder->CreateFCmpOLT(AsNumber(left), AsNumber(right)));
+                return Builder->BoolVal(Builder->CreateFCmpOLT(Builder->AsNumber(left), Builder->AsNumber(right)));
             case BinaryOp::LESS_EQUAL:
-                return BoolVal(Builder->CreateFCmpOLE(AsNumber(left), AsNumber(right)));
+                return Builder->BoolVal(Builder->CreateFCmpOLE(Builder->AsNumber(left), Builder->AsNumber(right)));
             case BinaryOp::BANG_EQUAL:
             case BinaryOp::EQUAL_EQUAL:
                 // A == B if both are numbers and they're equal as fp numbers or they're both equal int64 values.
@@ -77,14 +77,14 @@ namespace lox {
                 const auto NotStringBlock = BasicBlock::Create(*Context, "not.string", MainFunction);
                 const auto EndBlock = BasicBlock::Create(*Context, "end", MainFunction);
 
-                Builder->CreateCondBr(Builder->CreateAnd(IsNumber(left), IsNumber(right)), IsNumBlock, NotNumBlock);
+                Builder->CreateCondBr(Builder->CreateAnd(Builder->IsNumber(left), Builder->IsNumber(right)), IsNumBlock, NotNumBlock);
                 Builder->SetInsertPoint(IsNumBlock);
-                const auto X = Builder->CreateFCmpOEQ(AsNumber(left), AsNumber(right));
+                const auto X = Builder->CreateFCmpOEQ(Builder->AsNumber(left), Builder->AsNumber(right));
                 Builder->CreateBr(EndBlock);
                 Builder->SetInsertPoint(NotNumBlock);
-                Builder->CreateCondBr(Builder->CreateAnd(IsString(left), IsString(right)), IsStringBlock, NotStringBlock);
+                Builder->CreateCondBr(Builder->CreateAnd(Builder->IsString(left), Builder->IsString(right)), IsStringBlock, NotStringBlock);
                 Builder->SetInsertPoint(IsStringBlock);
-                const auto Y = StrEquals(left, right);
+                const auto Y = Builder->StrEquals(left, right);
                 Builder->CreateBr(EndBlock);
                 Builder->SetInsertPoint(NotStringBlock);
                 const auto Z = Builder->CreateICmpEQ(left, right);
@@ -96,7 +96,7 @@ namespace lox {
                 Result->addIncoming(Y, IsStringBlock);
                 Result->addIncoming(Z, NotStringBlock);
 
-                return BoolVal(binaryExpr->op == BinaryOp::EQUAL_EQUAL ? Result : Builder->CreateNot(Result));
+                return Builder->BoolVal(binaryExpr->op == BinaryOp::EQUAL_EQUAL ? Result : Builder->CreateNot(Result));
         }
 
         std::unreachable();
@@ -149,7 +149,8 @@ namespace lox {
                     if (strings.contains(string_value))
                         return strings.at(string_value);
 
-                    const auto value = AllocateString(
+                    const auto value = Builder->AllocateString(
+                        LoxModule->getNamedGlobal("objects"),
                         Builder->CreateGlobalStringPtr(string_value),
                         Builder->getInt32(string_value.length())
                     );
@@ -174,12 +175,12 @@ namespace lox {
                 const auto LeftNotTruthyBlock = BasicBlock::Create(*Context, "if.left.nottruthy", MainFunction);
                 const auto EndBlock = BasicBlock::Create(*Context, "end", MainFunction);
                 Builder->CreateCondBr(
-                    IsTruthy(left),
+                    Builder->IsTruthy(left),
                     logicalExpr->op == LogicalOp::OR ? LeftIsTruthyBlock : LeftNotTruthyBlock,
                     logicalExpr->op == LogicalOp::OR ? LeftNotTruthyBlock : LeftIsTruthyBlock
                 );
                 Builder->SetInsertPoint(LeftNotTruthyBlock);
-                const auto X = IsTruthy(evaluate(logicalExpr->right));
+                const auto X = Builder->IsTruthy(evaluate(logicalExpr->right));
                 const auto EndLeftNotTruthyBlock = Builder->GetInsertBlock();
                 Builder->CreateBr(EndBlock);
                 Builder->SetInsertPoint(LeftIsTruthyBlock);
@@ -191,7 +192,7 @@ namespace lox {
                 Result->addIncoming(X, EndLeftNotTruthyBlock);
                 Result->addIncoming(Y, LeftIsTruthyBlock);
 
-                return BoolVal(Result);
+                return Builder->BoolVal(Result);
             }
         }
         std::unreachable();
@@ -202,9 +203,9 @@ namespace lox {
 
         switch (unaryExpr->op) {
             case UnaryOp::BANG:
-                return Builder->CreateSelect(IsTruthy(left), Builder->getInt64(FALSE_VAL), Builder->getInt64(TRUE_VAL));
+                return Builder->CreateSelect(Builder->IsTruthy(left), Builder->getInt64(FALSE_VAL), Builder->getInt64(TRUE_VAL));
             case UnaryOp::MINUS:
-                return NumberVal(Builder->CreateFNeg(AsNumber(left)));
+                return Builder->NumberVal(Builder->CreateFNeg(Builder->AsNumber(left)));
         }
 
         std::unreachable();

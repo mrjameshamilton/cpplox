@@ -31,6 +31,7 @@ add_executable(cpplox src/main.cpp
         src/compiler/Stmt.cpp
         src/compiler/String.h
         src/compiler/LoxCompiler.h
+        src/compiler/LoxBuilder.h
 )
 
 target_compile_options(cpplox PRIVATE

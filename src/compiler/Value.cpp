@@ -1,4 +1,5 @@
 #include "Value.h"
+#include "LoxBuilder.h"
 #include "LoxCompiler.h"
 
 #include <llvm/ADT/DenseMapInfo.h>
@@ -15,124 +16,124 @@ using namespace llvm;
 using namespace llvm::sys;
 
 namespace lox {
-    Value *LoxCompiler::IsBool(Value *value) const {
-        return Builder->CreateICmpEQ(Builder->CreateOr(value, 1), Builder->getInt64(TRUE_VAL));
+    Value *LoxBuilder::IsBool(Value *value) {
+        return CreateICmpEQ(CreateOr(value, 1), getInt64(TRUE_VAL));
     }
 
-    Value *LoxCompiler::IsNil(Value *value) const {
-        return Builder->CreateICmpEQ(value, Builder->getInt64(NIL_VAL));
+    Value *LoxBuilder::IsNil(Value *value) {
+        return CreateICmpEQ(value, getInt64(NIL_VAL));
     }
 
-    Value *LoxCompiler::IsNumber(Value *value) const {
-        return Builder->CreateICmpNE(Builder->CreateAnd(value, QNAN), Builder->getInt64(QNAN));
+    Value *LoxBuilder::IsNumber(Value *value) {
+        return CreateICmpNE(CreateAnd(value, QNAN), getInt64(QNAN));
     }
 
-    Value *LoxCompiler::IsObj(Value *value) const {
-        return Builder->CreateICmpEQ(Builder->CreateAnd(value, QNAN | SIGN_BIT), Builder->getInt64(QNAN | SIGN_BIT));
+    Value *LoxBuilder::IsObj(Value *value) {
+        return CreateICmpEQ(CreateAnd(value, QNAN | SIGN_BIT), getInt64(QNAN | SIGN_BIT));
     }
 
-    Value *LoxCompiler::IsString(Value *value) const {
-        return Builder->CreateAnd(
+    Value *LoxBuilder::IsString(Value *value) {
+        return CreateAnd(
             IsObj(value),
-            Builder->CreateICmpEQ(ObjType(value), Builder->getInt8(static_cast<uint8_t>(ObjType::STRING)))
+            CreateICmpEQ(ObjType(value), getInt8(static_cast<uint8_t>(ObjType::STRING)))
         );
     }
 
-    Value *LoxCompiler::ObjType(Value *value) const {
-        return Builder->CreateLoad(
-            Builder->getInt8Ty(),
-            Builder->CreateStructGEP(ObjStructType, AsObj(value), 0)
+    Value *LoxBuilder::ObjType(Value *value) {
+        return CreateLoad(
+            getInt8Ty(),
+            CreateStructGEP(ObjStructType, AsObj(value), 0)
         );
     }
 
-    Value *LoxCompiler::BoolVal(Value *value) const {
-        assert(value->getType() == Builder->getInt1Ty());
-        return Builder->CreateSelect(value, Builder->getInt64(TRUE_VAL), Builder->getInt64(FALSE_VAL));
+    Value *LoxBuilder::BoolVal(Value *value) {
+        assert(value->getType() == getInt1Ty());
+        return CreateSelect(value, getInt64(TRUE_VAL), getInt64(FALSE_VAL));
     }
 
-    Value *LoxCompiler::AsBool(Value *value) const {
-        assert(value->getType() == Builder->getInt64Ty());
-        return Builder->CreateICmpEQ(value, Builder->getInt64(TRUE_VAL));
+    Value *LoxBuilder::AsBool(Value *value) {
+        assert(value->getType() == getInt64Ty());
+        return CreateICmpEQ(value, getInt64(TRUE_VAL));
     }
 
-    Value *LoxCompiler::AsNumber(Value *value) const {
-        return Builder->CreateBitCast(value, Builder->getDoubleTy());
+    Value *LoxBuilder::AsNumber(Value *value) {
+        return CreateBitCast(value, getDoubleTy());
     }
 
-    Value *LoxCompiler::ObjVal(Value *value) const {
-        return Builder->CreateOr(value, SIGN_BIT | QNAN);
+    Value *LoxBuilder::ObjVal(Value *value) {
+        return CreateOr(value, SIGN_BIT | QNAN);
     }
 
-    Value *LoxCompiler::AsObj(Value *value) const {
-        return Builder->CreateBitCast(
-            Builder->CreateIntToPtr(Builder->CreateAnd(value, ~(SIGN_BIT | QNAN)), Builder->getInt8PtrTy()),
+    Value *LoxBuilder::AsObj(Value *value) {
+        return CreateBitCast(
+            CreateIntToPtr(CreateAnd(value, ~(SIGN_BIT | QNAN)), getInt8PtrTy()),
             ObjStructType->getPointerTo()
         );
     }
 
-    Value *LoxCompiler::AsString(Value *value) const {
-        return Builder->CreateBitCast(AsObj(value), StringStructType->getPointerTo());
+    Value *LoxBuilder::AsString(Value *value) {
+        return CreateBitCast(AsObj(value), StringStructType->getPointerTo());
     }
 
-    Value *LoxCompiler::AsCString(Value *value) const {
-        const auto string = Builder->CreateIntToPtr(Builder->CreateAnd(value, ~(SIGN_BIT | QNAN)), Builder->getInt8PtrTy());
-        return Builder->CreateLoad(Builder->getInt8PtrTy(), Builder->CreateStructGEP(StringStructType, string, 1));
+    Value *LoxBuilder::AsCString(Value *value) {
+        const auto string = CreateIntToPtr(CreateAnd(value, ~(SIGN_BIT | QNAN)), getInt8PtrTy());
+        return CreateLoad(getInt8PtrTy(), CreateStructGEP(StringStructType, string, 1));
     }
 
-    Value *LoxCompiler::NumberVal(Value *value) const {
-        return Builder->CreateBitCast(value, Builder->getInt64Ty());
+    Value *LoxBuilder::NumberVal(Value *value) {
+        return CreateBitCast(value, getInt64Ty());
     }
 
-    void LoxCompiler::PrintF(const std::string &stringFormat, Value *value) const {
-        PrintF({Builder->CreateGlobalStringPtr(stringFormat), value});
+    void LoxBuilder::PrintF(const std::string &stringFormat, Value *value) {
+        PrintF({CreateGlobalStringPtr(stringFormat), value});
     }
 
-    void LoxCompiler::PrintF(const std::initializer_list<Value *> value) const {
-        static const auto PrintF = LoxModule->getOrInsertFunction(
+    void LoxBuilder::PrintF(const std::initializer_list<Value *> value) {
+        static const auto PrintF = getModule().getOrInsertFunction(
             "printf",
-            FunctionType::get(Builder->getInt8Ty(), {Type::getInt8PtrTy(*Context)}, true)
+            FunctionType::get(getInt8Ty(), {Type::getInt8PtrTy(getContext())}, true)
         );
-        Builder->CreateCall(PrintF, value);
+        CreateCall(PrintF, value);
     }
 
-    void LoxCompiler::PrintString(const std::string &string) const {
-        static const auto fmt = Builder->CreateGlobalStringPtr("%s\n");
-        PrintF({fmt, Builder->CreateGlobalStringPtr(string)});
+    void LoxBuilder::PrintString(const std::string &string) {
+        static const auto fmt = CreateGlobalStringPtr("%s\n");
+        PrintF({fmt, CreateGlobalStringPtr(string)});
     }
 
-    void LoxCompiler::PrintNumber(Value *value) const {
-        static const auto gfmt = Builder->CreateGlobalStringPtr("%g\n");
+    void LoxBuilder::PrintNumber(Value *value) {
+        static const auto gfmt = CreateGlobalStringPtr("%g\n");
         PrintF({gfmt, AsNumber(value)});
     }
 
-    void LoxCompiler::PrintNil() const {
-        static const auto fmt = Builder->CreateGlobalStringPtr("%s\n");
-        static const auto nil = Builder->CreateGlobalStringPtr("nil");
+    void LoxBuilder::PrintNil() {
+        static const auto fmt = CreateGlobalStringPtr("%s\n");
+        static const auto nil = CreateGlobalStringPtr("nil");
         PrintF({fmt, nil});
     }
 
-    void LoxCompiler::PrintObject(Value *value) const {
-        const auto IsStringBlock = BasicBlock::Create(*Context, "string", MainFunction);
-        const auto DefaultBlock = BasicBlock::Create(*Context, "default", MainFunction);
+    void LoxBuilder::PrintObject(Value *value) {
+        const auto IsStringBlock = BasicBlock::Create(getContext(), "string", getFunction());
+        const auto DefaultBlock = BasicBlock::Create(getContext(), "default", getFunction());
 
-        const auto Switch = Builder->CreateSwitch(ObjType(value), DefaultBlock);
-        Switch->addCase(Builder->getInt8(static_cast<uint8_t>(ObjType::STRING)), IsStringBlock);
+        const auto Switch = CreateSwitch(ObjType(value), DefaultBlock);
+        Switch->addCase(getInt8(static_cast<uint8_t>(ObjType::STRING)), IsStringBlock);
 
-        Builder->SetInsertPoint(IsStringBlock);
+        SetInsertPoint(IsStringBlock);
         PrintString(value);
-        Builder->CreateBr(DefaultBlock);
-        Builder->SetInsertPoint(DefaultBlock);
+        CreateBr(DefaultBlock);
+        SetInsertPoint(DefaultBlock);
     }
 
-    void LoxCompiler::PrintString(Value *value) const {
-        static const auto fmt = Builder->CreateGlobalStringPtr("%s\n");
+    void LoxBuilder::PrintString(Value *value) {
+        static const auto fmt = CreateGlobalStringPtr("%s\n");
         PrintF({fmt, AsCString(value)});
     }
 
-    void LoxCompiler::PrintBool(Value *value) const {
-        static const auto fmt = Builder->CreateGlobalStringPtr("%s\n");
-        static const auto true_ = Builder->CreateGlobalStringPtr("true");
-        static const auto false_ = Builder->CreateGlobalStringPtr("false");
-        PrintF({fmt, Builder->CreateSelect(AsBool(value), true_, false_)});
+    void LoxBuilder::PrintBool(Value *value) {
+        static const auto fmt = CreateGlobalStringPtr("%s\n");
+        static const auto true_ = CreateGlobalStringPtr("true");
+        static const auto false_ = CreateGlobalStringPtr("false");
+        PrintF({fmt, CreateSelect(AsBool(value), true_, false_)});
     }
 }// namespace lox

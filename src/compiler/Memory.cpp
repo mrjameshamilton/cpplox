@@ -12,72 +12,57 @@ namespace lox {
         return TmpB.CreateAlloca(type, nullptr, VarName);
     }
 
-    Value *LoxCompiler::AllocateObj(lox::ObjType objType, const std::string_view name) const {
-        Type *StructType;
+    Value *LoxBuilder::AllocateObj(Value *objects, enum ObjType objType, const std::string_view name) {
+        Type *StructType = getStructType(objType);
 
-        switch (objType) {
-            case ObjType::STRING:
-#if DEBUG_LOG_GC
-                PrintString("Allocate string:");
-#endif
-                StructType = StringStructType;
-                break;
-            // TODO: other types.
-            default:
-                throw std::runtime_error("Not implemented");
-        }
-
-        Type *IntPtrTy = IntegerType::getInt32Ty(*Context);
+        Type *IntPtrTy = IntegerType::getInt32Ty(this->getContext());
         // The malloc size IR that is generated with getSizeOf uses a hack described here:
         // https://mukulrathi.com/create-your-own-programming-language/concurrency-runtime-language-tutorial/#malloc
         Constant *allocsize = ConstantExpr::getSizeOf(StructType);
         allocsize = ConstantExpr::getTruncOrBitCast(allocsize, IntPtrTy);
 
-        const auto NewObjMalloc = Builder->CreateMalloc(
+        const auto NewObjMalloc = CreateMalloc(
             IntPtrTy,
             StructType,
             allocsize,
             nullptr
         );
 
-        Builder->CreateStore(
-            Builder->getInt8(static_cast<uint8_t>(objType)),
-            Builder->CreateStructGEP(ObjStructType, NewObjMalloc, 0, "ObjType")
+        CreateStore(
+            getInt8(static_cast<uint8_t>(objType)),
+            CreateStructGEP(ObjStructType, NewObjMalloc, 0, "ObjType")
         );
 
-        Builder->CreateStore(
-            Builder->getFalse(),
-            Builder->CreateStructGEP(ObjStructType, NewObjMalloc, 1, "isMarked")
+        CreateStore(
+            getFalse(),
+            CreateStructGEP(ObjStructType, NewObjMalloc, 1, "isMarked")
         );
-
-        // Linked-list of all allocated objects for the garbage collector check.
-        const auto global = LoxModule->getNamedGlobal("objects");
 
 #ifdef DEBUG_LOG_GC
-        static const auto fmt0 = Builder->CreateGlobalStringPtr("\tobjects: %p => ");
-        PrintF({fmt0, Builder->CreateLoad(Builder->getPtrTy(), global)});
+        static const auto fmt0 = CreateGlobalStringPtr("\tobjects: %p => ");
+        PrintF({fmt0, CreateLoad(getPtrTy(), objects)});
 #endif
 
-        Builder->CreateStore(
-            Builder->CreateLoad(Builder->getPtrTy(), global),
-            Builder->CreateStructGEP(ObjStructType, NewObjMalloc, 2, "next")
+        CreateStore(
+            CreateLoad(getPtrTy(), objects),
+            CreateStructGEP(ObjStructType, NewObjMalloc, 2, "next")
         );
 
-        Builder->CreateStore(NewObjMalloc, global);
+        CreateStore(NewObjMalloc, objects);
 
 #ifdef DEBUG_LOG_GC
-        static const auto fmt = Builder->CreateGlobalStringPtr("%p\n");
-        PrintF({fmt, Builder->CreateLoad(Builder->getPtrTy(), global)});
-        static const auto fmt2 = Builder->CreateGlobalStringPtr("\t%p allocate %zu.\n");
+        static const auto fmt = CreateGlobalStringPtr("%p\n");
+        PrintF({fmt, CreateLoad(getPtrTy(), objects)});
+        static const auto fmt2 = CreateGlobalStringPtr("\t%p allocate %zu.\n");
         PrintF({fmt2, NewObjMalloc, allocsize});
-        static const auto fmt3 = Builder->CreateGlobalStringPtr("\tobject.next = %p\n");
-        PrintF({fmt3, Builder->CreateLoad(Builder->getPtrTy(), Builder->CreateStructGEP(ObjStructType, NewObjMalloc, 2, "next"))});
+        static const auto fmt3 = CreateGlobalStringPtr("\tobject.next = %p\n");
+        PrintF({fmt3, CreateLoad(getPtrTy(), CreateStructGEP(ObjStructType, NewObjMalloc, 2, "next"))});
 #endif
 
-        const auto NewObj = CreateEntryBlockAlloca(Builder->GetInsertBlock()->getParent(), StructType, name);
-        Builder->CreateStore(NewObjMalloc, NewObj);
+        const auto NewObj = CreateEntryBlockAlloca(GetInsertBlock()->getParent(), StructType, name);
+        CreateStore(NewObjMalloc, NewObj);
 
-        return Builder->CreateBitCast(NewObj, StructType->getPointerTo());
+        return CreateBitCast(NewObj, StructType->getPointerTo());
     }
 
     void LoxCompiler::FreeObjects() const {
@@ -101,7 +86,7 @@ namespace lox {
         Builder->CreateStore(
             Builder->CreateLoad(
                 Builder->getPtrTy(),
-                Builder->CreateStructGEP(ObjStructType, Builder->CreateLoad(Builder->getPtrTy(), object), 2, "next")
+                Builder->CreateStructGEP(Builder->getObjStructType(), Builder->CreateLoad(Builder->getPtrTy(), object), 2, "next")
             ),
             next
         );
@@ -122,14 +107,14 @@ namespace lox {
         const auto IsStringBlock = BasicBlock::Create(*Context, "string", MainFunction);
         const auto DefaultBlock = BasicBlock::Create(*Context, "default", MainFunction);
 
-        const auto Switch = Builder->CreateSwitch(ObjType(value), DefaultBlock);
+        const auto Switch = Builder->CreateSwitch(Builder->ObjType(value), DefaultBlock);
         Switch->addCase(Builder->getInt8(static_cast<uint8_t>(ObjType::STRING)), IsStringBlock);
 
 
         Builder->SetInsertPoint(IsStringBlock);
 #ifdef DEBUG_LOG_GC
         static const auto fmt = Builder->CreateGlobalStringPtr("free '%s' @ %p\n");
-        PrintF({fmt, AsCString(value), value});
+        Builder->PrintF({fmt, Builder->AsCString(value), value});
         //Builder->CreateFree(); TODO: free string chars? but they're not allocated by malloc.
         Builder->CreateFree(value);
 #endif
@@ -137,6 +122,4 @@ namespace lox {
         Builder->CreateBr(DefaultBlock);
         Builder->SetInsertPoint(DefaultBlock);
     }
-
-
 }// namespace lox

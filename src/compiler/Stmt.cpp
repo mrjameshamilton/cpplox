@@ -31,25 +31,25 @@ namespace lox {
         const auto ObjBlock = BasicBlock::Create(*Context, "if.obj", MainFunction);
         const auto EndBlock = BasicBlock::Create(*Context, "if.end", MainFunction);
 
-        Builder->CreateCondBr(IsBool(value), BoolBlock, EndBoolBlock);
+        Builder->CreateCondBr(Builder->IsBool(value), BoolBlock, EndBoolBlock);
         Builder->SetInsertPoint(BoolBlock);
-        PrintBool(value);
+        Builder->PrintBool(value);
         Builder->CreateBr(EndBlock);
         Builder->SetInsertPoint(EndBoolBlock);
 
-        Builder->CreateCondBr(IsNil(value), NilBlock, EndNilBlock);
+        Builder->CreateCondBr(Builder->IsNil(value), NilBlock, EndNilBlock);
         Builder->SetInsertPoint(NilBlock);
-        PrintNil();
+        Builder->PrintNil();
         Builder->CreateBr(EndBlock);
         Builder->SetInsertPoint(EndNilBlock);
 
-        Builder->CreateCondBr(IsNumber(value), NumBlock, ObjBlock);
+        Builder->CreateCondBr(Builder->IsNumber(value), NumBlock, ObjBlock);
         Builder->SetInsertPoint(NumBlock);
-        PrintNumber(value);
+        Builder->PrintNumber(value);
         Builder->CreateBr(EndBlock);
 
         Builder->SetInsertPoint(ObjBlock);
-        PrintObject(value);
+        Builder->PrintObject(value);
         Builder->CreateBr(EndBlock);
 
         Builder->SetInsertPoint(EndBlock);
@@ -79,7 +79,7 @@ namespace lox {
 
         Builder->CreateBr(Cond);
         Builder->SetInsertPoint(Cond);
-        Builder->CreateCondBr(IsTruthy(evaluate(whileStmt->condition)), Body, Exit);
+        Builder->CreateCondBr(Builder->IsTruthy(evaluate(whileStmt->condition)), Body, Exit);
         Builder->SetInsertPoint(Body);
         evaluate(whileStmt->body);
         Builder->CreateBr(Cond);
@@ -90,7 +90,7 @@ namespace lox {
         const auto TrueBlock = BasicBlock::Create(*Context, "if.true", MainFunction);
         const auto FalseBlock = BasicBlock::Create(*Context, "else", MainFunction);
         const auto EndBlock = BasicBlock::Create(*Context, "if.end", MainFunction);
-        Builder->CreateCondBr(IsTruthy(evaluate(ifStmt->condition)), TrueBlock, FalseBlock);
+        Builder->CreateCondBr(Builder->IsTruthy(evaluate(ifStmt->condition)), TrueBlock, FalseBlock);
         Builder->SetInsertPoint(TrueBlock);
         evaluate(ifStmt->thenBranch);
         Builder->CreateBr(EndBlock);
