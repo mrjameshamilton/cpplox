@@ -67,16 +67,16 @@ namespace lox {
 
     void LoxCompiler::FreeObjects() const {
         const auto global = LoxModule->getNamedGlobal("objects");
-        const auto object = CreateEntryBlockAlloca(MainFunction, Builder->getPtrTy(), "object");
-        const auto next = CreateEntryBlockAlloca(MainFunction, Builder->getPtrTy(), "next");
+        const auto object = CreateEntryBlockAlloca(Builder->getFunction(), Builder->getPtrTy(), "object");
+        const auto next = CreateEntryBlockAlloca(Builder->getFunction(), Builder->getPtrTy(), "next");
         Builder->CreateStore(
             Builder->CreateLoad(Builder->getPtrTy(), global),
             object
         );
 
-        const auto WhileCond = BasicBlock::Create(*Context, "while.cond", MainFunction);
-        const auto WhileBody = BasicBlock::Create(*Context, "while.body", MainFunction);
-        const auto WhileEnd = BasicBlock::Create(*Context, "while.end", MainFunction);
+        const auto WhileCond = BasicBlock::Create(Builder->getContext(), "while.cond", Builder->getFunction());
+        const auto WhileBody = BasicBlock::Create(Builder->getContext(), "while.body", Builder->getFunction());
+        const auto WhileEnd = BasicBlock::Create(Builder->getContext(), "while.end", Builder->getFunction());
 
         Builder->CreateBr(WhileCond);
         Builder->SetInsertPoint(WhileCond);
@@ -104,8 +104,8 @@ namespace lox {
     }
 
     void LoxCompiler::FreeObject(Value *value) const {
-        const auto IsStringBlock = BasicBlock::Create(*Context, "string", MainFunction);
-        const auto DefaultBlock = BasicBlock::Create(*Context, "default", MainFunction);
+        const auto IsStringBlock = BasicBlock::Create(Builder->getContext(), "string", Builder->getFunction());
+        const auto DefaultBlock = BasicBlock::Create(Builder->getContext(), "default", Builder->getFunction());
 
         const auto Switch = Builder->CreateSwitch(Builder->ObjType(value), DefaultBlock);
         Switch->addCase(Builder->getInt8(static_cast<uint8_t>(ObjType::STRING)), IsStringBlock);

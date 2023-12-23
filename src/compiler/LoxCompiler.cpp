@@ -21,7 +21,7 @@ namespace lox {
         global->setInitializer(ConstantPointerNull::get(Builder->getObjStructType()->getPointerTo()));
 
         beginScope();
-        const auto EntryBasicBlock = BasicBlock::Create(*Context, "entry", MainFunction);
+        const auto EntryBasicBlock = BasicBlock::Create(Builder->getContext(), "entry", Builder->getFunction());
         Builder->SetInsertPoint(EntryBasicBlock);
         for (auto &stmt: program) {
             evaluate(stmt);

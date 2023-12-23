@@ -24,11 +24,11 @@ namespace lox {
 
         switch (binaryExpr->op) {
             case BinaryOp::PLUS: {
-                const auto IsMaybeStringBlock = BasicBlock::Create(*Context, "if.string", MainFunction);
-                const auto IsStringBlock = BasicBlock::Create(*Context, "is.string", MainFunction);
-                const auto IsNumBlock = BasicBlock::Create(*Context, "if.num", MainFunction);
-                const auto InvalidBlock = BasicBlock::Create(*Context, "invalid", MainFunction);
-                const auto EndBlock = BasicBlock::Create(*Context, "if.end", MainFunction);
+                const auto IsMaybeStringBlock = BasicBlock::Create(Builder->getContext(), "if.string", Builder->getFunction());
+                const auto IsStringBlock = BasicBlock::Create(Builder->getContext(), "is.string", Builder->getFunction());
+                const auto IsNumBlock = BasicBlock::Create(Builder->getContext(), "if.num", Builder->getFunction());
+                const auto InvalidBlock = BasicBlock::Create(Builder->getContext(), "invalid", Builder->getFunction());
+                const auto EndBlock = BasicBlock::Create(Builder->getContext(), "if.end", Builder->getFunction());
                 Builder->CreateCondBr(Builder->CreateAnd(Builder->IsNumber(left), Builder->IsNumber(right)), IsNumBlock, IsMaybeStringBlock);
                 Builder->SetInsertPoint(IsNumBlock);
                 const auto &X = Builder->NumberVal(Builder->CreateFAdd(Builder->AsNumber(left), Builder->AsNumber(right)));
@@ -71,11 +71,11 @@ namespace lox {
             case BinaryOp::BANG_EQUAL:
             case BinaryOp::EQUAL_EQUAL:
                 // A == B if both are numbers and they're equal as fp numbers or they're both equal int64 values.
-                const auto IsNumBlock = BasicBlock::Create(*Context, "if.num", MainFunction);
-                const auto NotNumBlock = BasicBlock::Create(*Context, "not.num", MainFunction);
-                const auto IsStringBlock = BasicBlock::Create(*Context, "is.string", MainFunction);
-                const auto NotStringBlock = BasicBlock::Create(*Context, "not.string", MainFunction);
-                const auto EndBlock = BasicBlock::Create(*Context, "end", MainFunction);
+                const auto IsNumBlock = BasicBlock::Create(Builder->getContext(), "if.num", Builder->getFunction());
+                const auto NotNumBlock = BasicBlock::Create(Builder->getContext(), "not.num", Builder->getFunction());
+                const auto IsStringBlock = BasicBlock::Create(Builder->getContext(), "is.string", Builder->getFunction());
+                const auto NotStringBlock = BasicBlock::Create(Builder->getContext(), "not.string", Builder->getFunction());
+                const auto EndBlock = BasicBlock::Create(Builder->getContext(), "end", Builder->getFunction());
 
                 Builder->CreateCondBr(Builder->CreateAnd(Builder->IsNumber(left), Builder->IsNumber(right)), IsNumBlock, NotNumBlock);
                 Builder->SetInsertPoint(IsNumBlock);
@@ -171,9 +171,9 @@ namespace lox {
         switch (logicalExpr->op) {
             case LogicalOp::AND:
             case LogicalOp::OR: {
-                const auto LeftIsTruthyBlock = BasicBlock::Create(*Context, "if.left.truthy", MainFunction);
-                const auto LeftNotTruthyBlock = BasicBlock::Create(*Context, "if.left.nottruthy", MainFunction);
-                const auto EndBlock = BasicBlock::Create(*Context, "end", MainFunction);
+                const auto LeftIsTruthyBlock = BasicBlock::Create(Builder->getContext(), "if.left.truthy", Builder->getFunction());
+                const auto LeftNotTruthyBlock = BasicBlock::Create(Builder->getContext(), "if.left.nottruthy", Builder->getFunction());
+                const auto EndBlock = BasicBlock::Create(Builder->getContext(), "end", Builder->getFunction());
                 Builder->CreateCondBr(
                     Builder->IsTruthy(left),
                     logicalExpr->op == LogicalOp::OR ? LeftIsTruthyBlock : LeftNotTruthyBlock,
