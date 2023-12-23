@@ -29,7 +29,6 @@ add_executable(cpplox src/main.cpp
         src/compiler/Truthy.cpp
         src/compiler/Memory.cpp
         src/compiler/Stmt.cpp
-        src/compiler/String.h
         src/compiler/LoxCompiler.h
         src/compiler/LoxBuilder.h
 )
