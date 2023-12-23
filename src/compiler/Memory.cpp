@@ -30,12 +30,12 @@ namespace lox {
 
         CreateStore(
             ObjTypeInt(objType),
-            CreateStructGEP(ObjStructType, NewObjMalloc, 0, "ObjType")
+            CreateStructGEP(getObjStructType(), NewObjMalloc, 0, "ObjType")
         );
 
         CreateStore(
             getFalse(),
-            CreateStructGEP(ObjStructType, NewObjMalloc, 1, "isMarked")
+            CreateStructGEP(getObjStructType(), NewObjMalloc, 1, "isMarked")
         );
 
 #ifdef DEBUG_LOG_GC
@@ -45,7 +45,7 @@ namespace lox {
 
         CreateStore(
             CreateLoad(getPtrTy(), objects),
-            CreateStructGEP(ObjStructType, NewObjMalloc, 2, "next")
+            CreateStructGEP(getObjStructType(), NewObjMalloc, 2, "next")
         );
 
         CreateStore(NewObjMalloc, objects);
@@ -56,7 +56,7 @@ namespace lox {
         static const auto fmt2 = CreateGlobalStringPtr("\t%p allocate %zu.\n");
         PrintF({fmt2, NewObjMalloc, allocsize});
         static const auto fmt3 = CreateGlobalStringPtr("\tobject.next = %p\n");
-        PrintF({fmt3, CreateLoad(getPtrTy(), CreateStructGEP(ObjStructType, NewObjMalloc, 2, "next"))});
+        PrintF({fmt3, CreateLoad(getPtrTy(), CreateStructGEP(getObjStructType(), NewObjMalloc, 2, "next"))});
 #endif
 
         const auto NewObj = CreateEntryBlockAlloca(GetInsertBlock()->getParent(), StructType, name);

@@ -45,7 +45,7 @@ namespace lox {
     Value *LoxBuilder::ObjType(Value *value) {
         return CreateLoad(
             getInt8Ty(),
-            CreateStructGEP(ObjStructType, AsObj(value), 0)
+            CreateStructGEP(getObjStructType(), AsObj(value), 0)
         );
     }
 
@@ -75,17 +75,17 @@ namespace lox {
     Value *LoxBuilder::AsObj(Value *value) {
         return CreateBitCast(
             CreateIntToPtr(CreateAnd(value, ~(SIGN_BIT | QNAN)), getInt8PtrTy()),
-            ObjStructType->getPointerTo()
+            getObjStructType()->getPointerTo()
         );
     }
 
     Value *LoxBuilder::AsString(Value *value) {
-        return CreateBitCast(AsObj(value), StringStructType->getPointerTo());
+        return CreateBitCast(AsObj(value), getStructType(ObjType::STRING)->getPointerTo());
     }
 
     Value *LoxBuilder::AsCString(Value *value) {
         const auto string = CreateIntToPtr(CreateAnd(value, ~(SIGN_BIT | QNAN)), getInt8PtrTy());
-        return CreateLoad(getInt8PtrTy(), CreateStructGEP(StringStructType, string, 1));
+        return CreateLoad(getInt8PtrTy(), CreateStructGEP(getStructType(ObjType::STRING), string, 1));
     }
 
     Value *LoxBuilder::NumberVal(Value *value) {
