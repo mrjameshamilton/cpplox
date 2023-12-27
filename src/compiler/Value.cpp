@@ -1,6 +1,6 @@
 #include "Value.h"
 #include "LoxBuilder.h"
-#include "LoxCompiler.h"
+#include "ModuleCompiler.h"
 
 #include <llvm/ADT/StringExtras.h>
 #include <llvm/IR/BasicBlock.h>

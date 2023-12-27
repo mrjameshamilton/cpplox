@@ -1,4 +1,4 @@
-#include "LoxCompiler.h"
+#include "ModuleCompiler.h"
 #include "Value.h"
 
 #include <llvm/IR/Value.h>
@@ -65,7 +65,7 @@ namespace lox {
         return CreateBitCast(NewObj, StructType->getPointerTo());
     }
 
-    void LoxCompiler::FreeObjects() const {
+    void ModuleCompiler::FreeObjects() const {
         const auto global = LoxModule->getNamedGlobal("objects");
         const auto object = CreateEntryBlockAlloca(Builder->getFunction(), Builder->getPtrTy(), "object");
         const auto next = CreateEntryBlockAlloca(Builder->getFunction(), Builder->getPtrTy(), "next");
@@ -103,7 +103,7 @@ namespace lox {
         Builder->SetInsertPoint(WhileEnd);
     }
 
-    void LoxCompiler::FreeObject(Value *value) const {
+    void ModuleCompiler::FreeObject(Value *value) const {
         const auto IsStringBlock = Builder->CreateBasicBlock("string");
         const auto DefaultBlock = Builder->CreateBasicBlock("default");
 

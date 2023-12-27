@@ -1,4 +1,4 @@
-#include "LoxCompiler.h"
+#include "ModuleCompiler.h"
 #include "Value.h"
 #include <llvm/IR/Value.h>
 

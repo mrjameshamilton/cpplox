@@ -22,15 +22,17 @@ add_executable(cpplox src/main.cpp
         src/Util.h
         src/Resolver.cpp
         src/compiler/Expr.cpp
-        src/compiler/LoxCompiler.cpp
+        src/compiler/ModuleCompiler.cpp
         src/compiler/Value.h
         src/compiler/Value.cpp
         src/compiler/String.cpp
         src/compiler/Truthy.cpp
         src/compiler/Memory.cpp
         src/compiler/Stmt.cpp
-        src/compiler/LoxCompiler.h
+        src/compiler/ModuleCompiler.h
         src/compiler/LoxBuilder.h
+        src/compiler/FunctionCompiler.cpp
+        src/compiler/FunctionCompiler.h
 )
 
 target_compile_options(cpplox PRIVATE

@@ -1,9 +1,10 @@
-#include "LoxCompiler.h"
+#include "ModuleCompiler.h"
+
 #include "../AST.h"
+#include "FunctionCompiler.h"
 
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
-#include <llvm/IR/Function.h>
 #include <llvm/IR/Value.h>
 #include <llvm/Passes/PassBuilder.h>
 
@@ -12,7 +13,7 @@ using namespace llvm::sys;
 
 namespace lox {
 
-    void LoxCompiler::evaluate(const Program &program) {
+    void ModuleCompiler::evaluate(const Program &program) const {
         LoxModule->getOrInsertGlobal("objects", Builder->getPtrTy());
         const auto global = LoxModule->getNamedGlobal("objects");
         global->setLinkage(GlobalValue::PrivateLinkage);
@@ -20,20 +21,24 @@ namespace lox {
         global->setConstant(false);
         global->setInitializer(ConstantPointerNull::get(Builder->getObjStructType()->getPointerTo()));
 
-        beginScope();
-        const auto EntryBasicBlock = Builder->CreateBasicBlock("entry");
-        Builder->SetInsertPoint(EntryBasicBlock);
-        for (auto &stmt: program) {
-            evaluate(stmt);
-        }
+        Function *M = Function::Create(
+            FunctionType::get(IntegerType::getInt32Ty(*Context), false),
+            Function::ExternalLinkage,
+            "main",
+            *LoxModule
+        );
+        LoxBuilder FBuilder(*Context, *LoxModule, *M);
+        FunctionCompiler C(FBuilder);
 
+        C.compile(program);
+
+        Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));
+        Builder->CreateCall(M);
         FreeObjects();
-
         Builder->CreateRet(Builder->getInt32(0));
-        endScope();
     }
 
-    bool LoxCompiler::writeIR(const std::string &Filename) const {
+    bool ModuleCompiler::writeIR(const std::string &Filename) const {
         std::error_code ec;
         auto out = raw_fd_ostream(Filename, ec);
         LoxModule->print(out, nullptr);
