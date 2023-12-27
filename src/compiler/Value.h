@@ -16,7 +16,8 @@
 
 namespace lox {
     enum class ObjType : int8_t {
-        STRING = 1
+        STRING = 1,
+        FUNCTION = 2
     };
 }
 

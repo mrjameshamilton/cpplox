@@ -22,6 +22,16 @@ namespace lox {
              IntegerType::getInt32Ty(Context)},
             "String"
         );
+        StructType *FunctionStructType = StructType::create(
+            Context,
+            {
+                ObjStructType,
+                IntegerType::getInt8Ty(Context),// arity
+                getPtrTy(),                     // func ptr
+                StringStructType                // name
+            },
+            "Function"
+        );
         Module &LoxModule;
         llvm::Function &Function;
 
@@ -47,7 +57,8 @@ namespace lox {
 
         // Code generation for converting a Lox value to a native type.
         Value *AsBool(Value *value);
-        Value *AsObj(Value *value);
+        Value *AsObj(Value *value, std::optional<ObjType> type = std::nullopt);
+        Value *AsFunction(Value *value);
         Value *AsString(Value *value);
         Value *AsCString(Value *value);
         Value *AsNumber(Value *value);
@@ -58,6 +69,7 @@ namespace lox {
 
         Value *AllocateObj(Value *objects, enum ObjType objType, std::string_view name = "");
         Value *AllocateString(Value *objects, Value *String, Value *Length, std::string_view name = "");
+        Value *AllocateFunction(Value *objects, llvm::Function *Function);
 
         Value *Concat(Value *a, Value *b);
         Value *StrEquals(Value *a, Value *b);
@@ -79,6 +91,8 @@ namespace lox {
             switch (objType) {
                 case ObjType::STRING:
                     return StringStructType;
+                case ObjType::FUNCTION:
+                    return FunctionStructType;
                 // TODO: other types.
                 default:
                     throw std::runtime_error("Not implemented");

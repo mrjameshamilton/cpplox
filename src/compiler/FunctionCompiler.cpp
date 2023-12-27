@@ -9,7 +9,8 @@ namespace lox {
         for (auto &stmt: statements) {
             evaluate(stmt);
         }
-        Builder.CreateRet(Builder.getInt32(0));
+        // TODO: return statements.
+        Builder.CreateRet(Builder.getNilVal());
         endScope();
     }
 

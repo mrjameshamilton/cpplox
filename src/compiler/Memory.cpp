@@ -39,6 +39,16 @@ namespace lox {
         );
 
 #ifdef DEBUG_LOG_GC
+        switch (objType) {
+            case ObjType::STRING:
+                PrintString("Allocate string");
+                break;
+            case ObjType::FUNCTION:
+                PrintString("Allocate function");
+                break;
+            default:
+                PrintString("Allocate object");
+        }
         static const auto fmt0 = CreateGlobalStringPtr("\tobjects: %p => ");
         PrintF({fmt0, CreateLoad(getPtrTy(), objects)});
 #endif

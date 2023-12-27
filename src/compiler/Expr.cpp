@@ -1,6 +1,10 @@
 #include "FunctionCompiler.h"
 #include "ModuleCompiler.h"
 #include <bit>
+#include <ranges>
+#include <vector>
+
+#define DEBUG true
 
 using namespace llvm;
 using namespace llvm::sys;
@@ -105,10 +109,34 @@ namespace lox {
     }
 
     Value *FunctionCompiler::operator()(const CallExprPtr &callExpr) {
-        const auto callee = evaluate(callExpr->callee);
+        const auto callee = Builder.AsFunction(evaluate(callExpr->callee));
+        const auto paramTypes = to<std::vector<Type *>>(
+            callExpr->arguments | std::views::transform([&](const auto &) -> Type * {
+                return Builder.getInt64Ty();
+            })
+        );
+        const auto paramValues = to<std::vector<Value *>>(
+            callExpr->arguments | std::views::transform([&](const auto &p) -> Value * {
+                return evaluate(p);
+            })
+        );
+        // TODO: params.
+        FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
 
-        // TODO
-        return Builder.getNilVal();
+        auto x = Builder.CreateLoad(
+            Builder.getPtrTy(),
+            Builder.CreateStructGEP(
+                Builder.getStructType(ObjType::FUNCTION),
+                callee, 2
+            ),
+            "func"
+        );
+
+#ifdef DEBUG
+        Builder.PrintF({Builder.CreateGlobalStringPtr("Calling func at %p with function ptr %p\n"), callee, x});
+#endif
+
+        return Builder.CreateCall(FT, x, paramValues);
     }
 
     Value *FunctionCompiler::operator()(const GetExprPtr &getExpr) const {

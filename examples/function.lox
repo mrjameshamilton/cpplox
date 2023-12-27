@@ -1,5 +1,5 @@
-fun foo() {
-    print "hello";
+fun foo(a) {
+    print "hello ";
 }
 
-foo();
+foo("world");

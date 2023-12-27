@@ -1,5 +1,7 @@
 #include "FunctionCompiler.h"
 #include "ModuleCompiler.h"
+#include <ranges>
+#include <vector>
 namespace lox {
 
     void FunctionCompiler::evaluate(const Stmt &stmt) {
@@ -14,18 +16,31 @@ namespace lox {
         endScope();
     }
 
-    void FunctionCompiler::operator()(const FunctionStmtPtr &functionStmt) const {
-        // TODO: params etc
+    void FunctionCompiler::operator()(const FunctionStmtPtr &functionStmt) {
+        const auto objects = Builder.getModule().getNamedGlobal("objects");
+
+        const auto params = to<std::vector<Type *>>(functionStmt->parameters | std::views::transform([&](const auto &) -> Type * {
+                                                        return Builder.getInt64Ty();
+                                                    }));
+
+        // TODO: params.
+        FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), params, false);
+
         Function *M = Function::Create(
-            FunctionType::get(IntegerType::getInt32Ty(Builder.getContext()), false),
+            FT,
             Function::InternalLinkage,
             functionStmt->name.getLexeme(),
             Builder.getModule()
         );
+
+        Value *func = Builder.AllocateFunction(objects, M);
+
         LoxBuilder FBuilder(Builder.getContext(), Builder.getModule(), *M);
         FunctionCompiler C(FBuilder);
 
         C.compile(functionStmt->body);
+
+        variables.insert(functionStmt->name.getLexeme(), func);
     }
 
     void FunctionCompiler::operator()(const ExpressionStmtPtr &expressionStmt) {

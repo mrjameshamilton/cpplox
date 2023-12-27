@@ -48,7 +48,7 @@ namespace lox {
         void compile(const std::vector<Stmt> &statements);
         void evaluate(const Stmt &stmt);
         void operator()(const BlockStmtPtr &blockStmt);
-        void operator()(const FunctionStmtPtr &functionStmt) const;
+        void operator()(const FunctionStmtPtr &functionStmt);
         void operator()(const ExpressionStmtPtr &expressionStmt);
         void operator()(const PrintStmtPtr &printStmt);
         void operator()(const ReturnStmtPtr &returnStmt) const;

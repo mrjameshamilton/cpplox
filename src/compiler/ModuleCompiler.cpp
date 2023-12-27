@@ -22,8 +22,8 @@ namespace lox {
         global->setInitializer(ConstantPointerNull::get(Builder->getObjStructType()->getPointerTo()));
 
         Function *M = Function::Create(
-            FunctionType::get(IntegerType::getInt32Ty(*Context), false),
-            Function::ExternalLinkage,
+            FunctionType::get(IntegerType::getInt64Ty(*Context), false),
+            Function::InternalLinkage,
             "main",
             *LoxModule
         );

@@ -72,15 +72,19 @@ namespace lox {
         return CreateOr(value, SIGN_BIT | QNAN);
     }
 
-    Value *LoxBuilder::AsObj(Value *value) {
+    Value *LoxBuilder::AsObj(Value *value, const std::optional<enum ObjType> type) {
         return CreateBitCast(
             CreateIntToPtr(CreateAnd(value, ~(SIGN_BIT | QNAN)), getInt8PtrTy()),
-            getObjStructType()->getPointerTo()
+            (type.has_value() ? getStructType(type.value()) : getObjStructType())->getPointerTo()
         );
     }
 
+    Value *LoxBuilder::AsFunction(Value *value) {
+        return AsObj(value, ObjType::FUNCTION);
+    }
+
     Value *LoxBuilder::AsString(Value *value) {
-        return CreateBitCast(AsObj(value), getStructType(ObjType::STRING)->getPointerTo());
+        return AsObj(value, ObjType::STRING);
     }
 
     Value *LoxBuilder::AsCString(Value *value) {

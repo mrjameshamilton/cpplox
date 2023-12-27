@@ -17,4 +17,9 @@ protected:
     ~Uncopyable() = default;
 };
 
+// TODO: std::ranges::to_vector not found.
+template<typename ContainerT, typename RangeT>
+ContainerT to(RangeT &&range) {
+    return ContainerT(begin(range), end(range));
+}
 #endif//LOX_LLVM_UTIL_H
