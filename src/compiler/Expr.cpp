@@ -1,5 +1,6 @@
 #include "FunctionCompiler.h"
 #include "ModuleCompiler.h"
+#include <bit>
 
 using namespace llvm;
 using namespace llvm::sys;
@@ -142,12 +143,11 @@ namespace lox {
     Value *FunctionCompiler::operator()(const LiteralExprPtr &literalExpr) {
         return std::visit(
             overloaded{
-                [this](const bool value) -> Value * { return Builder.BoolVal(value ? Builder.getTrue() : Builder.getFalse()); },
+                [this](const bool value) -> Value * {
+                    return Builder.BoolVal(value ? Builder.getTrue() : Builder.getFalse());
+                },
                 [this](const double double_value) -> Value * {
-                    // bitcast double -> i64.
-                    uint64_t value;
-                    memcpy(&value, &double_value, sizeof(double));
-                    return Builder.getInt64(value);
+                    return Builder.getInt64(std::bit_cast<int64_t>(double_value));
                 },
                 [this](const std::string_view string_value) -> Value * {
                     /*if (strings.contains(string_value))
