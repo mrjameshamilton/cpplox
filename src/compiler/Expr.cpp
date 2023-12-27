@@ -110,13 +110,13 @@ namespace lox {
 
     Value *FunctionCompiler::operator()(const CallExprPtr &callExpr) {
         const auto callee = Builder.AsFunction(evaluate(callExpr->callee));
-        const std::vector<Type*> paramTypes(callExpr->arguments.size(), Builder.getInt64Ty());
+        const std::vector<Type *> paramTypes(callExpr->arguments.size(), Builder.getInt64Ty());
         const auto paramValues = to<std::vector<Value *>>(
             callExpr->arguments | std::views::transform([&](const auto &p) -> Value * {
                 return evaluate(p);
             })
         );
-        // TODO: params.
+
         FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
 
         auto x = Builder.CreateLoad(

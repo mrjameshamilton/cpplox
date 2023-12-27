@@ -35,7 +35,7 @@ namespace lox {
         LoxBuilder FBuilder(Builder.getContext(), Builder.getModule(), *M);
         FunctionCompiler C(FBuilder);
 
-        C.compile(functionStmt->body);
+        C.compile(functionStmt->parameters, functionStmt->body);
 
         variables.insert(functionStmt->name.getLexeme(), func);
     }

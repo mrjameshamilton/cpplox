@@ -30,7 +30,7 @@ namespace lox {
         LoxBuilder FBuilder(*Context, *LoxModule, *M);
         FunctionCompiler C(FBuilder);
 
-        C.compile(program);
+        C.compile({}, program);
 
         Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));
         Builder->CreateCall(M);

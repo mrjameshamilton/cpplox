@@ -45,7 +45,7 @@ namespace lox {
         explicit FunctionCompiler(LoxBuilder &Builder) : Builder(Builder) {}
 
         // Statement code generation.
-        void compile(const std::vector<Stmt> &statements);
+        void compile(const std::vector<Token> &parameters, const std::vector<Stmt> &statements);
         void evaluate(const Stmt &stmt);
         void operator()(const BlockStmtPtr &blockStmt);
         void operator()(const FunctionStmtPtr &functionStmt);
