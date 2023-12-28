@@ -76,7 +76,7 @@ namespace lox {
     }
 
     void ModuleCompiler::FreeObjects() const {
-        const auto global = LoxModule->getNamedGlobal("objects");
+        const auto global = M->getNamedGlobal("objects");
         const auto object = CreateEntryBlockAlloca(Builder->getFunction(), Builder->getPtrTy(), "object");
         const auto next = CreateEntryBlockAlloca(Builder->getFunction(), Builder->getPtrTy(), "next");
         Builder->CreateStore(

@@ -3,6 +3,7 @@
 
 #include "../AST.h"
 #include "LoxBuilder.h"
+#include "LoxModule.h"
 
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Function.h>
@@ -20,10 +21,10 @@ namespace lox {
 
     struct ModuleCompiler {
         std::shared_ptr<LLVMContext> Context = std::make_shared<LLVMContext>();
-        std::shared_ptr<Module> LoxModule = std::make_shared<Module>("lox", *Context);
+        std::shared_ptr<LoxModule> M = std::make_shared<LoxModule>(*Context);
         Function *MainFunction =
-            Function::Create(FunctionType::get(IntegerType::getInt32Ty(*Context), false), Function::ExternalLinkage, "main", *LoxModule);
-        std::unique_ptr<LoxBuilder> Builder = std::make_unique<LoxBuilder>(*Context, *LoxModule, *MainFunction);
+            Function::Create(FunctionType::get(IntegerType::getInt32Ty(*Context), false), Function::ExternalLinkage, "main", *M);
+        std::unique_ptr<LoxBuilder> Builder = std::make_unique<LoxBuilder>(*Context, *M, *MainFunction);
 
         // TODO: use this.
         std::unordered_map<std::string_view, Value *> strings;

@@ -14,27 +14,27 @@ using namespace llvm::sys;
 namespace lox {
 
     void ModuleCompiler::evaluate(const Program &program) const {
-        LoxModule->getOrInsertGlobal("objects", Builder->getPtrTy());
-        const auto global = LoxModule->getNamedGlobal("objects");
+        M->getOrInsertGlobal("objects", Builder->getPtrTy());
+        const auto global = M->getNamedGlobal("objects");
         global->setLinkage(GlobalValue::PrivateLinkage);
         global->setAlignment(Align(8));
         global->setConstant(false);
         global->setInitializer(ConstantPointerNull::get(Builder->getObjStructType()->getPointerTo()));
 
         const auto selfType = IntegerType::getInt64Ty(*Context);
-        Function *M = Function::Create(
+        Function *F = Function::Create(
             FunctionType::get(IntegerType::getInt64Ty(*Context), {selfType}, false),
             Function::InternalLinkage,
             "main",
-            *LoxModule
+            *M
         );
-        LoxBuilder FBuilder(*Context, *LoxModule, *M);
+        LoxBuilder FBuilder(*Context, *M, *F);
         FunctionCompiler C(FBuilder);
 
         C.compile({}, program);
 
         Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));
-        Builder->CreateCall(M, /* self = */ Builder->getNilVal());
+        Builder->CreateCall(F, /* self = */ Builder->getNilVal());
 
         FreeObjects();
         Builder->CreateRet(Builder->getInt32(0));
@@ -43,7 +43,7 @@ namespace lox {
     bool ModuleCompiler::writeIR(const std::string &Filename) const {
         std::error_code ec;
         auto out = raw_fd_ostream(Filename, ec);
-        LoxModule->print(out, nullptr);
+        M->print(out, nullptr);
         out.close();
         return ec.value() == 0;
     }
