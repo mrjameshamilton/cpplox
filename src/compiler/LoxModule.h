@@ -38,11 +38,11 @@ namespace lox {
     public:
         explicit LoxModule(LLVMContext &Context) : Module("lox", Context) {}
 
-        [[nodiscard]] StructType *getObjStructType() const {
+        StructType *getObjStructType() const {
             return ObjStructType;
         }
 
-        [[nodiscard]] StructType *getStructType(const ObjType objType) const {
+        StructType *getStructType(const ObjType objType) const {
             switch (objType) {
                 case ObjType::STRING:
                     return StringStructType;
