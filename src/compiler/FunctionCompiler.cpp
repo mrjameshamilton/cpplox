@@ -3,9 +3,20 @@
 
 namespace lox {
 
-    void FunctionCompiler::compile(const std::vector<Token> &parameters, const std::vector<Stmt> &statements) {
+    void FunctionCompiler::compile(Value *func, const std::vector<Token> &parameters, const std::vector<Stmt> &statements) {
         beginScope();
-        const auto EntryBasicBlock = Builder.CreateBasicBlock("entry");
+
+        // TODO: self-referencing functions.
+        if (func) {
+            /*
+            const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), Builder.getFunction()->getName());
+            Builder.CreateStore(func, alloca);
+            variables.insert(Builder.getFunction()->getName(), alloca);
+            */
+            //variables.insert(Builder.getFunction()->getName(), Builder.getFunction());
+        }
+
+        BasicBlock *EntryBasicBlock = Builder.CreateBasicBlock("entry");
         Builder.SetInsertPoint(EntryBasicBlock);
 
         // Declare parameters and store them in local variables.
@@ -19,10 +30,12 @@ namespace lox {
         for (auto &stmt: statements) {
             evaluate(stmt);
         }
-
-        // TODO: return statements.
-        Builder.CreateRet(Builder.getNilVal());
         endScope();
+
+        BasicBlock *ExitBasicBlock = Builder.CreateBasicBlock("exit");
+        Builder.CreateBr(ExitBasicBlock);
+        Builder.SetInsertPoint(ExitBasicBlock);
+        Builder.CreateRet(Builder.getNilVal());
     }
 
 }// namespace lox

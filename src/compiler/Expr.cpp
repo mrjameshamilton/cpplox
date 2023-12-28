@@ -1,6 +1,7 @@
 #include "FunctionCompiler.h"
 #include "ModuleCompiler.h"
 #include <bit>
+#include <iostream>
 #include <ranges>
 #include <vector>
 
@@ -153,11 +154,10 @@ namespace lox {
 
     Value *FunctionCompiler::operator()(const VarExprPtr &varExpr) const {
         const auto value = variables.lookup(varExpr->name.getLexeme());
+        if (!value) {
+            std::cerr << "Undefined variable '" << varExpr->name.getLexeme() << "'" << std::endl;
+        }
         return Builder.CreateLoad(Builder.getInt64Ty(), value);
-        //if (varExpr->distance == -1) {
-        const auto global = Builder.getModule().getNamedGlobal(varExpr->name.getLexeme());
-        return Builder.CreateLoad(Builder.getInt64Ty(), global);
-        //}
     }
 
     Value *FunctionCompiler::operator()(const GroupingExprPtr &groupingExpr) {

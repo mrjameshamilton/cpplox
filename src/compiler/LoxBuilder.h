@@ -8,6 +8,7 @@ using namespace llvm;
 
 namespace lox {
     class LoxBuilder : public IRBuilder<NoFolder> {
+        // TODO: structs should be part of the Module instead.
         StructType *ObjStructType = StructType::create(
             Context,
             {IntegerType::getInt8Ty(Context),// ObjType

@@ -1,5 +1,24 @@
 fun foo(a) {
-    print "hello " + a;
+    if (a == "a") return 1;
+    //else return "x";
+
+    print "DONT";
+
+    while (!a) { return; print "x"; return a; }
+
+    return "hello " + a;
 }
 
-foo("world");
+print foo("world");
+print foo;
+
+//fun fib(n) {
+//
+//    print fib;
+//  if (n < 2) return n;
+//  return fib(n - 2) + fib(n - 1);
+//}
+//
+//print fib;
+//print fib(1);
+

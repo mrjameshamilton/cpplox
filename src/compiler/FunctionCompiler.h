@@ -3,8 +3,10 @@
 #include "../AST.h"
 #include "LoxBuilder.h"
 
+#include <iostream>
 #include <llvm/ADT/ScopedHashTable.h>
 #include <llvm/IR/Value.h>
+#include <llvm/Transforms/Utils/BasicBlockUtils.h>
 #include <stack>
 
 template<>
@@ -42,16 +44,17 @@ namespace lox {
         LoxBuilder &Builder;
 
     public:
-        explicit FunctionCompiler(LoxBuilder &Builder) : Builder(Builder) {}
+        explicit FunctionCompiler(LoxBuilder &Builder) : Builder(Builder) {
+        }
 
         // Statement code generation.
-        void compile(const std::vector<Token> &parameters, const std::vector<Stmt> &statements);
+        void compile(Value *func, const std::vector<Token> &parameters, const std::vector<Stmt> &statements);
         void evaluate(const Stmt &stmt);
         void operator()(const BlockStmtPtr &blockStmt);
         void operator()(const FunctionStmtPtr &functionStmt);
         void operator()(const ExpressionStmtPtr &expressionStmt);
         void operator()(const PrintStmtPtr &printStmt);
-        void operator()(const ReturnStmtPtr &returnStmt) const;
+        void operator()(const ReturnStmtPtr &returnStmt);
         void operator()(const VarStmtPtr &varStmt);
         void operator()(const WhileStmtPtr &whileStmt);
         void operator()(const IfStmtPtr &ifStmt);
@@ -78,6 +81,15 @@ namespace lox {
 
         void endScope() {
             scopes.pop();
+        }
+
+        void CreateRet(Value *value) const {
+            BasicBlock *ExitBasicBlock = Builder.CreateBasicBlock("return");
+            BasicBlock *NewBasicBlock = Builder.CreateBasicBlock("return.unreachable");
+            Builder.CreateBr(ExitBasicBlock);
+            Builder.SetInsertPoint(ExitBasicBlock);
+            Builder.CreateRet(value);
+            Builder.SetInsertPoint(NewBasicBlock);
         }
     };
 

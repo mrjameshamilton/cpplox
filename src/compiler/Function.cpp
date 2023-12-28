@@ -17,6 +17,11 @@ namespace lox {
         STORE_FUNCTION_PTR(obj, Function);
         STORE_FUNCTION_NAME(obj, name);
 
-        return obj;
+        return ObjVal(
+            CreatePtrToInt(
+                CreateLoad(getPtrTy(), obj),
+                getInt64Ty()
+            )
+        );
     }
 }// namespace lox

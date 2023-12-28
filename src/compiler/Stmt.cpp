@@ -1,5 +1,6 @@
 #include "FunctionCompiler.h"
 #include "ModuleCompiler.h"
+#include <llvm/Transforms/Utils/BasicBlockUtils.h>
 #include <ranges>
 #include <vector>
 namespace lox {
@@ -32,12 +33,14 @@ namespace lox {
 
         Value *func = Builder.AllocateFunction(objects, M);
 
+        const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), functionStmt->name.getLexeme());
+        Builder.CreateStore(func, alloca);
+        variables.insert(functionStmt->name.getLexeme(), alloca);
+
         LoxBuilder FBuilder(Builder.getContext(), Builder.getModule(), *M);
         FunctionCompiler C(FBuilder);
 
-        C.compile(functionStmt->parameters, functionStmt->body);
-
-        variables.insert(functionStmt->name.getLexeme(), func);
+        C.compile(func, functionStmt->parameters, functionStmt->body);
     }
 
     void FunctionCompiler::operator()(const ExpressionStmtPtr &expressionStmt) {
@@ -47,13 +50,17 @@ namespace lox {
     void FunctionCompiler::operator()(const PrintStmtPtr &printStmt) {
         const auto value = evaluate(printStmt->expression);
 
-        const auto BoolBlock = Builder.CreateBasicBlock("if.bool");
-        const auto EndBoolBlock = Builder.CreateBasicBlock("if.bool.end");
-        const auto NilBlock = Builder.CreateBasicBlock("if.nil");
-        const auto EndNilBlock = Builder.CreateBasicBlock("if.nil.end");
-        const auto NumBlock = Builder.CreateBasicBlock("if.num");
-        const auto ObjBlock = Builder.CreateBasicBlock("if.obj");
-        const auto EndBlock = Builder.CreateBasicBlock("if.end");
+        //const auto start = Builder.CreateBasicBlock("print.start");
+        const auto BoolBlock = Builder.CreateBasicBlock("if.print.bool");
+        const auto EndBoolBlock = Builder.CreateBasicBlock("if.print.bool.end");
+        const auto NilBlock = Builder.CreateBasicBlock("if.print.nil");
+        const auto EndNilBlock = Builder.CreateBasicBlock("if.print.nil.end");
+        const auto NumBlock = Builder.CreateBasicBlock("if.print.num");
+        const auto ObjBlock = Builder.CreateBasicBlock("if.print.obj");
+        const auto EndBlock = Builder.CreateBasicBlock("if.print.end");
+
+        //Builder.CreateBr(start);
+        //Builder.SetInsertPoint(start);
 
         Builder.CreateCondBr(Builder.IsBool(value), BoolBlock, EndBoolBlock);
         Builder.SetInsertPoint(BoolBlock);
@@ -79,7 +86,12 @@ namespace lox {
         Builder.SetInsertPoint(EndBlock);
     }
 
-    void FunctionCompiler::operator()(const ReturnStmtPtr &returnStmt) const {
+    void FunctionCompiler::operator()(const ReturnStmtPtr &returnStmt) {
+        if (returnStmt->expression.has_value()) {
+            CreateRet(evaluate(returnStmt->expression.value()));
+        } else {
+            CreateRet(Builder.getNilVal());
+        }
     }
 
     void FunctionCompiler::operator()(const VarStmtPtr &varStmt) {

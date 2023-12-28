@@ -125,16 +125,30 @@ namespace lox {
     }
 
     void LoxBuilder::PrintObject(Value *value) {
-        const auto IsStringBlock = CreateBasicBlock("string");
-        const auto DefaultBlock = CreateBasicBlock("default");
+        const auto IsStringBlock = CreateBasicBlock("print.string");
+        const auto IsFunctionBlock = CreateBasicBlock("print.function");
+        const auto DefaultBlock = CreateBasicBlock("print.default");
+        const auto EndBlock = CreateBasicBlock("print.end");
 
         const auto Switch = CreateSwitch(ObjType(value), DefaultBlock);
         Switch->addCase(ObjTypeInt(ObjType::STRING), IsStringBlock);
+        Switch->addCase(ObjTypeInt(ObjType::FUNCTION), IsFunctionBlock);
 
         SetInsertPoint(IsStringBlock);
         PrintString(value);
-        CreateBr(DefaultBlock);
+        CreateBr(EndBlock);
+
+        SetInsertPoint(IsFunctionBlock);
+        static auto global_string_ptr = CreateGlobalStringPtr("<fn %s>\n");
+        const auto f = AsFunction(value);
+        const auto s = CreateLoad(getInt64Ty(), CreateStructGEP(getStructType(ObjType::FUNCTION), f, 3));
+        PrintF({global_string_ptr, AsCString(s)});
+
+        CreateBr(EndBlock);
         SetInsertPoint(DefaultBlock);
+
+        CreateBr(EndBlock);
+        SetInsertPoint(EndBlock);
     }
 
     void LoxBuilder::PrintString(Value *value) {
