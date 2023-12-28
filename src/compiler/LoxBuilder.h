@@ -1,5 +1,6 @@
 #ifndef LOXBUILDER_H
 #define LOXBUILDER_H
+#include "LoxModule.h"
 #include "Value.h"
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/NoFolder.h>
@@ -33,11 +34,11 @@ namespace lox {
             },
             "Function"
         );
-        Module &LoxModule;
+        LoxModule &M;
         llvm::Function &Function;
 
     public:
-        explicit LoxBuilder(LLVMContext &Context, Module &Module, llvm::Function &Function) : IRBuilder(Context), LoxModule(Module), Function(Function) {
+        explicit LoxBuilder(LLVMContext &Context, LoxModule &Module, llvm::Function &Function) : IRBuilder(Context), M(Module), Function(Function) {
         }
 
         // Code generation for internal Lox functions.
@@ -100,7 +101,7 @@ namespace lox {
             }
         }
 
-        [[nodiscard]] Module &getModule() const { return LoxModule; }
+        [[nodiscard]] LoxModule &getModule() const { return M; }
         [[nodiscard]] llvm::Function *getFunction() const { return &Function; }
         [[nodiscard]] BasicBlock *CreateBasicBlock(const std::string_view &name, llvm::Function *F = nullptr) const {
             return BasicBlock::Create(getContext(), name, F != nullptr ? F : getFunction());

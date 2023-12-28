@@ -3,10 +3,10 @@
 #include <llvm/IR/Module.h>
 
 namespace lox {
-    class LoxModule : public Module {
+    class LoxModule : public llvm::Module {
 
     public:
-        explicit LoxModule(LLVMContext &Context) : Module("lox", Context) {}
+        explicit LoxModule(llvm::LLVMContext &Context) : llvm::Module("lox", Context) {}
     };
 }// namespace lox
 
