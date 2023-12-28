@@ -19,7 +19,7 @@ namespace lox {
         global->setLinkage(GlobalValue::PrivateLinkage);
         global->setAlignment(Align(8));
         global->setConstant(false);
-        global->setInitializer(ConstantPointerNull::get(Builder->getObjStructType()->getPointerTo()));
+        global->setInitializer(ConstantPointerNull::get(M->getObjStructType()->getPointerTo()));
 
         const auto selfType = IntegerType::getInt64Ty(*Context);
         Function *F = Function::Create(

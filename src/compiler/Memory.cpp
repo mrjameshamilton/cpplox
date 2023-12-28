@@ -13,7 +13,7 @@ namespace lox {
     }
 
     Value *LoxBuilder::AllocateObj(Value *objects, enum ObjType objType, const std::string_view name) {
-        Type *StructType = getStructType(objType);
+        Type *StructType = getModule().getStructType(objType);
 
         Type *IntPtrTy = IntegerType::getInt32Ty(this->getContext());
         // The malloc size IR that is generated with getSizeOf uses a hack described here:
@@ -30,12 +30,12 @@ namespace lox {
 
         CreateStore(
             ObjTypeInt(objType),
-            CreateStructGEP(getObjStructType(), NewObjMalloc, 0, "ObjType")
+            CreateStructGEP(getModule().getObjStructType(), NewObjMalloc, 0, "ObjType")
         );
 
         CreateStore(
             getFalse(),
-            CreateStructGEP(getObjStructType(), NewObjMalloc, 1, "isMarked")
+            CreateStructGEP(getModule().getObjStructType(), NewObjMalloc, 1, "isMarked")
         );
 
 #ifdef DEBUG_LOG_GC
@@ -55,7 +55,7 @@ namespace lox {
 
         CreateStore(
             CreateLoad(getPtrTy(), objects),
-            CreateStructGEP(getObjStructType(), NewObjMalloc, 2, "next")
+            CreateStructGEP(getModule().getObjStructType(), NewObjMalloc, 2, "next")
         );
 
         CreateStore(NewObjMalloc, objects);
@@ -66,7 +66,7 @@ namespace lox {
         static const auto fmt2 = CreateGlobalStringPtr("\t%p allocate %zu.\n");
         PrintF({fmt2, NewObjMalloc, allocsize});
         static const auto fmt3 = CreateGlobalStringPtr("\tobject.next = %p\n");
-        PrintF({fmt3, CreateLoad(getPtrTy(), CreateStructGEP(getObjStructType(), NewObjMalloc, 2, "next"))});
+        PrintF({fmt3, CreateLoad(getPtrTy(), CreateStructGEP(getModule().getObjStructType(), NewObjMalloc, 2, "next"))});
 #endif
 
         const auto NewObj = CreateEntryBlockAlloca(GetInsertBlock()->getParent(), StructType, name);
@@ -96,7 +96,7 @@ namespace lox {
         Builder->CreateStore(
             Builder->CreateLoad(
                 Builder->getPtrTy(),
-                Builder->CreateStructGEP(Builder->getObjStructType(), Builder->CreateLoad(Builder->getPtrTy(), object), 2, "next")
+                Builder->CreateStructGEP(M->getObjStructType(), Builder->CreateLoad(Builder->getPtrTy(), object), 2, "next")
             ),
             next
         );

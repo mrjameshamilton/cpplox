@@ -9,31 +9,6 @@ using namespace llvm;
 
 namespace lox {
     class LoxBuilder : public IRBuilder<NoFolder> {
-        // TODO: structs should be part of the Module instead.
-        StructType *ObjStructType = StructType::create(
-            Context,
-            {IntegerType::getInt8Ty(Context),// ObjType
-             IntegerType::getInt1Ty(Context),// isMarked
-             PointerType::get(Context, 0)},  // next
-            "Obj"
-        );
-        StructType *StringStructType = StructType::create(
-            Context,
-            {ObjStructType,
-             PointerType::getInt8PtrTy(Context),
-             IntegerType::getInt32Ty(Context)},
-            "String"
-        );
-        StructType *FunctionStructType = StructType::create(
-            Context,
-            {
-                ObjStructType,
-                IntegerType::getInt8Ty(Context),// arity
-                getPtrTy(),                     // func ptr
-                StringStructType                // name
-            },
-            "Function"
-        );
         LoxModule &M;
         llvm::Function &Function;
 
@@ -84,22 +59,6 @@ namespace lox {
         void PrintObject(Value *value);
         void PrintString(Value *value);
         void PrintBool(Value *value);
-
-        [[nodiscard]] StructType *getObjStructType() const {
-            return ObjStructType;
-        }
-
-        [[nodiscard]] StructType *getStructType(const enum ObjType objType) const {
-            switch (objType) {
-                case ObjType::STRING:
-                    return StringStructType;
-                case ObjType::FUNCTION:
-                    return FunctionStructType;
-                // TODO: other types.
-                default:
-                    throw std::runtime_error("Not implemented");
-            }
-        }
 
         [[nodiscard]] LoxModule &getModule() const { return M; }
         [[nodiscard]] llvm::Function *getFunction() const { return &Function; }

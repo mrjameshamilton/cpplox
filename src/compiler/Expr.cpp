@@ -127,7 +127,7 @@ namespace lox {
         auto x = Builder.CreateLoad(
             Builder.getPtrTy(),
             Builder.CreateStructGEP(
-                Builder.getStructType(ObjType::FUNCTION),
+                Builder.getModule().getStructType(ObjType::FUNCTION),
                 callee, 2
             ),
             "func"

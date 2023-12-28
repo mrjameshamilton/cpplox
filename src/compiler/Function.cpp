@@ -3,11 +3,11 @@
 namespace lox {
 
 #define STORE_FUNCTION_ARITY(PTR, LENGTH) \
-    CreateStore(LENGTH, CreateStructGEP(getStructType(ObjType::FUNCTION), CreateLoad(getPtrTy(), PTR), 1))
+    CreateStore(LENGTH, CreateStructGEP(getModule().getStructType(ObjType::FUNCTION), CreateLoad(getPtrTy(), PTR), 1))
 #define STORE_FUNCTION_PTR(PTR, STR) \
-    CreateStore(STR, CreateStructGEP(getStructType(ObjType::FUNCTION), CreateLoad(getPtrTy(), PTR), 2))
+    CreateStore(STR, CreateStructGEP(getModule().getStructType(ObjType::FUNCTION), CreateLoad(getPtrTy(), PTR), 2))
 #define STORE_FUNCTION_NAME(PTR, STR) \
-    CreateStore(STR, CreateStructGEP(getStructType(ObjType::FUNCTION), CreateLoad(getPtrTy(), PTR), 3))
+    CreateStore(STR, CreateStructGEP(getModule().getStructType(ObjType::FUNCTION), CreateLoad(getPtrTy(), PTR), 3))
 
     Value *LoxBuilder::AllocateFunction(Value *objects, llvm::Function *Function) {
         Value *obj = AllocateObj(objects, ObjType::FUNCTION, Function->getName());

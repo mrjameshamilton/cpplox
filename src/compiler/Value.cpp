@@ -45,7 +45,7 @@ namespace lox {
     Value *LoxBuilder::ObjType(Value *value) {
         return CreateLoad(
             getInt8Ty(),
-            CreateStructGEP(getObjStructType(), AsObj(value), 0)
+            CreateStructGEP(getModule().getObjStructType(), AsObj(value), 0)
         );
     }
 
@@ -75,7 +75,7 @@ namespace lox {
     Value *LoxBuilder::AsObj(Value *value, const std::optional<enum ObjType> type) {
         return CreateBitCast(
             CreateIntToPtr(CreateAnd(value, ~(SIGN_BIT | QNAN)), getInt8PtrTy()),
-            (type.has_value() ? getStructType(type.value()) : getObjStructType())->getPointerTo()
+            (type.has_value() ? getModule().getStructType(type.value()) : getModule().getObjStructType())->getPointerTo()
         );
     }
 
@@ -89,7 +89,7 @@ namespace lox {
 
     Value *LoxBuilder::AsCString(Value *value) {
         const auto string = CreateIntToPtr(CreateAnd(value, ~(SIGN_BIT | QNAN)), getInt8PtrTy());
-        return CreateLoad(getInt8PtrTy(), CreateStructGEP(getStructType(ObjType::STRING), string, 1));
+        return CreateLoad(getInt8PtrTy(), CreateStructGEP(getModule().getStructType(ObjType::STRING), string, 1));
     }
 
     Value *LoxBuilder::NumberVal(Value *value) {
@@ -141,7 +141,7 @@ namespace lox {
         SetInsertPoint(IsFunctionBlock);
         static auto global_string_ptr = CreateGlobalStringPtr("<fn %s>\n");
         const auto f = AsFunction(value);
-        const auto s = CreateLoad(getInt64Ty(), CreateStructGEP(getStructType(ObjType::FUNCTION), f, 3));
+        const auto s = CreateLoad(getInt64Ty(), CreateStructGEP(getModule().getStructType(ObjType::FUNCTION), f, 3));
         PrintF({global_string_ptr, AsCString(s)});
 
         CreateBr(EndBlock);
