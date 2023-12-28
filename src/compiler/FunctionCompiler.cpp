@@ -3,24 +3,23 @@
 
 namespace lox {
 
-    void FunctionCompiler::compile(Value *func, const std::vector<Token> &parameters, const std::vector<Stmt> &statements) {
+    void FunctionCompiler::compile(const std::vector<Token> &parameters, const std::vector<Stmt> &statements) {
         beginScope();
-
-        // TODO: self-referencing functions.
-        if (func) {
-            /*
-            const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), Builder.getFunction()->getName());
-            Builder.CreateStore(func, alloca);
-            variables.insert(Builder.getFunction()->getName(), alloca);
-            */
-            //variables.insert(Builder.getFunction()->getName(), Builder.getFunction());
-        }
 
         BasicBlock *EntryBasicBlock = Builder.CreateBasicBlock("entry");
         Builder.SetInsertPoint(EntryBasicBlock);
 
         // Declare parameters and store them in local variables.
         auto arg = Builder.getFunction()->arg_begin();
+
+        // TODO: support captured variables in general.
+        // Self-referencing functions are supported by passing the function obj as the first parameter
+        // and re-declaring a local variable with the same name.
+        const auto self = arg++;
+        const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), Builder.getFunction()->getName());
+        Builder.CreateStore(self, alloca);
+        variables.insert(Builder.getFunction()->getName(), alloca);
+
         for (auto &p: parameters) {
             const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), p.getLexeme());
             Builder.CreateStore(arg++, alloca);
@@ -30,8 +29,10 @@ namespace lox {
         for (auto &stmt: statements) {
             evaluate(stmt);
         }
+
         endScope();
 
+        // Default return value.
         BasicBlock *ExitBasicBlock = Builder.CreateBasicBlock("exit");
         Builder.CreateBr(ExitBasicBlock);
         Builder.SetInsertPoint(ExitBasicBlock);

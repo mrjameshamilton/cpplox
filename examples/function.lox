@@ -1,4 +1,7 @@
 fun foo(a) {
+    print "test";
+    print foo;
+    print "x";
     if (a == "a") return 1;
     //else return "x";
 
@@ -12,13 +15,10 @@ fun foo(a) {
 print foo("world");
 print foo;
 
-//fun fib(n) {
-//
-//    print fib;
-//  if (n < 2) return n;
-//  return fib(n - 2) + fib(n - 1);
-//}
-//
-//print fib;
-//print fib(1);
+fun fib(n) {
+  if (n < 2) return n;
+  return fib(n - 2) + fib(n - 1);
+}
 
+print fib;
+print fib(25);

@@ -21,8 +21,9 @@ namespace lox {
         global->setConstant(false);
         global->setInitializer(ConstantPointerNull::get(Builder->getObjStructType()->getPointerTo()));
 
+        const auto selfType = IntegerType::getInt64Ty(*Context);
         Function *M = Function::Create(
-            FunctionType::get(IntegerType::getInt64Ty(*Context), false),
+            FunctionType::get(IntegerType::getInt64Ty(*Context), {selfType}, false),
             Function::InternalLinkage,
             "main",
             *LoxModule
@@ -30,10 +31,11 @@ namespace lox {
         LoxBuilder FBuilder(*Context, *LoxModule, *M);
         FunctionCompiler C(FBuilder);
 
-        C.compile(nullptr, {}, program);
+        C.compile({}, program);
 
         Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));
-        Builder->CreateCall(M);
+        Builder->CreateCall(M, /* self = */ Builder->getNilVal());
+
         FreeObjects();
         Builder->CreateRet(Builder->getInt32(0));
     }

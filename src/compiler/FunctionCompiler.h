@@ -48,7 +48,7 @@ namespace lox {
         }
 
         // Statement code generation.
-        void compile(Value *func, const std::vector<Token> &parameters, const std::vector<Stmt> &statements);
+        void compile(const std::vector<Token> &parameters, const std::vector<Stmt> &statements);
         void evaluate(const Stmt &stmt);
         void operator()(const BlockStmtPtr &blockStmt);
         void operator()(const FunctionStmtPtr &functionStmt);

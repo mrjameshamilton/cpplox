@@ -48,14 +48,14 @@ int main(const int argc, char **argv) {
     if (hadError) return 65;
 
 
-    ModuleCompiler ModuleCompiler;
+    const ModuleCompiler ModuleCompiler;
     ModuleCompiler.evaluate(ast);
     if (!OutputFilename.empty()) {
         ModuleCompiler.writeIR(OutputFilename.getValue());
     }
 
     Interpreter Interpreter;
-    Interpreter.evaluate(ast);
+    //Interpreter.evaluate(ast);
 
     if (hadRuntimeError) return 70;
 

@@ -5,7 +5,7 @@
 #include <ranges>
 #include <vector>
 
-#define DEBUG true
+#define DEBUG false
 
 using namespace llvm;
 using namespace llvm::sys;
@@ -110,13 +110,17 @@ namespace lox {
     }
 
     Value *FunctionCompiler::operator()(const CallExprPtr &callExpr) {
-        const auto callee = Builder.AsFunction(evaluate(callExpr->callee));
-        const std::vector<Type *> paramTypes(callExpr->arguments.size(), Builder.getInt64Ty());
-        const auto paramValues = to<std::vector<Value *>>(
+        const auto value = evaluate(callExpr->callee);
+        const auto callee = Builder.AsFunction(value);
+
+        const std::vector<Type *> paramTypes(callExpr->arguments.size() + 1, Builder.getInt64Ty());
+        auto paramValues = to<std::vector<Value *>>(
             callExpr->arguments | std::views::transform([&](const auto &p) -> Value * {
                 return evaluate(p);
             })
         );
+        // Insert a extra parameter containing the function obj itself, to support self referencing functions.
+        paramValues.insert(paramValues.begin(), value);
 
         FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
 
@@ -129,7 +133,7 @@ namespace lox {
             "func"
         );
 
-#ifdef DEBUG
+#if DEBUG
         Builder.PrintF({Builder.CreateGlobalStringPtr("Calling func at %p with function ptr %p\n"), callee, x});
 #endif
 
