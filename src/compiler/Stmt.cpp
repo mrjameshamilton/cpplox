@@ -86,11 +86,12 @@ namespace lox {
     }
 
     void FunctionCompiler::operator()(const ReturnStmtPtr &returnStmt) {
-        if (returnStmt->expression.has_value()) {
-            CreateRet(evaluate(returnStmt->expression.value()));
-        } else {
-            CreateRet(Builder.getNilVal());
-        }
+        BasicBlock *ExitBasicBlock = Builder.CreateBasicBlock("return");
+        BasicBlock *NewBasicBlock = Builder.CreateBasicBlock("return.unreachable");
+        Builder.CreateBr(ExitBasicBlock);
+        Builder.SetInsertPoint(ExitBasicBlock);
+        Builder.CreateRet(returnStmt->expression.has_value() ? evaluate(returnStmt->expression.value()) : Builder.getNilVal());
+        Builder.SetInsertPoint(NewBasicBlock);
     }
 
     void FunctionCompiler::operator()(const VarStmtPtr &varStmt) {

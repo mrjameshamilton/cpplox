@@ -82,15 +82,6 @@ namespace lox {
         void endScope() {
             scopes.pop();
         }
-
-        void CreateRet(Value *value) const {
-            BasicBlock *ExitBasicBlock = Builder.CreateBasicBlock("return");
-            BasicBlock *NewBasicBlock = Builder.CreateBasicBlock("return.unreachable");
-            Builder.CreateBr(ExitBasicBlock);
-            Builder.SetInsertPoint(ExitBasicBlock);
-            Builder.CreateRet(value);
-            Builder.SetInsertPoint(NewBasicBlock);
-        }
     };
 
 }// namespace lox
