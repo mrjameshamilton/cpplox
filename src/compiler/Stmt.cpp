@@ -49,7 +49,6 @@ namespace lox {
     void FunctionCompiler::operator()(const PrintStmtPtr &printStmt) {
         const auto value = evaluate(printStmt->expression);
 
-        //const auto start = Builder.CreateBasicBlock("print.start");
         const auto BoolBlock = Builder.CreateBasicBlock("if.print.bool");
         const auto EndBoolBlock = Builder.CreateBasicBlock("if.print.bool.end");
         const auto NilBlock = Builder.CreateBasicBlock("if.print.nil");
@@ -57,9 +56,6 @@ namespace lox {
         const auto NumBlock = Builder.CreateBasicBlock("if.print.num");
         const auto ObjBlock = Builder.CreateBasicBlock("if.print.obj");
         const auto EndBlock = Builder.CreateBasicBlock("if.print.end");
-
-        //Builder.CreateBr(start);
-        //Builder.SetInsertPoint(start);
 
         Builder.CreateCondBr(Builder.IsBool(value), BoolBlock, EndBoolBlock);
         Builder.SetInsertPoint(BoolBlock);
@@ -98,14 +94,6 @@ namespace lox {
         const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), varStmt->name.getLexeme());
         Builder.CreateStore(evaluate(varStmt->initializer), alloca);
         variables.insert(varStmt->name.getLexeme(), alloca);
-        /*LoxModule->getOrInsertGlobal(varStmt->name.getLexeme(), Builder->getInt64Ty());
-                const auto global = LoxModule->getNamedGlobal(varStmt->name.getLexeme());
-                global->setLinkage(GlobalValue::PrivateLinkage);
-                global->setAlignment(Align(8));
-                global->setConstant(false);
-                global->setInitializer(Builder->getInt64(NIL_VAL));
-
-                Builder->CreateStore(evaluate(varStmt->initializer), global);*/
     }
 
     void FunctionCompiler::operator()(const WhileStmtPtr &whileStmt) {
