@@ -45,7 +45,7 @@ namespace lox {
             objects->setLinkage(GlobalValue::PrivateLinkage);
             objects->setAlignment(Align(8));
             objects->setConstant(false);
-            objects->setInitializer(ConstantPointerNull::get(ObjStructType->getPointerTo()));
+            objects->setInitializer(ConstantPointerNull::get(PointerType::get(Context, 0)));
         }
 
         StructType *getObjStructType() const {
