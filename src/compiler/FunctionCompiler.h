@@ -3,7 +3,6 @@
 #include "../AST.h"
 #include "LoxBuilder.h"
 
-#include <iostream>
 #include <llvm/ADT/ScopedHashTable.h>
 #include <llvm/IR/Value.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>

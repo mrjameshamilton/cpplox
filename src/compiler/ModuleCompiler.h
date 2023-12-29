@@ -5,15 +5,12 @@
 #include "LoxBuilder.h"
 #include "LoxModule.h"
 
-#include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/NoFolder.h>
-#include <llvm/IR/Value.h>
 #include <llvm/Passes/PassBuilder.h>
 
 using namespace llvm;
 using namespace llvm::sys;
-
 
 namespace lox {
 
