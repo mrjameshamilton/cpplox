@@ -40,14 +40,14 @@ namespace lox {
         using ScopedHTType = ScopedHashTable<std::string_view, Value *>;
         ScopedHTType variables;
         std::stack<ScopedHTType::ScopeTy> scopes;
-        LoxBuilder &Builder;
+        LoxBuilder Builder;
 
     public:
-        explicit FunctionCompiler(LoxBuilder &Builder) : Builder(Builder) {
+        explicit FunctionCompiler(LLVMContext &Context, LoxModule &Module, Function &F) : Builder{Context, Module, F} {
         }
 
         // Statement code generation.
-        void compile(const std::vector<Token> &parameters, const std::vector<Stmt> &statements);
+        void compile(const std::vector<Stmt> &statements, const std::vector<Token> &parameters = {});
         void evaluate(const Stmt &stmt);
         void operator()(const BlockStmtPtr &blockStmt);
         void operator()(const FunctionStmtPtr &functionStmt);
@@ -68,7 +68,7 @@ namespace lox {
         Value *operator()(const SetExprPtr &setExpr) const;
         Value *operator()(const ThisExprPtr &thisExpr) const;
         Value *operator()(const SuperExprPtr &superExpr) const;
-        Value *operator()(const VarExprPtr &varExpr) const;
+        Value *operator()(const VarExprPtr &varExpr);
         Value *operator()(const GroupingExprPtr &groupingExpr);
         Value *operator()(const LiteralExprPtr &literalExpr);
         Value *operator()(const LogicalExprPtr &logicalExpr);

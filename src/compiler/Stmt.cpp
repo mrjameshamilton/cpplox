@@ -23,23 +23,22 @@ namespace lox {
         const std::vector<Type *> paramTypes(functionStmt->parameters.size() + 1, Builder.getInt64Ty());
         FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
 
-        Function *M = Function::Create(
+        Function *F = Function::Create(
             FT,
             Function::InternalLinkage,
             functionStmt->name.getLexeme(),
             Builder.getModule()
         );
 
-        Value *func = Builder.AllocateFunction(objects, M);
+        Value *func = Builder.AllocateFunction(objects, F);
 
         const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), functionStmt->name.getLexeme());
         Builder.CreateStore(func, alloca);
         variables.insert(functionStmt->name.getLexeme(), alloca);
 
-        LoxBuilder FBuilder(Builder.getContext(), Builder.getModule(), *M);
-        FunctionCompiler C(FBuilder);
+        FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F);
 
-        C.compile(functionStmt->parameters, functionStmt->body);
+        C.compile(functionStmt->body, functionStmt->parameters);
     }
 
     void FunctionCompiler::operator()(const ExpressionStmtPtr &expressionStmt) {

@@ -21,10 +21,10 @@ namespace lox {
             "main",
             *M
         );
-        LoxBuilder FBuilder(*Context, *M, *F);
-        FunctionCompiler C(FBuilder);
 
-        C.compile({}, program);
+        FunctionCompiler C(*Context, *M, *F);
+
+        C.compile(program);
 
         Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));
         Builder->CreateCall(F, /* self = */ Builder->getNilVal());

@@ -3,7 +3,7 @@
 
 namespace lox {
 
-    void FunctionCompiler::compile(const std::vector<Token> &parameters, const std::vector<Stmt> &statements) {
+    void FunctionCompiler::compile(const std::vector<Stmt> &statements, const std::vector<Token> &parameters) {
         beginScope();
 
         BasicBlock *EntryBasicBlock = Builder.CreateBasicBlock("entry");

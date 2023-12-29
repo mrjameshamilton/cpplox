@@ -154,7 +154,7 @@ namespace lox {
         throw std::runtime_error("not implemented");
     }
 
-    Value *FunctionCompiler::operator()(const VarExprPtr &varExpr) const {
+    Value *FunctionCompiler::operator()(const VarExprPtr &varExpr) {
         const auto value = variables.lookup(varExpr->name.getLexeme());
         if (!value) {
             std::cerr << "Undefined variable '" << varExpr->name.getLexeme() << "'" << std::endl;
