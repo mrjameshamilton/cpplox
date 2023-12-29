@@ -176,18 +176,12 @@ namespace lox {
                     return Builder.getInt64(std::bit_cast<int64_t>(double_value));
                 },
                 [this](const std::string_view string_value) -> Value * {
-                    static std::unordered_map<std::string_view, Value *> strings;
-
-                    if (strings.contains(string_value))
-                        return strings.at(string_value);
 
                     const auto value = Builder.AllocateString(
                         Builder.getModule().getObjects(),
                         Builder.CreateGlobalStringPtr(string_value),
                         Builder.getInt32(string_value.length())
                     );
-
-                    strings[string_value] = value;
 
                     return value;
                 },
