@@ -18,8 +18,6 @@ namespace lox {
 
     Value *FunctionCompiler::operator()(const AssignExprPtr &assignExpr) {
         const auto value = evaluate(assignExpr->value);
-        /*const auto global = LoxModule->getNamedGlobal(assignExpr->name.getLexeme());
-            Builder->CreateStore(value, global);*/
         const auto current = *variables.begin(assignExpr->name.getLexeme());
         Builder.CreateStore(value, current);
         return value;
