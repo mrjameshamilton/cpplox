@@ -122,12 +122,13 @@ namespace lox {
 
 
         Builder->SetInsertPoint(IsStringBlock);
-#ifdef DEBUG_LOG_GC
+# if DEBUG_LOG_GC
         static const auto fmt = Builder->CreateGlobalStringPtr("free '%s' @ %p\n");
         Builder->PrintF({fmt, Builder->AsCString(value), value});
         //Builder->CreateFree(); TODO: free string chars? but they're not allocated by malloc.
-        Builder->CreateFree(value);
 #endif
+
+        Builder->CreateFree(value);
 
         Builder->CreateBr(DefaultBlock);
         Builder->SetInsertPoint(DefaultBlock);
