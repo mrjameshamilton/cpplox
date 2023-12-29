@@ -115,20 +115,28 @@ namespace lox {
 
     void ModuleCompiler::FreeObject(Value *value) const {
         const auto IsStringBlock = Builder->CreateBasicBlock("string");
+        const auto IsFunctionBlock = Builder->CreateBasicBlock("string");
         const auto DefaultBlock = Builder->CreateBasicBlock("default");
+
+#if DEBUG_LOG_GC
+        static const auto fmt = Builder->CreateGlobalStringPtr("free %p: ");
+        Builder->PrintF({fmt, value});
+        Builder->PrintObject(value);
+#endif
 
         const auto Switch = Builder->CreateSwitch(Builder->ObjType(value), DefaultBlock);
         Switch->addCase(Builder->ObjTypeInt(ObjType::STRING), IsStringBlock);
-
+        Switch->addCase(Builder->ObjTypeInt(ObjType::FUNCTION), IsFunctionBlock);
 
         Builder->SetInsertPoint(IsStringBlock);
-#if DEBUG_LOG_GC
-        static const auto fmt = Builder->CreateGlobalStringPtr("free '%s' @ %p\n");
-        Builder->PrintF({fmt, Builder->AsCString(value), value});
-        //Builder->CreateFree(); TODO: free string chars? but they're not allocated by malloc.
-#endif
-
         Builder->CreateFree(value);
+        //Builder->CreateFree(); TODO: free string chars? but they're not allocated by malloc.
+
+        Builder->CreateBr(DefaultBlock);
+
+        Builder->SetInsertPoint(IsFunctionBlock);
+        Builder->CreateFree(value);
+        // Don't need to free the name, because it will be freed as a String obj anyway.
 
         Builder->CreateBr(DefaultBlock);
         Builder->SetInsertPoint(DefaultBlock);
