@@ -5,9 +5,9 @@
 namespace lox {
 
 #define LOAD_STRING_LENGTH(PTR) \
-    CreateLoad(getInt32Ty(), CreateStructGEP(getModule().getStructType(ObjType::STRING), CreateLoad(getPtrTy(), PTR), 2), "length")
+    B.CreateLoad(B.getInt32Ty(), B.CreateStructGEP(B.getModule().getStructType(ObjType::STRING), B.CreateLoad(B.getPtrTy(), PTR), 2), "length")
 #define LOAD_STRING_STRING(PTR) \
-    CreateLoad(getPtrTy(), CreateStructGEP(getModule().getStructType(ObjType::STRING), CreateLoad(getPtrTy(), PTR), 1), "string")
+    B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getStructType(ObjType::STRING), B.CreateLoad(B.getPtrTy(), PTR), 1), "string")
 #define STORE_STRING_LENGTH(PTR, LENGTH) \
     CreateStore(LENGTH, CreateStructGEP(getModule().getStructType(ObjType::STRING), CreateLoad(getPtrTy(), PTR), 2))
 #define STORE_STRING_STRING(PTR, STR) \
@@ -40,44 +40,43 @@ namespace lox {
                 this->getModule()
             );
 
-            const auto InsertPoint = GetInsertBlock();
-            const auto EntryBasicBlock = CreateBasicBlock("entry", F);
-            SetInsertPoint(EntryBasicBlock);
+            LoxBuilder B(getContext(), getModule(), *F);
+
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
 
             const auto arguments = F->args().begin();
 
-            const auto p0str = CreateEntryBlockAlloca(F, getPtrTy(), "p0str");
-            CreateStore(AsString(arguments), p0str);
-            const auto p1str = CreateEntryBlockAlloca(F, getPtrTy(), "p1str");
-            CreateStore(AsString(arguments + 1), p1str);
+            const auto p0str = CreateEntryBlockAlloca(F, B.getPtrTy(), "p0str");
+            B.CreateStore(B.AsString(arguments), p0str);
+            const auto p1str = CreateEntryBlockAlloca(F, B.getPtrTy(), "p1str");
+            B.CreateStore(B.AsString(arguments + 1), p1str);
 
             const auto String0Length = LOAD_STRING_LENGTH(p0str);
             const auto String1Length = LOAD_STRING_LENGTH(p1str);
             const auto String0String = LOAD_STRING_STRING(p0str);
             const auto String1String = LOAD_STRING_STRING(p1str);
 
-            const auto NotEqualBlock = CreateBasicBlock("not.equal", F);
-            const auto CheckContents = CreateBasicBlock("check.contents", F);
-            CreateCondBr(CreateICmpNE(String0Length, String1Length), NotEqualBlock, CheckContents);
+            const auto NotEqualBlock = B.CreateBasicBlock("not.equal");
+            const auto CheckContents = B.CreateBasicBlock("check.contents");
+            B.CreateCondBr(B.CreateICmpNE(String0Length, String1Length), NotEqualBlock, CheckContents);
 
-            SetInsertPoint(CheckContents);
+            B.SetInsertPoint(CheckContents);
 
             static const auto MemCmp = this->getModule().getOrInsertFunction(
                 "memcmp",
-                FunctionType::get(getInt32Ty(), {getPtrTy(), getPtrTy(), getInt64Ty()}, false)
+                FunctionType::get(B.getInt32Ty(), {B.getPtrTy(), B.getPtrTy(), B.getInt64Ty()}, false)
             );
 
-            CreateRet(
-                CreateICmpEQ(
-                    CreateCall(MemCmp, {String0String, String1String, String0Length}),
-                    getInt32(0)
+            B.CreateRet(
+                B.CreateICmpEQ(
+                    B.CreateCall(MemCmp, {String0String, String1String, String0Length}),
+                    B.getInt32(0)
                 )
             );
 
-            SetInsertPoint(NotEqualBlock);
-            CreateRet(getFalse());
-
-            SetInsertPoint(InsertPoint);
+            B.SetInsertPoint(NotEqualBlock);
+            B.CreateRet(B.getFalse());
 
             return F;
         }());
@@ -98,73 +97,72 @@ namespace lox {
                 this->getModule()
             );
 
-            const auto InsertPoint = GetInsertBlock();
-            const auto EntryBasicBlock = CreateBasicBlock("entry", F);
-            SetInsertPoint(EntryBasicBlock);
+            LoxBuilder B(getContext(), getModule(), *F);
+
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
 
             const auto arguments = F->args().begin();
 
-            const auto p0str = CreateEntryBlockAlloca(F, getPtrTy(), "p0str");
-            CreateStore(AsString(arguments), p0str);
-            const auto p1str = CreateEntryBlockAlloca(F, getPtrTy(), "p1str");
-            CreateStore(AsString(arguments + 1), p1str);
+            const auto p0str = CreateEntryBlockAlloca(F, B.getPtrTy(), "p0str");
+            B.CreateStore(B.AsString(arguments), p0str);
+            const auto p1str = CreateEntryBlockAlloca(F, B.getPtrTy(), "p1str");
+            B.CreateStore(B.AsString(arguments + 1), p1str);
 
             const auto String0Length = LOAD_STRING_LENGTH(p0str);
             const auto String1Length = LOAD_STRING_LENGTH(p1str);
             const auto String0String = LOAD_STRING_STRING(p0str);
             const auto String1String = LOAD_STRING_STRING(p1str);
 
-            const auto NewLength = CreateNSWAdd(
+            const auto NewLength = B.CreateNSWAdd(
                 String0Length,
                 String1Length,
                 "NewLength"
             );
 
-            const auto StringMalloc = CreateMalloc(
-                getInt32Ty(),
-                getInt8PtrTy(),
-                CreateSExt(CreateNSWAdd(getInt32(1), NewLength), getInt64Ty()),
+            const auto StringMalloc = B.CreateMalloc(
+                B.getInt32Ty(),
+                B.getInt8PtrTy(),
+                B.CreateSExt(B.CreateNSWAdd(B.getInt32(1), NewLength), B.getInt64Ty()),
                 nullptr
             );
 
-            const auto StringTemp = CreateEntryBlockAlloca(F, getPtrTy(), "StringTemp");
-            CreateStore(StringMalloc, StringTemp);
+            const auto StringTemp = CreateEntryBlockAlloca(F, B.getPtrTy(), "StringTemp");
+            B.CreateStore(StringMalloc, StringTemp);
 
-            CreateMemCpy(
-                CreateLoad(getPtrTy(), StringTemp),
+            B.CreateMemCpy(
+                B.CreateLoad(B.getPtrTy(), StringTemp),
                 Align(1),
                 String0String,
                 Align(1),
-                CreateSExt(String0Length, getInt64Ty())
+                B.CreateSExt(String0Length, B.getInt64Ty())
             );
 
-            CreateMemCpy(
-                CreateInBoundsGEP(
-                    getInt8Ty(),
-                    CreateLoad(getPtrTy(), StringTemp),
-                    {CreateSExt(String0Length, getInt64Ty())}
+            B.CreateMemCpy(
+                B.CreateInBoundsGEP(
+                    B.getInt8Ty(),
+                    B.CreateLoad(B.getPtrTy(), StringTemp),
+                    {B.CreateSExt(String0Length, B.getInt64Ty())}
                 ),
                 Align(1),
                 String1String,
                 Align(1),
-                CreateSExt(
-                    CreateNSWAdd(
+                B.CreateSExt(
+                    B.CreateNSWAdd(
                         String1Length,
-                        getInt32(1)
+                        B.getInt32(1)
                     ),
-                    getInt64Ty()
+                    B.getInt64Ty()
                 )
             );
 
-            const auto NewString = AllocateString(
+            const auto NewString = B.AllocateString(
                 this->getModule().getNamedGlobal("objects"),
-                CreateLoad(getPtrTy(), StringTemp),
+                B.CreateLoad(B.getPtrTy(), StringTemp),
                 NewLength, "NewString"
             );
 
-            CreateRet(NewString);
-
-            SetInsertPoint(InsertPoint);
+            B.CreateRet(NewString);
 
             return F;
         }());

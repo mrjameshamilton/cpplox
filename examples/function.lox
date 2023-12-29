@@ -22,3 +22,6 @@ fun fib(n) {
 
 print fib;
 print fib(25);
+
+print "a" == "a";
+print "aa" == "b";
