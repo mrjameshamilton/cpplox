@@ -178,7 +178,6 @@ namespace lox {
                 [this](const std::string_view string_value) -> Value * {
 
                     const auto value = Builder.AllocateString(
-                        Builder.getModule().getObjects(),
                         Builder.CreateGlobalStringPtr(string_value),
                         Builder.getInt32(string_value.length())
                     );

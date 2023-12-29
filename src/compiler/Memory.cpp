@@ -12,7 +12,8 @@ namespace lox {
         return TmpB.CreateAlloca(type, nullptr, VarName);
     }
 
-    Value *LoxBuilder::AllocateObj(Value *objects, enum ObjType objType, const std::string_view name) {
+    Value *LoxBuilder::AllocateObj(const enum ObjType objType, const std::string_view name) {
+        const auto objects = getModule().getObjects();
         Type *StructType = getModule().getStructType(objType);
 
         Type *IntPtrTy = IntegerType::getInt32Ty(this->getContext());

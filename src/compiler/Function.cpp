@@ -10,8 +10,8 @@ namespace lox {
     CreateStore(STR, CreateStructGEP(getModule().getStructType(ObjType::FUNCTION), CreateLoad(getPtrTy(), PTR), 3))
 
     Value *LoxBuilder::AllocateFunction(Value *objects, llvm::Function *Function) {
-        Value *obj = AllocateObj(objects, ObjType::FUNCTION, Function->getName());
-        Value *name = AllocateString(objects, CreateGlobalStringPtr(Function->getName()), getInt32(Function->getName().size()), "f");
+        Value *obj = AllocateObj(ObjType::FUNCTION, Function->getName());
+        Value *name = AllocateString(CreateGlobalStringPtr(Function->getName()), getInt32(Function->getName().size()), "f");
 
         STORE_FUNCTION_ARITY(obj, getInt32(Function->arg_size()));
         STORE_FUNCTION_PTR(obj, Function);

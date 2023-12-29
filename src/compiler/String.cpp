@@ -13,8 +13,8 @@ namespace lox {
 #define STORE_STRING_STRING(PTR, STR) \
     CreateStore(STR, CreateStructGEP(getModule().getStructType(ObjType::STRING), CreateLoad(getPtrTy(), PTR), 1))
 
-    Value *LoxBuilder::AllocateString(Value *objects, Value *String, Value *Length, const std::string_view name) {
-        const auto NewString = AllocateObj(objects, ObjType::STRING, name);
+    Value *LoxBuilder::AllocateString(Value *String, Value *Length, const std::string_view name) {
+        const auto NewString = AllocateObj(ObjType::STRING, name);
 
         STORE_STRING_STRING(NewString, String);
         STORE_STRING_LENGTH(NewString, Length);
@@ -157,9 +157,9 @@ namespace lox {
             );
 
             const auto NewString = B.AllocateString(
-                this->getModule().getObjects(),
                 B.CreateLoad(B.getPtrTy(), StringTemp),
-                NewLength, "NewString"
+                NewLength,
+                "NewString"
             );
 
             B.CreateRet(NewString);

@@ -46,8 +46,8 @@ namespace lox {
         Value *ObjType(Value *value);
         ConstantInt *ObjTypeInt(enum ObjType);
 
-        Value *AllocateObj(Value *objects, enum ObjType objType, std::string_view name = "");
-        Value *AllocateString(Value *objects, Value *String, Value *Length, std::string_view name = "");
+        Value *AllocateObj(lox::ObjType objType, const std::string_view name = "");
+        Value *AllocateString(Value *String, Value *Length, const std::string_view name = "");
         Value *AllocateFunction(Value *objects, llvm::Function *Function);
 
         Value *Concat(Value *a, Value *b);
