@@ -182,7 +182,7 @@ namespace lox {
                         return strings.at(string_value);
 
                     const auto value = Builder.AllocateString(
-                        Builder.getModule().getNamedGlobal("objects"),
+                        Builder.getModule().getObjects(),
                         Builder.CreateGlobalStringPtr(string_value),
                         Builder.getInt32(string_value.length())
                     );
