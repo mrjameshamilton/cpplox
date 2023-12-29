@@ -15,27 +15,27 @@ namespace lox {
                 this->getModule()
             );
 
-            const auto EntryBasicBlock = CreateBasicBlock("entry", F);
-            const auto IsNullBlock = CreateBasicBlock("if.null", F);
-            const auto IsNotNullBlock = CreateBasicBlock("if.not.bool", F);
-            const auto IsBoolBlock = CreateBasicBlock("if.bool", F);
-            const auto EndBlock = CreateBasicBlock("if.end", F);
+            LoxBuilder B(getContext(), getModule(), *F);
 
-            const auto InsertPoint = GetInsertBlock();
-            SetInsertPoint(EntryBasicBlock);
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            const auto IsNullBlock = B.CreateBasicBlock("if.null");
+            const auto IsNotNullBlock = B.CreateBasicBlock("if.not.bool");
+            const auto IsBoolBlock = B.CreateBasicBlock("if.bool");
+            const auto EndBlock = B.CreateBasicBlock("if.end");
+
+            B.SetInsertPoint(EntryBasicBlock);
 
             const auto p0 = F->args().begin();
-            CreateCondBr(IsNil(p0), IsNullBlock, IsNotNullBlock);
-            SetInsertPoint(IsNullBlock);
-            CreateRet(getFalse());
-            SetInsertPoint(IsNotNullBlock);
-            CreateCondBr(IsBool(p0), IsBoolBlock, EndBlock);
-            SetInsertPoint(IsBoolBlock);
-            CreateRet(AsBool(p0));
-            SetInsertPoint(EndBlock);
-            CreateRet(getTrue());
+            B.CreateCondBr(B.IsNil(p0), IsNullBlock, IsNotNullBlock);
+            B.SetInsertPoint(IsNullBlock);
+            B.CreateRet(B.getFalse());
+            B.SetInsertPoint(IsNotNullBlock);
+            B.CreateCondBr(B.IsBool(p0), IsBoolBlock, EndBlock);
+            B.SetInsertPoint(IsBoolBlock);
+            B.CreateRet(B.AsBool(p0));
+            B.SetInsertPoint(EndBlock);
+            B.CreateRet(B.getTrue());
 
-            SetInsertPoint(InsertPoint);
             return F;
         }());
 

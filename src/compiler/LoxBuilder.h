@@ -63,8 +63,8 @@ namespace lox {
 
         [[nodiscard]] LoxModule &getModule() const { return M; }
         [[nodiscard]] llvm::Function *getFunction() const { return &Function; }
-        [[nodiscard]] BasicBlock *CreateBasicBlock(const std::string_view &name, llvm::Function *F = nullptr) const {
-            return BasicBlock::Create(getContext(), name, F != nullptr ? F : getFunction());
+        [[nodiscard]] BasicBlock *CreateBasicBlock(const std::string_view &name) const {
+            return BasicBlock::Create(getContext(), name, getFunction());
         }
     };
 }// namespace lox
