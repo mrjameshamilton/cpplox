@@ -26,10 +26,6 @@ namespace lox {
             Function::Create(FunctionType::get(IntegerType::getInt32Ty(*Context), false), Function::ExternalLinkage, "main", *M);
         std::unique_ptr<LoxBuilder> Builder = std::make_unique<LoxBuilder>(*Context, *M, *MainFunction);
 
-        // TODO: use this.
-        std::unordered_map<std::string_view, Value *> strings;
-
-
         ModuleCompiler() = default;
 
         void FreeObjects() const;
