@@ -7,8 +7,10 @@
 
 using namespace llvm;
 
+using LLVMIRBuilder = IRBuilder<NoFolder>;
+
 namespace lox {
-    class LoxBuilder : public IRBuilder<NoFolder> {
+    class LoxBuilder : public LLVMIRBuilder {
         LoxModule &M;
         llvm::Function &Function;
 
