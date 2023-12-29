@@ -14,13 +14,6 @@ using namespace llvm::sys;
 namespace lox {
 
     void ModuleCompiler::evaluate(const Program &program) const {
-        M->getOrInsertGlobal("objects", Builder->getPtrTy());
-        const auto global = M->getNamedGlobal("objects");
-        global->setLinkage(GlobalValue::PrivateLinkage);
-        global->setAlignment(Align(8));
-        global->setConstant(false);
-        global->setInitializer(ConstantPointerNull::get(M->getObjStructType()->getPointerTo()));
-
         const auto selfType = IntegerType::getInt64Ty(*Context);
         Function *F = Function::Create(
             FunctionType::get(IntegerType::getInt64Ty(*Context), {selfType}, false),
@@ -37,6 +30,7 @@ namespace lox {
         Builder->CreateCall(F, /* self = */ Builder->getNilVal());
 
         FreeObjects();
+
         Builder->CreateRet(Builder->getInt32(0));
     }
 

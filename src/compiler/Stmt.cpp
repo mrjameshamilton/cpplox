@@ -18,7 +18,7 @@ namespace lox {
     }
 
     void FunctionCompiler::operator()(const FunctionStmtPtr &functionStmt) {
-        const auto objects = Builder.getModule().getNamedGlobal("objects");
+        const auto objects = Builder.getModule().getObjects();
 
         const std::vector<Type *> paramTypes(functionStmt->parameters.size() + 1, Builder.getInt64Ty());
         FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);

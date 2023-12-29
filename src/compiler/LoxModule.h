@@ -3,13 +3,14 @@
 #include "Value.h"
 
 
+#include <llvm/IR/Constants.h>
 #include <llvm/IR/Module.h>
 
 namespace lox {
     using namespace llvm;
 
     class LoxModule : public Module {
-        StructType *ObjStructType = StructType::create(
+        StructType *const ObjStructType = StructType::create(
             getContext(),
             {IntegerType::getInt8Ty(getContext()),// ObjType
              IntegerType::getInt1Ty(getContext()),// isMarked
@@ -17,14 +18,14 @@ namespace lox {
             "Obj"
         );
 
-        StructType *StringStructType = StructType::create(
+        StructType *const StringStructType = StructType::create(
             getContext(),
             {ObjStructType,
              PointerType::getInt8PtrTy(getContext()),
              IntegerType::getInt32Ty(getContext())},
             "String"
         );
-        StructType *FunctionStructType = StructType::create(
+        StructType *const FunctionStructType = StructType::create(
             getContext(),
             {
                 ObjStructType,
@@ -34,9 +35,18 @@ namespace lox {
             },
             "Function"
         );
+        GlobalVariable *const objects = static_cast<GlobalVariable *>(getOrInsertGlobal(
+            "objects",
+            PointerType::get(getContext(), 0)
+        ));
 
     public:
-        explicit LoxModule(LLVMContext &Context) : Module("lox", Context) {}
+        explicit LoxModule(LLVMContext &Context) : Module("lox", Context) {
+            objects->setLinkage(GlobalValue::PrivateLinkage);
+            objects->setAlignment(Align(8));
+            objects->setConstant(false);
+            objects->setInitializer(ConstantPointerNull::get(ObjStructType->getPointerTo()));
+        }
 
         StructType *getObjStructType() const {
             return ObjStructType;
@@ -52,6 +62,10 @@ namespace lox {
                 default:
                     throw std::runtime_error("Not implemented");
             }
+        }
+
+        GlobalVariable *getObjects() const {
+            return objects;
         }
     };
 }// namespace lox

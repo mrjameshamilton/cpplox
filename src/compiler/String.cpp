@@ -157,7 +157,7 @@ namespace lox {
             );
 
             const auto NewString = B.AllocateString(
-                this->getModule().getNamedGlobal("objects"),
+                this->getModule().getObjects(),
                 B.CreateLoad(B.getPtrTy(), StringTemp),
                 NewLength, "NewString"
             );

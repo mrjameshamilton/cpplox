@@ -76,11 +76,10 @@ namespace lox {
     }
 
     void ModuleCompiler::FreeObjects() const {
-        const auto global = M->getNamedGlobal("objects");
         const auto object = CreateEntryBlockAlloca(Builder->getFunction(), Builder->getPtrTy(), "object");
         const auto next = CreateEntryBlockAlloca(Builder->getFunction(), Builder->getPtrTy(), "next");
         Builder->CreateStore(
-            Builder->CreateLoad(Builder->getPtrTy(), global),
+            Builder->CreateLoad(Builder->getPtrTy(), M->getObjects()),
             object
         );
 
@@ -115,7 +114,7 @@ namespace lox {
 
     void ModuleCompiler::FreeObject(Value *value) const {
         const auto IsStringBlock = Builder->CreateBasicBlock("string");
-        const auto IsFunctionBlock = Builder->CreateBasicBlock("string");
+        const auto IsFunctionBlock = Builder->CreateBasicBlock("function");
         const auto DefaultBlock = Builder->CreateBasicBlock("default");
 
 #if DEBUG_LOG_GC
