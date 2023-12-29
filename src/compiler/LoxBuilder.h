@@ -51,6 +51,7 @@ namespace lox {
         Value *Concat(Value *a, Value *b);
         Value *StrEquals(Value *a, Value *b);
 
+        void Print(Value *value);
         void PrintF(const std::string &stringFormat, Value *value);
         void PrintF(const std::initializer_list<Value *> value);
         void PrintString(const std::string &string);

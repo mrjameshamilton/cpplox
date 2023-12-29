@@ -47,38 +47,7 @@ namespace lox {
     }
 
     void FunctionCompiler::operator()(const PrintStmtPtr &printStmt) {
-        const auto value = evaluate(printStmt->expression);
-
-        const auto BoolBlock = Builder.CreateBasicBlock("if.print.bool");
-        const auto EndBoolBlock = Builder.CreateBasicBlock("if.print.bool.end");
-        const auto NilBlock = Builder.CreateBasicBlock("if.print.nil");
-        const auto EndNilBlock = Builder.CreateBasicBlock("if.print.nil.end");
-        const auto NumBlock = Builder.CreateBasicBlock("if.print.num");
-        const auto ObjBlock = Builder.CreateBasicBlock("if.print.obj");
-        const auto EndBlock = Builder.CreateBasicBlock("if.print.end");
-
-        Builder.CreateCondBr(Builder.IsBool(value), BoolBlock, EndBoolBlock);
-        Builder.SetInsertPoint(BoolBlock);
-        Builder.PrintBool(value);
-        Builder.CreateBr(EndBlock);
-        Builder.SetInsertPoint(EndBoolBlock);
-
-        Builder.CreateCondBr(Builder.IsNil(value), NilBlock, EndNilBlock);
-        Builder.SetInsertPoint(NilBlock);
-        Builder.PrintNil();
-        Builder.CreateBr(EndBlock);
-        Builder.SetInsertPoint(EndNilBlock);
-
-        Builder.CreateCondBr(Builder.IsNumber(value), NumBlock, ObjBlock);
-        Builder.SetInsertPoint(NumBlock);
-        Builder.PrintNumber(value);
-        Builder.CreateBr(EndBlock);
-
-        Builder.SetInsertPoint(ObjBlock);
-        Builder.PrintObject(value);
-        Builder.CreateBr(EndBlock);
-
-        Builder.SetInsertPoint(EndBlock);
+        Builder.Print(evaluate(printStmt->expression));
     }
 
     void FunctionCompiler::operator()(const ReturnStmtPtr &returnStmt) {

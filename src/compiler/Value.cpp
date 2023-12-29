@@ -96,6 +96,64 @@ namespace lox {
         return CreateBitCast(value, getInt64Ty());
     }
 
+    void LoxBuilder::Print(Value *value) {
+        static auto PrintFunction([this] {
+            const auto F = Function::Create(
+                FunctionType::get(
+                    getVoidTy(),
+                    getInt64Ty(),
+                    false
+                ),
+                Function::InternalLinkage,
+                "Print",
+                this->getModule()
+            );
+
+            LoxBuilder B(this->getContext(), this->getModule(), *F);
+
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
+
+            const auto value = F->args().begin();
+
+            const auto BoolBlock = B.CreateBasicBlock("if.print.bool");
+            const auto EndBoolBlock = B.CreateBasicBlock("if.print.bool.end");
+            const auto NilBlock = B.CreateBasicBlock("if.print.nil");
+            const auto EndNilBlock = B.CreateBasicBlock("if.print.nil.end");
+            const auto NumBlock = B.CreateBasicBlock("if.print.num");
+            const auto ObjBlock = B.CreateBasicBlock("if.print.obj");
+            const auto EndBlock = B.CreateBasicBlock("if.print.end");
+
+            B.CreateCondBr(B.IsBool(value), BoolBlock, EndBoolBlock);
+            B.SetInsertPoint(BoolBlock);
+            B.PrintBool(value);
+            B.CreateBr(EndBlock);
+            B.SetInsertPoint(EndBoolBlock);
+
+            B.CreateCondBr(B.IsNil(value), NilBlock, EndNilBlock);
+            B.SetInsertPoint(NilBlock);
+            B.PrintNil();
+            B.CreateBr(EndBlock);
+            B.SetInsertPoint(EndNilBlock);
+
+            B.CreateCondBr(B.IsNumber(value), NumBlock, ObjBlock);
+            B.SetInsertPoint(NumBlock);
+            B.PrintNumber(value);
+            B.CreateBr(EndBlock);
+
+            B.SetInsertPoint(ObjBlock);
+            B.PrintObject(value);
+            B.CreateBr(EndBlock);
+
+            B.SetInsertPoint(EndBlock);
+            B.CreateRetVoid();
+
+            return F;
+        }());
+
+        CreateCall(PrintFunction, value);
+    }
+
     void LoxBuilder::PrintF(const std::string &stringFormat, Value *value) {
         PrintF({CreateGlobalStringPtr(stringFormat), value});
     }

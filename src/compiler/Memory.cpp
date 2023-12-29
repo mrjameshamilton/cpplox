@@ -38,7 +38,7 @@ namespace lox {
             CreateStructGEP(getModule().getObjStructType(), NewObjMalloc, 1, "isMarked")
         );
 
-#ifdef DEBUG_LOG_GC
+#if DEBUG_LOG_GC
         switch (objType) {
             case ObjType::STRING:
                 PrintString("Allocate string");
@@ -60,7 +60,7 @@ namespace lox {
 
         CreateStore(NewObjMalloc, objects);
 
-#ifdef DEBUG_LOG_GC
+#if DEBUG_LOG_GC
         static const auto fmt = CreateGlobalStringPtr("%p\n");
         PrintF({fmt, CreateLoad(getPtrTy(), objects)});
         static const auto fmt2 = CreateGlobalStringPtr("\t%p allocate %zu.\n");

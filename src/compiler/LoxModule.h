@@ -28,9 +28,9 @@ namespace lox {
             getContext(),
             {
                 ObjStructType,
-                IntegerType::getInt8Ty(getContext()),// arity
+                IntegerType::getInt8Ty(getContext()),   // arity
                 PointerType::getInt8PtrTy(getContext()),// func ptr
-                StringStructType// name
+                StringStructType                        // name
             },
             "Function"
         );
