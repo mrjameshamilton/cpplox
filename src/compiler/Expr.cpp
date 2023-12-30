@@ -155,11 +155,16 @@ namespace lox {
     }
 
     Value *FunctionCompiler::operator()(const VarExprPtr &varExpr) {
-        const auto value = variables.lookup(varExpr->name.getLexeme());
-        if (!value) {
-            std::cerr << "Undefined variable '" << varExpr->name.getLexeme() << "'" << std::endl;
+        if (const auto value = variables.lookup(varExpr->name.getLexeme())) {
+            // Local
+            return Builder.CreateLoad(Builder.getInt64Ty(), value);
         }
-        return Builder.CreateLoad(Builder.getInt64Ty(), value);
+
+        std::cerr << "Undefined variable '" << varExpr->name.getLexeme() << "'" << std::endl;
+        // TODO: captured vars.
+        return Builder.getNilVal();
+        /*const auto e = this->enclosing->variables.lookup(varExpr->name.getLexeme());
+        std::cout << "Found: " << e << std::endl;*/
     }
 
     Value *FunctionCompiler::operator()(const GroupingExprPtr &groupingExpr) {
@@ -176,7 +181,6 @@ namespace lox {
                     return Builder.getInt64(std::bit_cast<int64_t>(double_value));
                 },
                 [this](const std::string_view string_value) -> Value * {
-
                     const auto value = Builder.AllocateString(
                         Builder.CreateGlobalStringPtr(string_value),
                         Builder.getInt32(string_value.length())

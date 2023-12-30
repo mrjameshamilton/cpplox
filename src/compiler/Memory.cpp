@@ -3,7 +3,7 @@
 
 #include <llvm/IR/Value.h>
 
-#define DEBUG_LOG_GC true
+#define DEBUG_LOG_GC false
 
 namespace lox {
 

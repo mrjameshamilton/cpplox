@@ -1,27 +1,11 @@
-fun foo(a) {
-    print "test";
-    print foo;
-    print "x";
-    if (a == "a") return 1;
-    //else return "x";
+var x = 1;
+x = 2;
+print x;
 
-    print "DONT";
 
-    while (!a) { return; print "x"; return a; }
-
-    return "hello " + a;
-}
-
-print foo("world");
-print foo;
-
-fun fib(n) {
-  if (n < 2) return n;
-  return fib(n - 2) + fib(n - 1);
-}
-
-print fib;
-print fib(25);
-
-print "a" == "a";
-print "aa" == "b";
+//var a = "hello";
+//fun foo() {
+//    print a;
+//}
+//
+//foo();

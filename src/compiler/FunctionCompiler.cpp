@@ -3,11 +3,13 @@
 
 namespace lox {
 
-    void FunctionCompiler::compile(const std::vector<Stmt> &statements, const std::vector<Token> &parameters) {
+    void FunctionCompiler::compile(const std::vector<Stmt> &statements, const std::vector<Token> &parameters, const std::function<void(LoxBuilder &)> &entryBlockBuilder) {
         beginScope();
 
         BasicBlock *EntryBasicBlock = Builder.CreateBasicBlock("entry");
         Builder.SetInsertPoint(EntryBasicBlock);
+
+        if (entryBlockBuilder) entryBlockBuilder(Builder);
 
         // Declare parameters and store them in local variables.
         auto arg = Builder.getFunction()->arg_begin();

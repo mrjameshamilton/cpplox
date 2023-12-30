@@ -47,7 +47,7 @@ namespace lox {
         }
 
         // Statement code generation.
-        void compile(const std::vector<Stmt> &statements, const std::vector<Token> &parameters = {});
+        void compile(const std::vector<Stmt> &statements, const std::vector<Token> &parameters = {}, const std::function<void(LoxBuilder &)> &entryBlockBuilder = nullptr);
         void evaluate(const Stmt &stmt);
         void operator()(const BlockStmtPtr &blockStmt);
         void operator()(const FunctionStmtPtr &functionStmt);
@@ -80,6 +80,10 @@ namespace lox {
 
         void endScope() {
             scopes.pop();
+        }
+
+        void insertVariable(const std::string_view &key, Value *value) {
+            variables.insert(key, value);
         }
     };
 

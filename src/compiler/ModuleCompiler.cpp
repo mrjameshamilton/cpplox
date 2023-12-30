@@ -15,6 +15,35 @@ namespace lox {
 
     void ModuleCompiler::evaluate(const Program &program) const {
         const auto selfType = IntegerType::getInt64Ty(*Context);
+
+        // Native clock function.
+        Function *Clock = Function::Create(
+            FunctionType::get(IntegerType::getInt64Ty(*Context), {(IntegerType::getInt64Ty(*Context))}, false),
+            Function::InternalLinkage,
+            "clock_",
+            *M
+        );
+
+        LoxBuilder ClockBuilder(*Context, *M, *Clock);
+        const auto Entry = ClockBuilder.CreateBasicBlock("entry");
+        ClockBuilder.SetInsertPoint(Entry);
+
+        const auto libcClock = M->getOrInsertFunction(
+            "clock",
+            FunctionType::get(ClockBuilder.getInt64Ty(), false)
+        );
+
+        ClockBuilder.CreateRet(
+            ClockBuilder.NumberVal(
+                ClockBuilder.CreateFDiv(
+                    ClockBuilder.CreateSIToFP(ClockBuilder.CreateCall(libcClock), ClockBuilder.getDoubleTy()),
+                    ConstantFP::get(ClockBuilder.getDoubleTy(), 1000000.0)
+                )
+            )
+        );
+
+        // ---- Main -----
+
         Function *F = Function::Create(
             FunctionType::get(IntegerType::getInt64Ty(*Context), {selfType}, false),
             Function::InternalLinkage,
@@ -22,9 +51,16 @@ namespace lox {
             *M
         );
 
-        FunctionCompiler C(*Context, *M, *F);
+        FunctionCompiler MainCompiler(*Context, *M, *F);
 
-        C.compile(program);
+        MainCompiler.compile(program, {}, [&MainCompiler, &Clock](LoxBuilder &MainBuilder) {
+            // Insert a variable for the clock function.
+            const auto name = "clock";
+            const auto func = MainBuilder.AllocateFunction(Clock);
+            const auto alloca = CreateEntryBlockAlloca(MainBuilder.getFunction(), MainBuilder.getInt64Ty(), name);
+            MainBuilder.CreateStore(func, alloca);
+            MainCompiler.insertVariable(name, alloca);
+        });
 
         Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));
         Builder->CreateCall(F, /* self = */ Builder->getNilVal());

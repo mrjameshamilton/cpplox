@@ -30,7 +30,7 @@ namespace lox {
             Builder.getModule()
         );
 
-        Value *func = Builder.AllocateFunction(objects, F);
+        Value *func = Builder.AllocateFunction(F);
 
         const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), functionStmt->name.getLexeme());
         Builder.CreateStore(func, alloca);
