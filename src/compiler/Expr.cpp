@@ -18,7 +18,7 @@ namespace lox {
 
     Value *FunctionCompiler::operator()(const AssignExprPtr &assignExpr) {
         const auto value = evaluate(assignExpr->value);
-        const auto current = *variables.begin(assignExpr->name.getLexeme());
+        const auto current = variables.lookup(assignExpr->name.getLexeme());
         Builder.CreateStore(value, current);
         return value;
     }
