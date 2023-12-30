@@ -18,7 +18,7 @@ namespace lox {
 
     Value *FunctionCompiler::operator()(const AssignExprPtr &assignExpr) {
         const auto value = evaluate(assignExpr->value);
-        const auto current = variables.lookup(assignExpr->name.getLexeme());
+        const auto current = lookupVariable(assignExpr->name.getLexeme());
         Builder.CreateStore(value, current);
         return value;
     }
@@ -155,7 +155,7 @@ namespace lox {
     }
 
     Value *FunctionCompiler::operator()(const VarExprPtr &varExpr) {
-        if (const auto value = variables.lookup(varExpr->name.getLexeme())) {
+        if (const auto value = lookupVariable(varExpr->name.getLexeme())) {
             // Local
             return Builder.CreateLoad(Builder.getInt64Ty(), value);
         }

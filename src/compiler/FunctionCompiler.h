@@ -83,6 +83,10 @@ namespace lox {
             scopes.pop();
         }
 
+        Value* lookupVariable(const std::string_view& name) const {
+            return variables.lookup(name);
+        }
+
         void insertVariable(const std::string_view &key, Value *value) {
             const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), key);
             Builder.CreateStore(value, alloca);
