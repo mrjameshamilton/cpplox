@@ -28,11 +28,7 @@ namespace lox {
             Builder.getModule()
         );
 
-        Value *func = Builder.AllocateFunction(F);
-
-        const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), functionStmt->name.getLexeme());
-        Builder.CreateStore(func, alloca);
-        variables.insert(functionStmt->name.getLexeme(), alloca);
+        insertVariable(functionStmt->name.getLexeme(), Builder.AllocateFunction(F));
 
         FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F);
 
@@ -57,9 +53,7 @@ namespace lox {
     }
 
     void FunctionCompiler::operator()(const VarStmtPtr &varStmt) {
-        const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), varStmt->name.getLexeme());
-        Builder.CreateStore(evaluate(varStmt->initializer), alloca);
-        variables.insert(varStmt->name.getLexeme(), alloca);
+        insertVariable(varStmt->name.getLexeme(), evaluate(varStmt->initializer));
     }
 
     void FunctionCompiler::operator()(const WhileStmtPtr &whileStmt) {

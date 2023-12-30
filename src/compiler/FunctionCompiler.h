@@ -2,6 +2,7 @@
 #define LOXFUNCTIONCOMPILER_H
 #include "../AST.h"
 #include "LoxBuilder.h"
+#include "ModuleCompiler.h"
 
 #include <llvm/ADT/ScopedHashTable.h>
 #include <llvm/IR/Value.h>
@@ -83,7 +84,9 @@ namespace lox {
         }
 
         void insertVariable(const std::string_view &key, Value *value) {
-            variables.insert(key, value);
+            const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), key);
+            Builder.CreateStore(value, alloca);
+            variables.insert(key, alloca);
         }
     };
 

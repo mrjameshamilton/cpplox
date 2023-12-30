@@ -53,13 +53,8 @@ namespace lox {
 
         FunctionCompiler MainCompiler(*Context, *M, *F);
 
-        MainCompiler.compile(program, {}, [&MainCompiler, &Clock](LoxBuilder &MainBuilder) {
-            // Insert a variable for the clock function.
-            const auto name = "clock";
-            const auto func = MainBuilder.AllocateFunction(Clock);
-            const auto alloca = CreateEntryBlockAlloca(MainBuilder.getFunction(), MainBuilder.getInt64Ty(), name);
-            MainBuilder.CreateStore(func, alloca);
-            MainCompiler.insertVariable(name, alloca);
+        MainCompiler.compile(program, {}, [&MainCompiler, &Clock](LoxBuilder &B) {
+            MainCompiler.insertVariable("clock", B.AllocateFunction(Clock));
         });
 
         Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));

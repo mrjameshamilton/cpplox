@@ -17,15 +17,10 @@ namespace lox {
         // TODO: support captured variables in general.
         // Self-referencing functions are supported by passing the function obj as the first parameter
         // and re-declaring a local variable with the same name.
-        const auto self = arg++;
-        const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), Builder.getFunction()->getName());
-        Builder.CreateStore(self, alloca);
-        variables.insert(Builder.getFunction()->getName(), alloca);
+        insertVariable(Builder.getFunction()->getName(), arg++);
 
         for (auto &p: parameters) {
-            const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), p.getLexeme());
-            Builder.CreateStore(arg++, alloca);
-            variables.insert(p.getLexeme(), alloca);
+            insertVariable(p.getLexeme(), arg++);
         }
 
         for (auto &stmt: statements) {
