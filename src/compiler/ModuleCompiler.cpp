@@ -14,13 +14,11 @@ using namespace llvm::sys;
 namespace lox {
 
     void ModuleCompiler::evaluate(const Program &program) const {
-        const auto selfType = IntegerType::getInt64Ty(*Context);
-
         // Native clock function.
         Function *Clock = Function::Create(
-            FunctionType::get(IntegerType::getInt64Ty(*Context), {(IntegerType::getInt64Ty(*Context))}, false),
+            FunctionType::get(IntegerType::getInt64Ty(*Context), {}, false),
             Function::InternalLinkage,
-            "clock_",
+            "clock_native",
             *M
         );
 
@@ -45,7 +43,7 @@ namespace lox {
         // ---- Main -----
 
         Function *F = Function::Create(
-            FunctionType::get(IntegerType::getInt64Ty(*Context), {selfType}, false),
+            FunctionType::get(IntegerType::getInt64Ty(*Context), {}, false),
             Function::InternalLinkage,
             "main",
             *M
@@ -58,7 +56,7 @@ namespace lox {
         });
 
         Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));
-        Builder->CreateCall(F, /* self = */ Builder->getNilVal());
+        Builder->CreateCall(F);
 
         FreeObjects();
 

@@ -14,11 +14,6 @@ namespace lox {
         // Declare parameters and store them in local variables.
         auto arg = Builder.getFunction()->arg_begin();
 
-        // TODO: support captured variables in general.
-        // Self-referencing functions are supported by passing the function obj as the first parameter
-        // and re-declaring a local variable with the same name.
-        insertVariable(Builder.getFunction()->getName(), arg++);
-
         for (auto &p: parameters) {
             insertVariable(p.getLexeme(), arg++);
         }

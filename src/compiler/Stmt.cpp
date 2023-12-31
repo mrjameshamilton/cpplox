@@ -30,7 +30,7 @@ namespace lox {
 
         insertVariable(functionStmt->name.getLexeme(), Builder.AllocateFunction(F));
 
-        FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F);
+        FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, this);
 
         C.compile(functionStmt->body, functionStmt->parameters);
     }

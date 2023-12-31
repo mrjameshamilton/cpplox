@@ -18,7 +18,7 @@ namespace lox {
 
     Value *FunctionCompiler::operator()(const AssignExprPtr &assignExpr) {
         const auto value = evaluate(assignExpr->value);
-        const auto current = lookupVariable(assignExpr->name.getLexeme());
+        const auto current = lookupVariable(*assignExpr);
         Builder.CreateStore(value, current);
         return value;
     }
@@ -111,14 +111,12 @@ namespace lox {
         const auto value = evaluate(callExpr->callee);
         const auto callee = Builder.AsFunction(value);
 
-        const std::vector<Type *> paramTypes(callExpr->arguments.size() + 1, Builder.getInt64Ty());
-        auto paramValues = to<std::vector<Value *>>(
+        const std::vector<Type *> paramTypes(callExpr->arguments.size(), Builder.getInt64Ty());
+        const auto paramValues = to<std::vector<Value *>>(
             callExpr->arguments | std::views::transform([&](const auto &p) -> Value * {
                 return evaluate(p);
             })
         );
-        // Insert a extra parameter containing the function obj itself, to support self referencing functions.
-        paramValues.insert(paramValues.begin(), value);
 
         FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
 
@@ -155,16 +153,13 @@ namespace lox {
     }
 
     Value *FunctionCompiler::operator()(const VarExprPtr &varExpr) {
-        if (const auto value = lookupVariable(varExpr->name.getLexeme())) {
-            // Local
+        if (const auto value = lookupVariable(*varExpr)) {
             return Builder.CreateLoad(Builder.getInt64Ty(), value);
         }
 
         std::cerr << "Undefined variable '" << varExpr->name.getLexeme() << "'" << std::endl;
-        // TODO: captured vars.
+
         return Builder.getNilVal();
-        /*const auto e = this->enclosing->variables.lookup(varExpr->name.getLexeme());
-        std::cout << "Found: " << e << std::endl;*/
     }
 
     Value *FunctionCompiler::operator()(const GroupingExprPtr &groupingExpr) {
