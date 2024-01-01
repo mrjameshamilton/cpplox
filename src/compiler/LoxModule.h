@@ -35,7 +35,7 @@ namespace lox {
             },
             "Function"
         );
-        GlobalVariable *const objects = static_cast<GlobalVariable *>(getOrInsertGlobal(
+        GlobalVariable *const objects = cast<GlobalVariable>(getOrInsertGlobal(
             "objects",
             PointerType::get(getContext(), 0)
         ));
