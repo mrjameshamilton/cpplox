@@ -42,6 +42,8 @@ namespace lox {
         Value *AsCString(Value *value);
         Value *AsNumber(Value *value);
         Value *getNilVal();
+        Value *getTrueVal();
+        Value *getFalseVal();
 
         Value *ObjType(Value *value);
         ConstantInt *ObjTypeInt(enum ObjType);

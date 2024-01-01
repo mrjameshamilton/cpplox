@@ -19,8 +19,16 @@ namespace lox {
         return getInt64(NIL_VAL);
     }
 
+    Value *LoxBuilder::getTrueVal() {
+        return getInt64(TRUE_VAL);
+    }
+
+    Value *LoxBuilder::getFalseVal() {
+        return getInt64(FALSE_VAL);
+    }
+
     Value *LoxBuilder::IsBool(Value *value) {
-        return CreateICmpEQ(CreateOr(value, 1), getInt64(TRUE_VAL));
+        return CreateICmpEQ(CreateOr(value, 1), getTrueVal());
     }
 
     Value *LoxBuilder::IsNil(Value *value) {
@@ -56,12 +64,12 @@ namespace lox {
 
     Value *LoxBuilder::BoolVal(Value *value) {
         assert(value->getType() == getInt1Ty());
-        return CreateSelect(value, getInt64(TRUE_VAL), getInt64(FALSE_VAL));
+        return CreateSelect(value, getTrueVal(), getFalseVal());
     }
 
     Value *LoxBuilder::AsBool(Value *value) {
         assert(value->getType() == getInt64Ty());
-        return CreateICmpEQ(value, getInt64(TRUE_VAL));
+        return CreateICmpEQ(value, getTrueVal());
     }
 
     Value *LoxBuilder::AsNumber(Value *value) {

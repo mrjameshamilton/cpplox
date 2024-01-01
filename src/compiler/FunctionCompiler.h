@@ -65,7 +65,6 @@ namespace lox {
 
         // Expression code generation.
         Value *evaluate(const Expr &expr);
-        Value *lookupVariable(const AssignExprPtr &unique);
         Value *operator()(const AssignExprPtr &assignExpr);
         Value *operator()(const BinaryExprPtr &binaryExpr);
         Value *operator()(const CallExprPtr &callExpr);
@@ -87,7 +86,7 @@ namespace lox {
             scopes.pop();
         }
 
-        Value *lookupVariable(const Assignable &assignable) const {
+        [[nodiscard]] Value *lookupVariable(const Assignable &assignable) const {
             const auto name = assignable.name.getLexeme();
             //std::cout << "Lookup: " << assignable.name.getLexeme() << " @ " << assignable.distance << " " << (scopes.size() - 1) << std::endl;
             const auto local = variables.lookup(name);
@@ -102,7 +101,7 @@ namespace lox {
         void insertVariable(const std::string_view &key, Value *value) {
             if (enclosing == nullptr && scopes.size() == 1) {
                 const auto name = ("g" + key).str();// TODO: how to not call Twine.+?
-                const auto global = static_cast<GlobalVariable *>(Builder.getModule().getOrInsertGlobal(
+                const auto global = cast<GlobalVariable>(Builder.getModule().getOrInsertGlobal(
                     name,
                     Builder.getInt64Ty()
                 ));
@@ -110,8 +109,13 @@ namespace lox {
                 global->setLinkage(GlobalValue::PrivateLinkage);
                 global->setAlignment(Align(8));
                 global->setConstant(false);
-                global->setInitializer(Builder.getInt64(NIL_VAL));
-                Builder.CreateStore(value, global);
+
+                if (const auto i = dyn_cast<ConstantInt>(value); i && i->getBitWidth() == 64) {
+                    global->setInitializer(i);
+                } else {
+                    global->setInitializer(Builder.getInt64(NIL_VAL));
+                    Builder.CreateStore(value, global);
+                }
             } else {
                 const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), key);
                 Builder.CreateStore(value, alloca);

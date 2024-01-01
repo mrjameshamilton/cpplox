@@ -170,7 +170,7 @@ namespace lox {
         return std::visit(
             overloaded{
                 [this](const bool value) -> Value * {
-                    return Builder.BoolVal(value ? Builder.getTrue() : Builder.getFalse());
+                    return value ? Builder.getTrueVal() : Builder.getFalseVal();
                 },
                 [this](const double double_value) -> Value * {
                     return Builder.getInt64(std::bit_cast<int64_t>(double_value));
