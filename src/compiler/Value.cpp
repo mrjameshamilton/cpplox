@@ -175,19 +175,18 @@ namespace lox {
     }
 
     void LoxBuilder::PrintString(const std::string &string) {
-        static const auto fmt = CreateGlobalStringPtr("%s\n");
+        static const auto fmt = CreateGlobalStringPtr("%s\n", "printf_fmt_str");
         PrintF({fmt, CreateGlobalStringPtr(string)});
     }
 
     void LoxBuilder::PrintNumber(Value *value) {
-        static const auto gfmt = CreateGlobalStringPtr("%g\n");
+        static const auto gfmt = CreateGlobalStringPtr("%g\n", "printf_fmt_num");
         PrintF({gfmt, AsNumber(value)});
     }
 
     void LoxBuilder::PrintNil() {
-        static const auto fmt = CreateGlobalStringPtr("%s\n");
-        static const auto nil = CreateGlobalStringPtr("nil");
-        PrintF({fmt, nil});
+        static const auto fmt = CreateGlobalStringPtr("nil\n", "printf_fmt_nil");
+        PrintF({fmt});
     }
 
     void LoxBuilder::PrintObject(Value *value) {
@@ -205,10 +204,10 @@ namespace lox {
         CreateBr(EndBlock);
 
         SetInsertPoint(IsFunctionBlock);
-        static auto global_string_ptr = CreateGlobalStringPtr("<fn %s>\n");
+        static auto fmt = CreateGlobalStringPtr("<fn %s>\n", "printf_fmt_fun");
         const auto f = AsFunction(value);
         const auto s = CreateLoad(getInt64Ty(), CreateStructGEP(getModule().getStructType(ObjType::FUNCTION), f, 3));
-        PrintF({global_string_ptr, AsCString(s)});
+        PrintF({fmt, AsCString(s)});
 
         CreateBr(EndBlock);
         SetInsertPoint(DefaultBlock);
@@ -218,14 +217,14 @@ namespace lox {
     }
 
     void LoxBuilder::PrintString(Value *value) {
-        static const auto fmt = CreateGlobalStringPtr("%s\n");
+        static const auto fmt = CreateGlobalStringPtr("%s\n", "printf_fmt_str");
         PrintF({fmt, AsCString(value)});
     }
 
     void LoxBuilder::PrintBool(Value *value) {
-        static const auto fmt = CreateGlobalStringPtr("%s\n");
-        static const auto true_ = CreateGlobalStringPtr("true");
-        static const auto false_ = CreateGlobalStringPtr("false");
+        static const auto fmt = CreateGlobalStringPtr("%s\n", "printf_fmt_bool");
+        static const auto true_ = CreateGlobalStringPtr("true", "true_str");
+        static const auto false_ = CreateGlobalStringPtr("false", "false_str");
         PrintF({fmt, CreateSelect(AsBool(value), true_, false_)});
     }
 }// namespace lox
