@@ -27,11 +27,11 @@ namespace lox {
         );
         StructType *const FunctionStructType = StructType::create(
             getContext(),
-            {
-                ObjStructType,
-                IntegerType::getInt8Ty(getContext()),   // arity
-                PointerType::getInt8PtrTy(getContext()),// func ptr
-                StringStructType                        // name
+            {ObjStructType,
+             IntegerType::getInt8Ty(getContext()),   // arity
+             PointerType::getInt8PtrTy(getContext()),// func ptr
+             StringStructType,                       // name
+             IntegerType::getInt1Ty(getContext())
             },
             "Function"
         );

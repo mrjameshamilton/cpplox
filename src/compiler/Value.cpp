@@ -192,6 +192,8 @@ namespace lox {
     void LoxBuilder::PrintObject(Value *value) {
         const auto IsStringBlock = CreateBasicBlock("print.string");
         const auto IsFunctionBlock = CreateBasicBlock("print.function");
+        const auto IsNativeFunctionBlock = CreateBasicBlock("print.native.function");
+        const auto IsNotNativeFunctionBlock = CreateBasicBlock("print.not.native.function");
         const auto DefaultBlock = CreateBasicBlock("print.default");
         const auto EndBlock = CreateBasicBlock("print.end");
 
@@ -205,9 +207,18 @@ namespace lox {
 
         SetInsertPoint(IsFunctionBlock);
         static auto fmt = CreateGlobalStringPtr("<fn %s>\n", "printf_fmt_fun");
-        const auto f = AsFunction(value);
-        const auto s = CreateLoad(getInt64Ty(), CreateStructGEP(getModule().getStructType(ObjType::FUNCTION), f, 3));
-        PrintF({fmt, AsCString(s)});
+        static auto nfmt = CreateGlobalStringPtr("<native fn>\n", "printf_nfmt_fun");
+
+        const auto function = AsFunction(value);
+        const auto isNative = CreateLoad(getInt1Ty(), CreateStructGEP(getModule().getStructType(ObjType::FUNCTION), function, 4));
+
+        CreateCondBr(isNative, IsNativeFunctionBlock, IsNotNativeFunctionBlock);
+        SetInsertPoint(IsNativeFunctionBlock);
+        PrintF({nfmt});
+        CreateBr(EndBlock);
+        SetInsertPoint(IsNotNativeFunctionBlock);
+        PrintF({fmt, AsCString(CreateLoad(getInt64Ty(), CreateStructGEP(getModule().getStructType(ObjType::FUNCTION), function, 3)))});
+        CreateBr(EndBlock);
 
         CreateBr(EndBlock);
         SetInsertPoint(DefaultBlock);

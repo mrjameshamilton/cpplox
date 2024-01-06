@@ -51,7 +51,7 @@ namespace lox {
 
         Value *AllocateObj(lox::ObjType objType, const std::string_view name = "");
         Value *AllocateString(Value *String, Value *Length, const std::string_view name = "");
-        Value *AllocateFunction(llvm::Function *Function);
+        Value *AllocateFunction(llvm::Function *Function, bool isNative = false);
 
         Value *Concat(Value *a, Value *b);
         Value *StrEquals(Value *a, Value *b);
