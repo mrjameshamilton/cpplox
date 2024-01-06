@@ -39,7 +39,7 @@ namespace lox {
 
     class FunctionCompiler {
 
-        using ScopedHTType = ScopedHashTable<std::string_view, Value *>;
+        using ScopedHTType = ScopedHashTable<std::string_view, AllocaInst *>;
         ScopedHTType variables;
         std::stack<ScopedHTType::ScopeTy> scopes;
         LoxBuilder Builder;

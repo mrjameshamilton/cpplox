@@ -227,4 +227,46 @@ namespace lox {
         static const auto false_ = CreateGlobalStringPtr("false", "false_str");
         PrintF({fmt, CreateSelect(AsBool(value), true_, false_)});
     }
+
+    void LoxBuilder::RuntimeError(const unsigned line, Value *message, const std::string_view &value, const llvm::Function *function) {
+        static const auto StdErr = getModule().getOrInsertGlobal("stderr", getPtrTy());
+        static const auto FPrintF = getModule().getOrInsertFunction(
+            "fprintf",
+            FunctionType::get(getInt8Ty(), {PointerType::get(Context, 0), PointerType::get(Context, 0)}, true)
+        );
+        static const auto Exit = getModule().getOrInsertFunction(
+            "exit",
+            FunctionType::get(getVoidTy(), {getInt32Ty()}, true)
+        );
+
+        CreateCall(
+            FPrintF,
+            {CreateLoad(getPtrTy(), StdErr),
+             message,
+             CreateGlobalStringPtr(value)
+            }
+        );
+        static const auto fmtScript = CreateGlobalStringPtr("[line %d] in script\n");
+        static const auto fmtFunc = CreateGlobalStringPtr("[line %d] in %s()\n");
+        if (function == nullptr) {
+            CreateCall(
+                FPrintF,
+                {
+                    CreateLoad(getPtrTy(), StdErr),
+                    fmtScript,
+                    getInt32(line),
+                }
+            );
+        } else {
+            CreateCall(
+                FPrintF,
+                {CreateLoad(getPtrTy(), StdErr),
+                 fmtFunc,
+                 getInt32(line),
+                 CreateGlobalStringPtr(function->getName())
+                }
+            );
+        }
+        CreateCall(Exit, getInt32(70));
+    }
 }// namespace lox

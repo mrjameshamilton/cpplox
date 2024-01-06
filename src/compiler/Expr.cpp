@@ -157,7 +157,13 @@ namespace lox {
             return Builder.CreateLoad(Builder.getInt64Ty(), value);
         }
 
-        std::cerr << "Undefined variable '" << varExpr->name.getLexeme() << "'" << std::endl;
+        static const auto fmt = Builder.CreateGlobalStringPtr("Undefined variable '%s'.\n");
+        Builder.RuntimeError(
+            varExpr->name.getLine(),
+            fmt,
+            varExpr->name.getLexeme(),
+            enclosing == nullptr ? nullptr : Builder.getFunction()
+        );
 
         return Builder.getNilVal();
     }

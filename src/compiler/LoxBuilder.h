@@ -10,6 +10,7 @@ using namespace llvm;
 using LLVMIRBuilder = IRBuilder<NoFolder>;
 
 namespace lox {
+    class FunctionCompiler;
     class LoxBuilder : public LLVMIRBuilder {
         LoxModule &M;
         llvm::Function &Function;
@@ -64,6 +65,8 @@ namespace lox {
         void PrintObject(Value *value);
         void PrintString(Value *value);
         void PrintBool(Value *value);
+
+        void RuntimeError(const unsigned line, Value *message, const std::string_view &value, const llvm::Function *function);
 
         [[nodiscard]] LoxModule &getModule() const { return M; }
         [[nodiscard]] llvm::Function *getFunction() const { return &Function; }
