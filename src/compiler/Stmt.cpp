@@ -18,7 +18,7 @@ namespace lox {
     }
 
     void FunctionCompiler::operator()(const FunctionStmtPtr &functionStmt) {
-        const std::vector<Type *> paramTypes(functionStmt->parameters.size() + 1, Builder.getInt64Ty());
+        const std::vector<Type *> paramTypes(functionStmt->parameters.size(), Builder.getInt64Ty());
         FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
 
         Function *F = Function::Create(
