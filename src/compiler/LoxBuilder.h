@@ -28,6 +28,7 @@ namespace lox {
         Value *IsNil(Value *value);
         Value *IsNumber(Value *value);
         Value *IsObj(Value *value);
+        Value *IsFunction(Value *value);
         Value *IsString(Value *value);
 
         // Code generation for converting an int64 to a Lox value.

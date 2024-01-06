@@ -43,6 +43,13 @@ namespace lox {
         return CreateICmpEQ(CreateAnd(value, QNAN | SIGN_BIT), getInt64(QNAN | SIGN_BIT));
     }
 
+    Value *LoxBuilder::IsFunction(Value *value) {
+        return CreateAnd(
+            IsObj(value),
+            CreateICmpEQ(ObjType(value), ObjTypeInt(ObjType::FUNCTION))
+        );
+    }
+
     Value *LoxBuilder::IsString(Value *value) {
         return CreateAnd(
             IsObj(value),

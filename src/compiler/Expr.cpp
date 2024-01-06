@@ -109,6 +109,23 @@ namespace lox {
 
     Value *FunctionCompiler::operator()(const CallExprPtr &callExpr) {
         const auto value = evaluate(callExpr->callee);
+
+        const auto IsCallable = Builder.CreateBasicBlock("is.callable");
+        const auto NotCallableBlock = Builder.CreateBasicBlock("not.callable");
+
+        Builder.CreateCondBr(Builder.IsFunction(value), IsCallable, NotCallableBlock);
+        Builder.SetInsertPoint(NotCallableBlock);
+
+        static const auto fmt = Builder.CreateGlobalStringPtr("Can only call functions and classes.\n");
+        Builder.RuntimeError(
+            callExpr->keyword.getLine(),
+            fmt,
+            "",
+            enclosing == nullptr ? nullptr : Builder.getFunction()
+        );
+        Builder.CreateUnreachable();
+
+        Builder.SetInsertPoint(IsCallable);
         const auto callee = Builder.AsFunction(value);
 
         const std::vector<Type *> paramTypes(callExpr->arguments.size(), Builder.getInt64Ty());
@@ -120,7 +137,7 @@ namespace lox {
 
         FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
 
-        auto x = Builder.CreateLoad(
+        const auto function = Builder.CreateLoad(
             Builder.getPtrTy(),
             Builder.CreateStructGEP(
                 Builder.getModule().getStructType(ObjType::FUNCTION),
@@ -133,7 +150,7 @@ namespace lox {
         Builder.PrintF({Builder.CreateGlobalStringPtr("Calling func at %p with function ptr %p\n"), callee, x});
 #endif
 
-        return Builder.CreateCall(FT, x, paramValues);
+        return Builder.CreateCall(FT, function, paramValues);
     }
 
     Value *FunctionCompiler::operator()(const GetExprPtr &getExpr) const {

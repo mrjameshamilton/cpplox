@@ -8,6 +8,7 @@ print fib(30);
 var end = clock();
 print end - start;
 
+nil();
 print fib;
 print clock;
 print x;
