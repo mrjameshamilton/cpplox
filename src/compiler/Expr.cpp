@@ -240,30 +240,54 @@ namespace lox {
         const auto left = evaluate(logicalExpr->left);
 
         switch (logicalExpr->op) {
-            case LogicalOp::AND:
+            case LogicalOp::AND: {
+                const auto LeftIsTruthyBlock = Builder.CreateBasicBlock("if.left.truthy");
+                const auto LeftNotTruthyBlock = Builder.CreateBasicBlock("if.left.nottruthy");
+                const auto EndBlock = Builder.CreateBasicBlock("end");
+                Builder.CreateCondBr(
+                    Builder.IsTruthy(left),
+                    LeftIsTruthyBlock,
+                    LeftNotTruthyBlock
+                );
+                Builder.SetInsertPoint(LeftNotTruthyBlock);
+                const auto Y = left;
+                const auto EndLeftNotTruthyBlock = Builder.GetInsertBlock();
+                Builder.CreateBr(EndBlock);
+                Builder.SetInsertPoint(LeftIsTruthyBlock);
+                const auto X = evaluate(logicalExpr->right);
+                Builder.CreateBr(EndBlock);
+                Builder.SetInsertPoint(EndBlock);
+
+                const auto Result = Builder.CreatePHI(Builder.getInt64Ty(), 2);
+                Result->addIncoming(X, LeftIsTruthyBlock);
+                Result->addIncoming(Y, EndLeftNotTruthyBlock);
+
+                return Result;
+            }
             case LogicalOp::OR: {
                 const auto LeftIsTruthyBlock = Builder.CreateBasicBlock("if.left.truthy");
                 const auto LeftNotTruthyBlock = Builder.CreateBasicBlock("if.left.nottruthy");
                 const auto EndBlock = Builder.CreateBasicBlock("end");
                 Builder.CreateCondBr(
                     Builder.IsTruthy(left),
-                    logicalExpr->op == LogicalOp::OR ? LeftIsTruthyBlock : LeftNotTruthyBlock,
-                    logicalExpr->op == LogicalOp::OR ? LeftNotTruthyBlock : LeftIsTruthyBlock
+                    LeftIsTruthyBlock,
+                    LeftNotTruthyBlock
                 );
                 Builder.SetInsertPoint(LeftNotTruthyBlock);
-                const auto X = Builder.IsTruthy(evaluate(logicalExpr->right));
+                const auto right = evaluate(logicalExpr->right);
+                const auto Y = Builder.CreateSelect(Builder.IsTruthy(right), right, left);
                 const auto EndLeftNotTruthyBlock = Builder.GetInsertBlock();
                 Builder.CreateBr(EndBlock);
                 Builder.SetInsertPoint(LeftIsTruthyBlock);
-                const auto Y = logicalExpr->op == LogicalOp::OR ? Builder.getTrue() : Builder.getFalse();
+                const auto X = left;
                 Builder.CreateBr(EndBlock);
                 Builder.SetInsertPoint(EndBlock);
 
-                const auto Result = Builder.CreatePHI(Builder.getInt1Ty(), 2);
-                Result->addIncoming(X, EndLeftNotTruthyBlock);
-                Result->addIncoming(Y, LeftIsTruthyBlock);
+                const auto Result = Builder.CreatePHI(Builder.getInt64Ty(), 2);
+                Result->addIncoming(X, LeftIsTruthyBlock);
+                Result->addIncoming(Y, EndLeftNotTruthyBlock);
 
-                return Builder.BoolVal(Result);
+                return Result;
             }
         }
         std::unreachable();
