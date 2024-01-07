@@ -336,8 +336,24 @@ namespace lox {
         switch (unaryExpr->op) {
             case UnaryOp::BANG:
                 return Builder.BoolVal(Builder.CreateSelect(Builder.IsTruthy(left), Builder.getFalse(), Builder.getTrue()));
-            case UnaryOp::MINUS:
+            case UnaryOp::MINUS: {
+                const auto InvalidNumBlock = Builder.CreateBasicBlock("if.num");
+                const auto EndBlock = Builder.CreateBasicBlock("if.end");
+
+                Builder.CreateCondBr(Builder.IsNumber(left), EndBlock, InvalidNumBlock);
+                Builder.SetInsertPoint(InvalidNumBlock);
+                static const auto msg = Builder.CreateGlobalStringPtr("Operand must be a number.\n");
+                Builder.RuntimeError(
+                    unaryExpr->token.getLine(),
+                    msg,
+                    {},
+                    enclosing == nullptr ? nullptr : Builder.getFunction()
+                );
+                Builder.CreateBr(EndBlock);
+                Builder.SetInsertPoint(EndBlock);
+
                 return Builder.NumberVal(Builder.CreateFNeg(Builder.AsNumber(left)));
+            }
         }
 
         std::unreachable();
