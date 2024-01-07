@@ -2,8 +2,8 @@
 
 namespace lox {
 
-#define STORE_FUNCTION_ARITY(PTR, LENGTH) \
-    CreateStore(LENGTH, CreateStructGEP(getModule().getStructType(ObjType::FUNCTION), CreateLoad(getPtrTy(), PTR), 1))
+#define STORE_FUNCTION_ARITY(PTR, ARITY) \
+    CreateStore(ARITY, CreateStructGEP(getModule().getStructType(ObjType::FUNCTION), CreateLoad(getPtrTy(), PTR), 1))
 #define STORE_FUNCTION_PTR(PTR, STR) \
     CreateStore(STR, CreateStructGEP(getModule().getStructType(ObjType::FUNCTION), CreateLoad(getPtrTy(), PTR), 2, "funcPtr"))
 #define STORE_FUNCTION_NAME(PTR, STR) \

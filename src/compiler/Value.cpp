@@ -246,7 +246,7 @@ namespace lox {
         PrintF({fmt, CreateSelect(AsBool(value), true_, false_)});
     }
 
-    void LoxBuilder::RuntimeError(const unsigned line, Value *message, const std::string_view &value, const llvm::Function *function) {
+    void LoxBuilder::RuntimeError(const unsigned line, Value *message, const std::vector<Value *> &values, const llvm::Function *function) {
         static const auto StdErr = getModule().getOrInsertGlobal("stderr", getPtrTy());
         static const auto FPrintF = getModule().getOrInsertFunction(
             "fprintf",
@@ -257,13 +257,11 @@ namespace lox {
             FunctionType::get(getVoidTy(), {getInt32Ty()}, true)
         );
 
-        CreateCall(
-            FPrintF,
-            {CreateLoad(getPtrTy(), StdErr),
-             message,
-             CreateGlobalStringPtr(value)
-            }
-        );
+        std::vector values2(values);
+        values2.insert(values2.begin(), message);
+        values2.insert(values2.begin(), CreateLoad(getPtrTy(), StdErr));
+
+        CreateCall(FPrintF, values2);
         static const auto fmtScript = CreateGlobalStringPtr("[line %d] in script\n");
         static const auto fmtFunc = CreateGlobalStringPtr("[line %d] in %s()\n");
         if (function == nullptr) {

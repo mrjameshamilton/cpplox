@@ -120,7 +120,7 @@ namespace lox {
         Builder.RuntimeError(
             callExpr->keyword.getLine(),
             fmt,
-            "",
+            {},
             enclosing == nullptr ? nullptr : Builder.getFunction()
         );
         Builder.CreateUnreachable();
@@ -137,7 +137,7 @@ namespace lox {
 
         FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
 
-        const auto function = Builder.CreateLoad(
+        const auto functionPtr = Builder.CreateLoad(
             Builder.getPtrTy(),
             Builder.CreateStructGEP(
                 Builder.getModule().getStructType(ObjType::FUNCTION),
@@ -146,11 +146,35 @@ namespace lox {
             "func"
         );
 
+        // Check arity.
+        const auto arity = Builder.CreateLoad(
+            Builder.getInt32Ty(),
+            Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::FUNCTION), callee, 1),
+            "arity"
+        );
+
+        const auto CallBlock = Builder.CreateBasicBlock("call");
+        const auto WrongArityBlock = Builder.CreateBasicBlock("wrong.arity");
+
+        const auto actual = Builder.getInt32(paramValues.size());
+        Builder.CreateCondBr(Builder.CreateICmpEQ(arity, actual), CallBlock, WrongArityBlock);
+
+        Builder.SetInsertPoint(WrongArityBlock);
+
+        static const auto fmt2 = Builder.CreateGlobalStringPtr("Expected %d arguments but got %d.\n");
+        Builder.RuntimeError(
+            callExpr->keyword.getLine(),
+            fmt2,
+            {arity, actual},
+            enclosing == nullptr ? nullptr : Builder.getFunction()
+        );
+        Builder.CreateUnreachable();
+
+        Builder.SetInsertPoint(CallBlock);
 #if DEBUG
         Builder.PrintF({Builder.CreateGlobalStringPtr("Calling func at %p with function ptr %p\n"), callee, x});
 #endif
-
-        return Builder.CreateCall(FT, function, paramValues);
+        return Builder.CreateCall(FT, functionPtr, paramValues);
     }
 
     Value *FunctionCompiler::operator()(const GetExprPtr &getExpr) const {
@@ -178,7 +202,7 @@ namespace lox {
         Builder.RuntimeError(
             varExpr->name.getLine(),
             fmt,
-            varExpr->name.getLexeme(),
+            {Builder.CreateGlobalStringPtr(varExpr->name.getLexeme())},
             enclosing == nullptr ? nullptr : Builder.getFunction()
         );
 

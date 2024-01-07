@@ -67,7 +67,7 @@ namespace lox {
         void PrintString(Value *value);
         void PrintBool(Value *value);
 
-        void RuntimeError(const unsigned line, Value *message, const std::string_view &value, const llvm::Function *function);
+        void RuntimeError(const unsigned line, Value *message, const std::vector<Value *> &values, const llvm::Function *function);
 
         [[nodiscard]] LoxModule &getModule() const { return M; }
         [[nodiscard]] llvm::Function *getFunction() const { return &Function; }
