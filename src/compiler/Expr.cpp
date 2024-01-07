@@ -36,7 +36,7 @@ namespace lox {
                 const auto EndBlock = Builder.CreateBasicBlock("if.end");
                 Builder.CreateCondBr(Builder.CreateAnd(Builder.IsNumber(left), Builder.IsNumber(right)), IsNumBlock, IsMaybeStringBlock);
                 Builder.SetInsertPoint(IsNumBlock);
-                const auto &X = Builder.NumberVal(Builder.CreateFAdd(Builder.AsNumber(left), Builder.AsNumber(right)));
+                const auto X = Builder.NumberVal(Builder.CreateFAdd(Builder.AsNumber(left), Builder.AsNumber(right)));
                 Builder.CreateBr(EndBlock);
 
                 Builder.SetInsertPoint(IsMaybeStringBlock);
@@ -46,13 +46,20 @@ namespace lox {
                 Builder.CreateBr(EndBlock);
 
                 Builder.SetInsertPoint(InvalidBlock);
-                // TODO: Throw exception here.
-                const auto &Z = Builder.getNilVal();
+                static const auto msg = Builder.CreateGlobalStringPtr("Operands must be two numbers or two strings.\n");
+                Builder.RuntimeError(
+                    binaryExpr->token.getLine(),
+                    msg,
+                    {},
+                    enclosing == nullptr ? nullptr : Builder.getFunction()
+                );
+
+                const auto Z = Builder.getNilVal();
                 Builder.CreateBr(EndBlock);
 
                 Builder.SetInsertPoint(EndBlock);
 
-                const auto &Result = Builder.CreatePHI(Builder.getInt64Ty(), 3);
+                const auto Result = Builder.CreatePHI(Builder.getInt64Ty(), 2);
                 Result->addIncoming(X, IsNumBlock);
                 Result->addIncoming(Y, IsStringBlock);
                 Result->addIncoming(Z, InvalidBlock);
