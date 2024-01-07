@@ -53,6 +53,14 @@ namespace lox {
     }
 
     void FunctionCompiler::operator()(const VarStmtPtr &varStmt) {
+        if (!enclosing && scopes.size() == 1) {
+            // Global variables can be re-declared.
+            if (const auto variable = lookupVariable(varStmt->name.getLexeme())) {
+                Builder.CreateStore(evaluate(varStmt->initializer), variable);
+                return;
+            }
+        }
+
         insertVariable(varStmt->name.getLexeme(), evaluate(varStmt->initializer));
     }
 

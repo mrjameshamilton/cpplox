@@ -86,19 +86,23 @@ namespace lox {
             scopes.pop();
         }
 
-        [[nodiscard]] Value *lookupVariable(const Assignable &assignable) const {
-            const auto name = assignable.name.getLexeme();
-            //std::cout << "Lookup: " << assignable.name.getLexeme() << " @ " << assignable.distance << " " << (scopes.size() - 1) << std::endl;
+        [[nodiscard]] Value *lookupVariable(const std::string_view &name) const {
             const auto local = variables.lookup(name);
 
             if (!local) {
-                return Builder.getModule().getNamedGlobal(("g" + assignable.name.getLexeme()).str());
+                return Builder.getModule().getNamedGlobal(("g" + name).str());
             }
 
             return local;
         }
 
-        void insertVariable(const std::string_view &key, Value *value) {
+        [[nodiscard]] Value *lookupVariable(const Assignable &assignable) const {
+            const auto name = assignable.name.getLexeme();
+            return lookupVariable(assignable.name.getLexeme());
+        }
+
+        void
+        insertVariable(const std::string_view &key, Value *value) {
             if (enclosing == nullptr && scopes.size() == 1) {
                 const auto name = ("g" + key).str();// TODO: how to not call Twine.+?
                 const auto global = cast<GlobalVariable>(Builder.getModule().getOrInsertGlobal(
