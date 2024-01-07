@@ -18,8 +18,19 @@ namespace lox {
 
     Value *FunctionCompiler::operator()(const AssignExprPtr &assignExpr) {
         const auto value = evaluate(assignExpr->value);
-        const auto current = lookupVariable(*assignExpr);
-        Builder.CreateStore(value, current);
+
+        if (const auto variable = lookupVariable(*assignExpr)) {
+            Builder.CreateStore(value, variable);
+        } else {
+            static const auto fmt = Builder.CreateGlobalStringPtr("Undefined variable '%s'.\n");
+            Builder.RuntimeError(
+                assignExpr->name.getLine(),
+                fmt,
+                {Builder.CreateGlobalStringPtr(assignExpr->name.getLexeme())},
+                enclosing == nullptr ? nullptr : Builder.getFunction()
+            );
+        }
+
         return value;
     }
 
