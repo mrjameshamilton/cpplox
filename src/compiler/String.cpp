@@ -122,7 +122,7 @@ namespace lox {
 
             const auto StringMalloc = B.CreateMalloc(
                 B.getInt32Ty(),
-                B.getInt8PtrTy(),
+                B.getPtrTy(),
                 B.CreateSExt(B.CreateNSWAdd(B.getInt32(1), NewLength), B.getInt64Ty()),
                 nullptr
             );

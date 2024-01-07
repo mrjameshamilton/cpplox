@@ -89,7 +89,7 @@ namespace lox {
 
     Value *LoxBuilder::AsObj(Value *value, const std::optional<enum ObjType> type) {
         return CreateBitCast(
-            CreateIntToPtr(CreateAnd(value, ~(SIGN_BIT | QNAN)), getInt8PtrTy()),
+            CreateIntToPtr(CreateAnd(value, ~(SIGN_BIT | QNAN)), getPtrTy()),
             (type.has_value() ? getModule().getStructType(type.value()) : getModule().getObjStructType())->getPointerTo()
         );
     }
@@ -103,8 +103,8 @@ namespace lox {
     }
 
     Value *LoxBuilder::AsCString(Value *value) {
-        const auto string = CreateIntToPtr(CreateAnd(value, ~(SIGN_BIT | QNAN)), getInt8PtrTy());
-        return CreateLoad(getInt8PtrTy(), CreateStructGEP(getModule().getStructType(ObjType::STRING), string, 1));
+        const auto string = CreateIntToPtr(CreateAnd(value, ~(SIGN_BIT | QNAN)), getPtrTy());
+        return CreateLoad(getPtrTy(), CreateStructGEP(getModule().getStructType(ObjType::STRING), string, 1));
     }
 
     Value *LoxBuilder::NumberVal(Value *value) {
@@ -176,7 +176,7 @@ namespace lox {
     void LoxBuilder::PrintF(const std::initializer_list<Value *> value) {
         static const auto PrintF = getModule().getOrInsertFunction(
             "printf",
-            FunctionType::get(getInt8Ty(), {Type::getInt8PtrTy(getContext())}, true)
+            FunctionType::get(getInt8Ty(), {PointerType::getUnqual(getContext())}, true)
         );
         CreateCall(PrintF, value);
     }
