@@ -28,6 +28,36 @@ namespace lox {
         const auto right = evaluate(binaryExpr->right);
 
         switch (binaryExpr->op) {
+            case BinaryOp::MINUS:
+            case BinaryOp::SLASH:
+            case BinaryOp::STAR:
+            case BinaryOp::GREATER:
+            case BinaryOp::GREATER_EQUAL:
+            case BinaryOp::LESS:
+            case BinaryOp::LESS_EQUAL: {
+                const auto InvalidNumBlock = Builder.CreateBasicBlock("if.num");
+                const auto EndBlock = Builder.CreateBasicBlock("if.end");
+
+                Builder.CreateCondBr(Builder.CreateAnd(Builder.IsNumber(left), Builder.IsNumber(right)), EndBlock, InvalidNumBlock);
+                Builder.SetInsertPoint(InvalidNumBlock);
+                static const auto msg = Builder.CreateGlobalStringPtr("Operands must be numbers.\n");
+                Builder.RuntimeError(
+                    binaryExpr->token.getLine(),
+                    msg,
+                    {},
+                    enclosing == nullptr ? nullptr : Builder.getFunction()
+                );
+                Builder.CreateBr(EndBlock);
+
+                Builder.SetInsertPoint(EndBlock);
+                break;
+            }
+            default: {
+                // No need to check other binary ops here.
+            }
+        }
+
+        switch (binaryExpr->op) {
             case BinaryOp::PLUS: {
                 const auto IsMaybeStringBlock = Builder.CreateBasicBlock("if.string");
                 const auto IsStringBlock = Builder.CreateBasicBlock("is.string");
@@ -42,7 +72,7 @@ namespace lox {
                 Builder.SetInsertPoint(IsMaybeStringBlock);
                 Builder.CreateCondBr(Builder.CreateAnd(Builder.IsString(left), Builder.IsString(right)), IsStringBlock, InvalidBlock);
                 Builder.SetInsertPoint(IsStringBlock);
-                const auto &Y = Builder.Concat(left, right);
+                const auto Y = Builder.Concat(left, right);
                 Builder.CreateBr(EndBlock);
 
                 Builder.SetInsertPoint(InvalidBlock);
