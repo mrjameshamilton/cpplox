@@ -242,19 +242,36 @@ namespace lox {
     }
 
     Value *FunctionCompiler::operator()(const VarExprPtr &varExpr) {
-        if (const auto value = lookupVariable(*varExpr)) {
+        const auto value = lookupVariable(*varExpr);
+
+        if (const auto global = dyn_cast<GlobalVariable>(value)) {
+            // Globals are late bound, so we must check at runtime if
+            // the global is defined and initialized.
+            const auto UndefinedBlock = Builder.CreateBasicBlock("undefined");
+            const auto EndBlock = Builder.CreateBasicBlock("end");
+
+            const auto loadedValue = Builder.CreateLoad(Builder.getInt64Ty(), global);
+            Builder.CreateCondBr(Builder.IsUninitialized(loadedValue), UndefinedBlock, EndBlock);
+            Builder.SetInsertPoint(UndefinedBlock);
+            static const auto fmt = Builder.CreateGlobalStringPtr("Undefined variable '%s'.\n");
+            Builder.RuntimeError(
+                varExpr->name.getLine(),
+                fmt,
+                {Builder.CreateGlobalStringPtr(varExpr->name.getLexeme())},
+                enclosing == nullptr ? nullptr : Builder.getFunction()
+            );
+            Builder.CreateBr(EndBlock);
+            Builder.SetInsertPoint(EndBlock);
+
+            return loadedValue;
+        }
+
+        if (value) {
+            // Local.
             return Builder.CreateLoad(Builder.getInt64Ty(), value);
         }
 
-        static const auto fmt = Builder.CreateGlobalStringPtr("Undefined variable '%s'.\n");
-        Builder.RuntimeError(
-            varExpr->name.getLine(),
-            fmt,
-            {Builder.CreateGlobalStringPtr(varExpr->name.getLexeme())},
-            enclosing == nullptr ? nullptr : Builder.getFunction()
-        );
-
-        return Builder.getNilVal();
+        return Builder.CreateUnreachable();
     }
 
     Value *FunctionCompiler::operator()(const GroupingExprPtr &groupingExpr) {

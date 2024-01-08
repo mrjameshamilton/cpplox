@@ -25,6 +25,7 @@ namespace lox {
 
         // Code generation for checking types of values.
         Value *IsBool(Value *);
+        Value *IsUninitialized(Value *value);
         Value *IsNil(Value *value);
         Value *IsNumber(Value *value);
         Value *IsObj(Value *value);
@@ -43,6 +44,7 @@ namespace lox {
         Value *AsString(Value *value);
         Value *AsCString(Value *value);
         Value *AsNumber(Value *value);
+        Value *getUninitializedVal();
         Value *getNilVal();
         Value *getTrueVal();
         Value *getFalseVal();

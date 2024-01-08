@@ -15,6 +15,10 @@ using namespace llvm::sys;
 
 namespace lox {
 
+    Value *LoxBuilder::getUninitializedVal() {
+        return getInt64(UNITIALIZED_VAL);
+    }
+
     Value *LoxBuilder::getNilVal() {
         return getInt64(NIL_VAL);
     }
@@ -29,6 +33,10 @@ namespace lox {
 
     Value *LoxBuilder::IsBool(Value *value) {
         return CreateICmpEQ(CreateOr(value, 1), getTrueVal());
+    }
+
+    Value *LoxBuilder::IsUninitialized(Value *value) {
+        return CreateICmpEQ(value, getUninitializedVal());
     }
 
     Value *LoxBuilder::IsNil(Value *value) {

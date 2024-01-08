@@ -86,23 +86,31 @@ namespace lox {
             scopes.pop();
         }
 
-        [[nodiscard]] Value *lookupVariable(const std::string_view &name) const {
-            const auto local = variables.lookup(name);
+        [[nodiscard]] Value *lookupVariable(const std::string_view &name) {
+            if (const auto local = variables.lookup(name)) return local;
 
-            if (!local) {
-                return Builder.getModule().getNamedGlobal(("g" + name).str());
+            auto global = Builder.getModule().getNamedGlobal(("g" + name).str());
+            if (!global) {
+                // Global was not yet defined, so define it already but with an unitialized value.
+                global = cast<GlobalVariable>(Builder.getModule().getOrInsertGlobal(
+                    ("g" + name).str(),
+                    IntegerType::getInt64Ty(Builder.getContext())
+                ));
+
+                global->setLinkage(GlobalValue::PrivateLinkage);
+                global->setAlignment(Align(8));
+                global->setConstant(false);
+                global->setInitializer(cast<ConstantInt>(Builder.getUninitializedVal()));
             }
 
-            return local;
+            return global;
         }
 
-        [[nodiscard]] Value *lookupVariable(const Assignable &assignable) const {
-            const auto name = assignable.name.getLexeme();
+        [[nodiscard]] Value *lookupVariable(const Assignable &assignable) {
             return lookupVariable(assignable.name.getLexeme());
         }
 
-        void
-        insertVariable(const std::string_view &key, Value *value) {
+        void insertVariable(const std::string_view &key, Value *value) {
             if (enclosing == nullptr && scopes.size() == 1) {
                 const auto name = ("g" + key).str();// TODO: how to not call Twine.+?
                 const auto global = cast<GlobalVariable>(Builder.getModule().getOrInsertGlobal(
@@ -117,7 +125,7 @@ namespace lox {
                 if (const auto i = dyn_cast<ConstantInt>(value); i && i->getBitWidth() == 64) {
                     global->setInitializer(i);
                 } else {
-                    global->setInitializer(Builder.getInt64(NIL_VAL));
+                    global->setInitializer(cast<ConstantInt>(Builder.getNilVal()));
                     Builder.CreateStore(value, global);
                 }
             } else {
