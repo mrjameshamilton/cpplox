@@ -86,12 +86,25 @@ namespace lox {
             scopes.pop();
         }
 
-        [[nodiscard]] Value *lookupVariable(const std::string_view &name) {
-            if (const auto local = variables.lookup(name)) return local;
+        static Value *resolveLocal(const FunctionCompiler *compiler, const Assignable &assignable) {
+            const std::string_view &name = assignable.name.getLexeme();
+            if (const auto local = compiler->variables.lookup(name)) return local;
+            return nullptr;
+        }
 
+        [[nodiscard]] Value *lookupVariable(Assignable &assignable) {
+            if (const auto local = resolveLocal(this, assignable)) return local;
+
+            // Lookup global.
+            const std::string_view &name = assignable.name.getLexeme();
+            const auto global = lookupGlobal(name);
+            return global;
+        }
+
+        GlobalVariable *lookupGlobal(const std::string_view &name) {
             auto global = Builder.getModule().getNamedGlobal(("g" + name).str());
             if (!global) {
-                // Global was not yet defined, so define it already but with an unitialized value.
+                // Global was not yet defined, so define it already but with an uninitialized value.
                 global = cast<GlobalVariable>(Builder.getModule().getOrInsertGlobal(
                     ("g" + name).str(),
                     IntegerType::getInt64Ty(Builder.getContext())
@@ -104,10 +117,6 @@ namespace lox {
             }
 
             return global;
-        }
-
-        [[nodiscard]] Value *lookupVariable(const Assignable &assignable) {
-            return lookupVariable(assignable.name.getLexeme());
         }
 
         void insertVariable(const std::string_view &key, Value *value) {
