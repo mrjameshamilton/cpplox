@@ -19,7 +19,8 @@ constexpr uint64_t UNITIALIZED_VAL = QNAN | TAG_UNINITIALIZED;
 namespace lox {
     enum class ObjType : int8_t {
         STRING = 1,
-        FUNCTION = 2
+        FUNCTION = 2,
+        CLOSURE = 3
     };
 }
 

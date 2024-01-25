@@ -27,4 +27,17 @@ namespace lox {
             )
         );
     }
+
+    Value *LoxBuilder::AllocateClosure(llvm::Value *function) {
+        Value *obj = AllocateObj(ObjType::CLOSURE, "closure");
+
+        CreateStore(function, CreateStructGEP(getModule().getStructType(ObjType::CLOSURE), CreateLoad(getPtrTy(), obj), 1));
+
+        return ObjVal(
+            CreatePtrToInt(
+                CreateLoad(getPtrTy(), obj),
+                getInt64Ty()
+            )
+        );
+    }
 }// namespace lox

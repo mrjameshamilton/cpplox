@@ -36,6 +36,14 @@ namespace lox {
             },
             "Function"
         );
+        StructType *const ClosureStructType = StructType::create(
+            getContext(),
+            {
+                ObjStructType,
+                PointerType::getUnqual(getContext()),// func obj ptr
+            },
+            "Closure"
+        );
         GlobalVariable *const objects = cast<GlobalVariable>(getOrInsertGlobal(
             "objects",
             PointerType::get(getContext(), 0)
@@ -59,6 +67,8 @@ namespace lox {
                     return StringStructType;
                 case ObjType::FUNCTION:
                     return FunctionStructType;
+                case ObjType::CLOSURE:
+                    return ClosureStructType;
                 // TODO: other types.
                 default:
                     throw std::runtime_error("Not implemented");

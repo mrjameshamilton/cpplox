@@ -30,6 +30,7 @@ namespace lox {
         Value *IsNumber(Value *value);
         Value *IsObj(Value *value);
         Value *IsFunction(Value *value);
+        Value *IsClosure(Value *value);
         Value *IsString(Value *value);
 
         // Code generation for converting an int64 to a Lox value.
@@ -41,6 +42,7 @@ namespace lox {
         Value *AsBool(Value *value);
         Value *AsObj(Value *value, std::optional<ObjType> type = std::nullopt);
         Value *AsFunction(Value *value);
+        Value *AsClosure(Value *value);
         Value *AsString(Value *value);
         Value *AsCString(Value *value);
         Value *AsNumber(Value *value);
@@ -55,6 +57,7 @@ namespace lox {
         Value *AllocateObj(lox::ObjType objType, const std::string_view name = "");
         Value *AllocateString(Value *String, Value *Length, const std::string_view name = "");
         Value *AllocateFunction(llvm::Function *Function, bool isNative = false);
+        Value *AllocateClosure(Value *function);
 
         Value *Concat(Value *a, Value *b);
         Value *StrEquals(Value *a, Value *b);

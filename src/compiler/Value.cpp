@@ -58,6 +58,13 @@ namespace lox {
         );
     }
 
+    Value *LoxBuilder::IsClosure(Value *value) {
+        return CreateAnd(
+            IsObj(value),
+            CreateICmpEQ(ObjType(value), ObjTypeInt(ObjType::CLOSURE))
+        );
+    }
+
     Value *LoxBuilder::IsString(Value *value) {
         return CreateAnd(
             IsObj(value),
@@ -104,6 +111,10 @@ namespace lox {
 
     Value *LoxBuilder::AsFunction(Value *value) {
         return AsObj(value, ObjType::FUNCTION);
+    }
+
+    Value *LoxBuilder::AsClosure(Value *value) {
+        return AsObj(value, ObjType::CLOSURE);
     }
 
     Value *LoxBuilder::AsString(Value *value) {
@@ -207,6 +218,7 @@ namespace lox {
     void LoxBuilder::PrintObject(Value *value) {
         const auto IsStringBlock = CreateBasicBlock("print.string");
         const auto IsFunctionBlock = CreateBasicBlock("print.function");
+        const auto IsClosureBlock = CreateBasicBlock("print.closure");
         const auto IsNativeFunctionBlock = CreateBasicBlock("print.native.function");
         const auto IsNotNativeFunctionBlock = CreateBasicBlock("print.not.native.function");
         const auto DefaultBlock = CreateBasicBlock("print.default");
@@ -215,9 +227,17 @@ namespace lox {
         const auto Switch = CreateSwitch(ObjType(value), DefaultBlock);
         Switch->addCase(ObjTypeInt(ObjType::STRING), IsStringBlock);
         Switch->addCase(ObjTypeInt(ObjType::FUNCTION), IsFunctionBlock);
+        Switch->addCase(ObjTypeInt(ObjType::CLOSURE), IsClosureBlock);
 
         SetInsertPoint(IsStringBlock);
         PrintString(value);
+        CreateBr(EndBlock);
+
+        SetInsertPoint(IsClosureBlock);
+        static auto fmt1 = CreateGlobalStringPtr("<fn %s>\n", "printf_fmt_fun");
+        const auto closure = AsClosure(value);
+        const auto f = CreateLoad(getPtrTy(), CreateStructGEP(getModule().getStructType(ObjType::CLOSURE), closure, 1));
+        PrintF({fmt1, AsCString(CreateLoad(getInt64Ty(), CreateStructGEP(getModule().getStructType(ObjType::FUNCTION), f, 3)))});
         CreateBr(EndBlock);
 
         SetInsertPoint(IsFunctionBlock);

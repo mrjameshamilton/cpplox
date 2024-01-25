@@ -1,11 +1,9 @@
-var x = 1;
-x = 2;
-print x;
+fun foo() {
+var a = "hello";
+    print a;
+}
 
+print foo;
+foo();
 
-//var a = "hello";
-//fun foo() {
-//    print a;
-//}
-//
-//foo();
+print clock();

@@ -158,12 +158,21 @@ namespace lox {
     Value *FunctionCompiler::operator()(const CallExprPtr &callExpr) {
         const auto value = evaluate(callExpr->callee);
 
-        const auto IsCallable = Builder.CreateBasicBlock("is.callable");
+        const auto IsClosureBlock = Builder.CreateBasicBlock("is.callable");
+        const auto CallFunctionBlock = Builder.CreateBasicBlock("is.function");
+        const auto IsNativeBlock = Builder.CreateBasicBlock("is.native");
+        const auto NotNativeBlock = Builder.CreateBasicBlock("not.native");
         const auto NotCallableBlock = Builder.CreateBasicBlock("not.callable");
 
-        Builder.CreateCondBr(Builder.IsFunction(value), IsCallable, NotCallableBlock);
+        Builder.CreateCondBr(Builder.IsClosure(value), IsClosureBlock, NotCallableBlock);
         Builder.SetInsertPoint(NotCallableBlock);
+        Builder.CreateCondBr(Builder.IsFunction(value), IsNativeBlock, NotNativeBlock);
+        Builder.SetInsertPoint(IsNativeBlock);
+        // Native functions are not wrapped in a closure.
+        const auto native = Builder.AsFunction(value);
+        Builder.CreateBr(CallFunctionBlock);
 
+        Builder.SetInsertPoint(NotNativeBlock);
         static const auto fmt = Builder.CreateGlobalStringPtr("Can only call functions and classes.\n");
         Builder.RuntimeError(
             callExpr->keyword.getLine(),
@@ -173,8 +182,16 @@ namespace lox {
         );
         Builder.CreateUnreachable();
 
-        Builder.SetInsertPoint(IsCallable);
-        const auto callee = Builder.AsFunction(value);
+        Builder.SetInsertPoint(IsClosureBlock);
+        // The function is wrapped in a closure.
+        const auto closure = Builder.AsClosure(value);
+        const auto function = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 1));
+        Builder.CreateBr(CallFunctionBlock);
+
+        Builder.SetInsertPoint(CallFunctionBlock);
+        const auto callee = Builder.CreatePHI(Builder.getPtrTy(), 2);
+        callee->addIncoming(function, IsClosureBlock);
+        callee->addIncoming(native, IsNativeBlock);
 
         const std::vector<Type *> paramTypes(callExpr->arguments.size(), Builder.getInt64Ty());
         const auto paramValues = to<std::vector<Value *>>(

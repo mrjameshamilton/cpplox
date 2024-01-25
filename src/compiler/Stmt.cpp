@@ -1,5 +1,4 @@
 #include "FunctionCompiler.h"
-#include "ModuleCompiler.h"
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 #include <ranges>
 #include <vector>
@@ -28,7 +27,10 @@ namespace lox {
             Builder.getModule()
         );
 
-        insertVariable(functionStmt->name.getLexeme(), Builder.AllocateFunction(F));
+        Value *function = Builder.AllocateFunction(F);
+        Value *closure = Builder.AllocateClosure(Builder.AsFunction(function));
+
+        insertVariable(functionStmt->name.getLexeme(), closure);
 
         FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, this);
 
