@@ -109,6 +109,10 @@ namespace lox {
         );
     }
 
+    Value *LoxBuilder::AsUpvalue(llvm::Value *value) {
+        return AsObj(value, ObjType::UPVALUE);
+    }
+
     Value *LoxBuilder::AsFunction(Value *value) {
         return AsObj(value, ObjType::FUNCTION);
     }
@@ -219,6 +223,7 @@ namespace lox {
         const auto IsStringBlock = CreateBasicBlock("print.string");
         const auto IsFunctionBlock = CreateBasicBlock("print.function");
         const auto IsClosureBlock = CreateBasicBlock("print.closure");
+        const auto IsUpvalueBlock = CreateBasicBlock("print.upvalue");
         const auto IsNativeFunctionBlock = CreateBasicBlock("print.native.function");
         const auto IsNotNativeFunctionBlock = CreateBasicBlock("print.not.native.function");
         const auto DefaultBlock = CreateBasicBlock("print.default");
@@ -228,6 +233,7 @@ namespace lox {
         Switch->addCase(ObjTypeInt(ObjType::STRING), IsStringBlock);
         Switch->addCase(ObjTypeInt(ObjType::FUNCTION), IsFunctionBlock);
         Switch->addCase(ObjTypeInt(ObjType::CLOSURE), IsClosureBlock);
+        Switch->addCase(ObjTypeInt(ObjType::UPVALUE), IsUpvalueBlock);
 
         SetInsertPoint(IsStringBlock);
         PrintString(value);
@@ -255,7 +261,14 @@ namespace lox {
         PrintF({fmt, AsCString(CreateLoad(getInt64Ty(), CreateStructGEP(getModule().getStructType(ObjType::FUNCTION), function, 3)))});
         CreateBr(EndBlock);
 
+        SetInsertPoint(IsUpvalueBlock);
+        static const auto stmt = CreateGlobalStringPtr("Upvalue(%p, %p) = ");
+        const auto upvalue = AsUpvalue(value);
+        const auto object = CreateLoad(getPtrTy(), CreateStructGEP(getModule().getStructType(ObjType::UPVALUE), upvalue, 1));
+        PrintF({stmt, value, object});
+        CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("Print"), CreateLoad(getInt64Ty(), object));
         CreateBr(EndBlock);
+
         SetInsertPoint(DefaultBlock);
 
         CreateBr(EndBlock);

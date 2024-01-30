@@ -1,9 +1,0 @@
-fun foo() {
-var a = "hello";
-    print a;
-}
-
-print foo;
-foo();
-
-print clock();

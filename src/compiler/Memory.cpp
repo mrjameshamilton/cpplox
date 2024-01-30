@@ -47,6 +47,12 @@ namespace lox {
             case ObjType::FUNCTION:
                 PrintString("Allocate function");
                 break;
+            case ObjType::CLOSURE:
+                PrintString("Allocate closure");
+                break;
+            case ObjType::UPVALUE:
+                PrintString("Allocate upvalue");
+                break;
             default:
                 PrintString("Allocate object");
         }
@@ -74,6 +80,23 @@ namespace lox {
         CreateStore(NewObjMalloc, NewObj);
 
         return CreateBitCast(NewObj, StructType->getPointerTo());
+    }
+
+    Value *LoxBuilder::AllocateArray(llvm::Type *type, int size, const std::string_view &name) {
+        Type *IntPtrTy = IntegerType::getInt32Ty(getContext());
+        // The malloc size IR that is generated with getSizeOf uses a hack described here:
+        // https://mukulrathi.com/create-your-own-programming-language/concurrency-runtime-language-tutorial/#malloc
+        Constant *allocsize = ConstantExpr::getSizeOf(type->getPointerTo());
+        allocsize = ConstantExpr::getTruncOrBitCast(allocsize, IntPtrTy);
+        Constant *arraySize = ConstantInt::get(IntPtrTy, size);
+        return CreateMalloc(
+            IntPtrTy,
+            getPtrTy(),
+            allocsize,
+            arraySize,
+            nullptr,
+            name
+        );
     }
 
     void ModuleCompiler::FreeObjects() const {
@@ -116,6 +139,8 @@ namespace lox {
     void ModuleCompiler::FreeObject(Value *value) const {
         const auto IsStringBlock = Builder->CreateBasicBlock("string");
         const auto IsFunctionBlock = Builder->CreateBasicBlock("function");
+        const auto IsClosureBlock = Builder->CreateBasicBlock("closure");
+        const auto IsUpvalueBlock = Builder->CreateBasicBlock("upvalue");
         const auto DefaultBlock = Builder->CreateBasicBlock("default");
 
 #if DEBUG_LOG_GC
@@ -127,6 +152,8 @@ namespace lox {
         const auto Switch = Builder->CreateSwitch(Builder->ObjType(value), DefaultBlock);
         Switch->addCase(Builder->ObjTypeInt(ObjType::STRING), IsStringBlock);
         Switch->addCase(Builder->ObjTypeInt(ObjType::FUNCTION), IsFunctionBlock);
+        Switch->addCase(Builder->ObjTypeInt(ObjType::CLOSURE), IsClosureBlock);
+        Switch->addCase(Builder->ObjTypeInt(ObjType::UPVALUE), IsUpvalueBlock);
 
         Builder->SetInsertPoint(IsStringBlock);
         Builder->CreateFree(value);
@@ -135,8 +162,26 @@ namespace lox {
         Builder->CreateBr(DefaultBlock);
 
         Builder->SetInsertPoint(IsFunctionBlock);
-        Builder->CreateFree(value);
+        Builder->CreateFree(Builder->AsFunction(value));
         // Don't need to free the name, because it will be freed as a String obj anyway.
+        Builder->CreateBr(DefaultBlock);
+
+        Builder->SetInsertPoint(IsClosureBlock);
+        const auto closure = Builder->AsClosure(value);
+        const auto size = Builder->CreateLoad(Builder->getInt32Ty(), Builder->CreateStructGEP(Builder->getModule().getStructType(ObjType::CLOSURE), closure, 3));
+        const auto IsNotNull = Builder->CreateBasicBlock("NotNullArray");
+        const auto NullArray = Builder->CreateBasicBlock("NullArray");
+        Builder->CreateCondBr(Builder->CreateICmpEQ(size, Builder->getInt32(0)), NullArray, IsNotNull);
+        Builder->SetInsertPoint(IsNotNull);
+        const auto array = Builder->CreateLoad(Builder->getPtrTy(), Builder->CreateStructGEP(Builder->getModule().getStructType(ObjType::CLOSURE), closure, 2));
+        Builder->CreateFree(array);
+        Builder->CreateBr(NullArray);
+        Builder->SetInsertPoint(NullArray);
+        Builder->CreateFree(closure);
+        Builder->CreateBr(DefaultBlock);
+
+        Builder->SetInsertPoint(IsUpvalueBlock);
+        Builder->CreateFree(Builder->AsUpvalue(value));
 
         Builder->CreateBr(DefaultBlock);
         Builder->SetInsertPoint(DefaultBlock);

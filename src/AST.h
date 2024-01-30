@@ -78,6 +78,7 @@ namespace lox {
     struct Assignable : private Uncopyable {
         Token name;
         mutable signed long distance = -1;
+        mutable bool isCaptured = false;
         explicit Assignable(const Token &name) : name{name} {
         }
     };

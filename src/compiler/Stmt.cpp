@@ -1,7 +1,10 @@
 #include "FunctionCompiler.h"
+#include "Upvalue.h"
+
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 #include <ranges>
 #include <vector>
+
 namespace lox {
 
     void FunctionCompiler::evaluate(const Stmt &stmt) {
@@ -17,7 +20,8 @@ namespace lox {
     }
 
     void FunctionCompiler::operator()(const FunctionStmtPtr &functionStmt) {
-        const std::vector<Type *> paramTypes(functionStmt->parameters.size(), Builder.getInt64Ty());
+        std::vector<Type *> paramTypes(functionStmt->parameters.size(), Builder.getInt64Ty());
+        paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
         FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
 
         Function *F = Function::Create(
@@ -27,14 +31,33 @@ namespace lox {
             Builder.getModule()
         );
 
-        Value *function = Builder.AllocateFunction(F);
-        Value *closure = Builder.AllocateClosure(Builder.AsFunction(function));
+        const auto function = Builder.AllocateFunction(F);
+        const auto closure = Builder.AllocateClosure(Builder.AsFunction(function));
 
         insertVariable(functionStmt->name.getLexeme(), closure);
 
         FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, this);
-
         C.compile(functionStmt->body, functionStmt->parameters);
+
+        // Store captured variables in the closure's upvalue array.
+        if (!C.upvalues.empty()) {
+            const auto upvaluesArrayPtr = Builder.AllocateArray(Builder.getModule().getStructType(ObjType::UPVALUE), C.upvalues.size(), "upvaluesArrayPtr");
+            const auto closurePtr = Builder.AsClosure(closure);
+
+            Builder.CreateStore(
+                upvaluesArrayPtr,
+                Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closurePtr, 2, "closure.upvalues")
+            );
+            Builder.CreateStore(
+                Builder.getInt32(C.upvalues.size()),
+                Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closurePtr, 3, "closure.upvaluesCount")
+            );
+
+            for (auto &upvalue: C.upvalues) {
+                const auto upvalueIndex = Builder.CreateGEP(Builder.getPtrTy(), upvaluesArrayPtr, Builder.getInt32(upvalue->index), "upvalueIndex");
+                Builder.CreateStore(upvalue->isLocal ? captureLocal(upvalue->value) : upvalue->value, upvalueIndex);
+            }
+        }
     }
 
     void FunctionCompiler::operator()(const ExpressionStmtPtr &expressionStmt) {

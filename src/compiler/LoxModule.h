@@ -40,9 +40,19 @@ namespace lox {
             getContext(),
             {
                 ObjStructType,
-                PointerType::getUnqual(getContext()),// func obj ptr
+                PointerType::getUnqual(getContext()), // func obj ptr
+                PointerType::getUnqual(getContext()), // upvalues
+                IntegerType::getInt32Ty(getContext()),// upvalue count
             },
             "Closure"
+        );
+        StructType *const UpvalueStruct = StructType::create(
+            getContext(),
+            {
+                ObjStructType,
+                PointerType::getUnqual(getContext()),// location ptr
+            },
+            "Upvalue"
         );
         GlobalVariable *const objects = cast<GlobalVariable>(getOrInsertGlobal(
             "objects",
@@ -69,6 +79,8 @@ namespace lox {
                     return FunctionStructType;
                 case ObjType::CLOSURE:
                     return ClosureStructType;
+                case ObjType::UPVALUE:
+                    return UpvalueStruct;
                 // TODO: other types.
                 default:
                     throw std::runtime_error("Not implemented");

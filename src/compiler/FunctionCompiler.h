@@ -3,6 +3,7 @@
 #include "../AST.h"
 #include "LoxBuilder.h"
 #include "ModuleCompiler.h"
+#include "Upvalue.h"
 
 #include <iostream>
 #include <llvm/ADT/ScopedHashTable.h>
@@ -33,7 +34,6 @@ inline bool DenseMapInfo<std::string_view>::isEqual(const std::string_view LHS, 
     return LHS == RHS;
 }
 
-
 namespace lox {
     using namespace llvm;
 
@@ -43,10 +43,11 @@ namespace lox {
         ScopedHTType variables;
         std::stack<ScopedHTType::ScopeTy> scopes;
         LoxBuilder Builder;
-        FunctionCompiler const *enclosing;
+        FunctionCompiler *enclosing;
+        std::vector<std::unique_ptr<Upvalue>> upvalues;
 
     public:
-        explicit FunctionCompiler(LLVMContext &Context, LoxModule &Module, Function &F, FunctionCompiler const *enclosing = nullptr)
+        explicit FunctionCompiler(LLVMContext &Context, LoxModule &Module, Function &F, FunctionCompiler *enclosing = nullptr)
             : Builder{Context, Module, F}, enclosing(enclosing) {
         }
 
@@ -86,18 +87,40 @@ namespace lox {
             scopes.pop();
         }
 
-        static Value *resolveLocal(const FunctionCompiler *compiler, const Assignable &assignable) {
-            const std::string_view &name = assignable.name.getLexeme();
-            if (const auto local = compiler->variables.lookup(name)) return local;
-            return nullptr;
-        }
-
         [[nodiscard]] Value *lookupVariable(Assignable &assignable) {
             if (const auto local = resolveLocal(this, assignable)) return local;
 
+            if (auto upvalue = resolveUpvalue(this, assignable)) {
+                // upvalue is a pointer to an upvalue object.
+                // We need to load the value at the pointer location in the upvalue struct,
+                // which points to the closed over value.
+                return Builder.CreateLoad(
+                    Builder.getPtrTy(),
+                    Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::UPVALUE), upvalue, 1, "upvalue.locationptr"),
+                    "upvalue.valueptr"
+                );
+            }
+
             // Lookup global.
-            const std::string_view &name = assignable.name.getLexeme();
-            const auto global = lookupGlobal(name);
+            const auto global = lookupGlobal(assignable.name.getLexeme());
+            // Globals are late bound, so we must check at runtime if
+            // the global is defined and initialized.
+            const auto UndefinedBlock = Builder.CreateBasicBlock("undefined");
+            const auto EndBlock = Builder.CreateBasicBlock("end");
+
+            const auto loadedValue = Builder.CreateLoad(Builder.getInt64Ty(), global);
+            Builder.CreateCondBr(Builder.IsUninitialized(loadedValue), UndefinedBlock, EndBlock);
+            Builder.SetInsertPoint(UndefinedBlock);
+            static const auto fmt = Builder.CreateGlobalStringPtr("Undefined variable '%s'.\n");
+            Builder.RuntimeError(
+                assignable.name.getLine(),
+                fmt,
+                {Builder.CreateGlobalStringPtr(assignable.name.getLexeme())},
+                enclosing == nullptr ? nullptr : Builder.getFunction()
+            );
+            Builder.CreateBr(EndBlock);
+            Builder.SetInsertPoint(EndBlock);
+
             return global;
         }
 
@@ -142,6 +165,50 @@ namespace lox {
                 Builder.CreateStore(value, alloca);
                 variables.insert(key, alloca);
             }
+        }
+
+        Value *captureLocal(Value *value);
+
+    private:
+        static Value *resolveUpvalue(FunctionCompiler *compiler, Assignable &assignable) {
+            if (compiler->enclosing == nullptr) return nullptr;
+
+            //std::cout << "resolveUpvalue(" << assignable.name.getLexeme() << ")" << std::endl;
+
+            if (const auto local = resolveLocal(compiler->enclosing, assignable)) {
+                assignable.isCaptured = true;
+                //std::cout << "Found local: " << assignable.name.getLexeme() << std::endl;
+                return addUpvalue(compiler, local, true);
+            }
+
+            if (const auto upvalue = resolveUpvalue(compiler->enclosing, assignable)) {
+                //std::cout << "Found non-local: " << assignable.name.getLexeme() << std::endl;
+                return addUpvalue(compiler, upvalue, false);
+            }
+
+            return nullptr;
+        }
+
+        static Value *addUpvalue(FunctionCompiler *compiler, Value *value, const bool isLocal) {
+            auto &Builder = compiler->Builder;
+            const auto upvalueArrayIndex = compiler->upvalues.size();
+            compiler->upvalues.emplace_back(std::make_unique<Upvalue>(upvalueArrayIndex, value, isLocal));
+
+            // Construct instruction sequence to load an upvalue from
+            // the upvalue array which is the function's first argument,
+            // in the *compiler*'s function.
+            const auto upvalues = Builder.getFunction()->arg_begin();
+            const auto upvalueIndex = Builder.CreateGEP(Builder.getPtrTy(), upvalues, {Builder.getInt32(upvalueArrayIndex)}, "arrayindex");
+            const auto upvaluePtr = Builder.CreateLoad(Builder.getPtrTy(), upvalueIndex, "upvaluePtr");
+
+            // The pointer from the upvalues array for new upvalue index.
+            return upvaluePtr;
+        }
+
+        static Value *resolveLocal(const FunctionCompiler *compiler, const Assignable &assignable) {
+            const std::string_view &name = assignable.name.getLexeme();
+            if (const auto local = compiler->variables.lookup(name)) return local;
+            return nullptr;
         }
     };
 

@@ -18,19 +18,8 @@ namespace lox {
 
     Value *FunctionCompiler::operator()(const AssignExprPtr &assignExpr) {
         const auto value = evaluate(assignExpr->value);
-
-        if (const auto variable = lookupVariable(*assignExpr)) {
-            Builder.CreateStore(value, variable);
-        } else {
-            static const auto fmt = Builder.CreateGlobalStringPtr("Undefined variable '%s'.\n");
-            Builder.RuntimeError(
-                assignExpr->name.getLine(),
-                fmt,
-                {Builder.CreateGlobalStringPtr(assignExpr->name.getLexeme())},
-                enclosing == nullptr ? nullptr : Builder.getFunction()
-            );
-        }
-
+        const auto variable = lookupVariable(*assignExpr);
+        Builder.CreateStore(value, variable);
         return value;
     }
 
@@ -169,7 +158,9 @@ namespace lox {
         Builder.CreateCondBr(Builder.IsFunction(value), IsNativeBlock, NotNativeBlock);
         Builder.SetInsertPoint(IsNativeBlock);
         // Native functions are not wrapped in a closure.
+        // TODO: also wrap native in closure, to simplify?
         const auto native = Builder.AsFunction(value);
+        const auto upnil = Constant::getNullValue(Builder.getPtrTy());
         Builder.CreateBr(CallFunctionBlock);
 
         Builder.SetInsertPoint(NotNativeBlock);
@@ -186,19 +177,30 @@ namespace lox {
         // The function is wrapped in a closure.
         const auto closure = Builder.AsClosure(value);
         const auto function = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 1));
+        const auto up = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 2));
         Builder.CreateBr(CallFunctionBlock);
 
         Builder.SetInsertPoint(CallFunctionBlock);
         const auto callee = Builder.CreatePHI(Builder.getPtrTy(), 2);
         callee->addIncoming(function, IsClosureBlock);
         callee->addIncoming(native, IsNativeBlock);
+        // TODO:
+        const auto upvalues = Builder.CreatePHI(Builder.getPtrTy(), 2);
+        upvalues->addIncoming(up, IsClosureBlock);
+        upvalues->addIncoming(upnil, IsNativeBlock);
 
-        const std::vector<Type *> paramTypes(callExpr->arguments.size(), Builder.getInt64Ty());
-        const auto paramValues = to<std::vector<Value *>>(
+        std::vector<Type *> paramTypes(callExpr->arguments.size(), Builder.getInt64Ty());
+        auto paramValues = to<std::vector<Value *>>(
             callExpr->arguments | std::views::transform([&](const auto &p) -> Value * {
                 return evaluate(p);
             })
         );
+
+        paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
+        paramValues.insert(paramValues.begin(), upvalues);
+
+        static const auto stmt = Builder.CreateGlobalStringPtr("upvalues param: %p\n");
+        //Builder.PrintF({stmt, upvalues});
 
         FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
 
@@ -221,7 +223,7 @@ namespace lox {
         const auto CallBlock = Builder.CreateBasicBlock("call");
         const auto WrongArityBlock = Builder.CreateBasicBlock("wrong.arity");
 
-        const auto actual = Builder.getInt32(paramValues.size());
+        const auto actual = Builder.getInt32(callExpr->arguments.size());
         Builder.CreateCondBr(Builder.CreateICmpEQ(arity, actual), CallBlock, WrongArityBlock);
 
         Builder.SetInsertPoint(WrongArityBlock);
@@ -237,7 +239,7 @@ namespace lox {
 
         Builder.SetInsertPoint(CallBlock);
 #if DEBUG
-        Builder.PrintF({Builder.CreateGlobalStringPtr("Calling func at %p with function ptr %p\n"), callee, x});
+        Builder.PrintF({Builder.CreateGlobalStringPtr("Calling func at %p with function ptr %p\n"), callee, functionPtr});
 #endif
         return Builder.CreateCall(FT, functionPtr, paramValues);
     }
@@ -260,35 +262,7 @@ namespace lox {
 
     Value *FunctionCompiler::operator()(const VarExprPtr &varExpr) {
         const auto value = lookupVariable(*varExpr);
-
-        if (const auto global = dyn_cast<GlobalVariable>(value)) {
-            // Globals are late bound, so we must check at runtime if
-            // the global is defined and initialized.
-            const auto UndefinedBlock = Builder.CreateBasicBlock("undefined");
-            const auto EndBlock = Builder.CreateBasicBlock("end");
-
-            const auto loadedValue = Builder.CreateLoad(Builder.getInt64Ty(), global);
-            Builder.CreateCondBr(Builder.IsUninitialized(loadedValue), UndefinedBlock, EndBlock);
-            Builder.SetInsertPoint(UndefinedBlock);
-            static const auto fmt = Builder.CreateGlobalStringPtr("Undefined variable '%s'.\n");
-            Builder.RuntimeError(
-                varExpr->name.getLine(),
-                fmt,
-                {Builder.CreateGlobalStringPtr(varExpr->name.getLexeme())},
-                enclosing == nullptr ? nullptr : Builder.getFunction()
-            );
-            Builder.CreateBr(EndBlock);
-            Builder.SetInsertPoint(EndBlock);
-
-            return loadedValue;
-        }
-
-        if (value) {
-            // Local.
-            return Builder.CreateLoad(Builder.getInt64Ty(), value);
-        }
-
-        return Builder.CreateUnreachable();
+        return Builder.CreateLoad(Builder.getInt64Ty(), value);
     }
 
     Value *FunctionCompiler::operator()(const GroupingExprPtr &groupingExpr) {

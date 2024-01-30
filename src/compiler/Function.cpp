@@ -15,7 +15,7 @@ namespace lox {
         Value *obj = AllocateObj(ObjType::FUNCTION, Function->getName());
         Value *name = AllocateString(CreateGlobalStringPtr(Function->getName()), getInt32(Function->getName().size()), "funcName_" + std::string(Function->getName()));
 
-        STORE_FUNCTION_ARITY(obj, getInt32(Function->arg_size()));
+        STORE_FUNCTION_ARITY(obj, getInt32(Function->arg_size() - 1 /* first arg is upvalue array */));
         STORE_FUNCTION_PTR(obj, Function);
         STORE_FUNCTION_NAME(obj, name);
         STORE_FUNCTION_NATIVE(obj, isNative ? getTrue() : getFalse());
@@ -32,6 +32,8 @@ namespace lox {
         Value *obj = AllocateObj(ObjType::CLOSURE, "closure");
 
         CreateStore(function, CreateStructGEP(getModule().getStructType(ObjType::CLOSURE), CreateLoad(getPtrTy(), obj), 1));
+        CreateStore(getInt8(0), CreateStructGEP(getModule().getStructType(ObjType::CLOSURE), CreateLoad(getPtrTy(), obj), 2));
+        CreateStore(getInt32(0), CreateStructGEP(getModule().getStructType(ObjType::CLOSURE), CreateLoad(getPtrTy(), obj), 3));
 
         return ObjVal(
             CreatePtrToInt(
