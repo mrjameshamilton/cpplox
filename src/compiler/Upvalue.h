@@ -17,5 +17,7 @@ namespace lox {
         Value *value;
         bool isLocal;
     };
+
+    void closeUpvalues(LoxBuilder &Builder, Value *local);
 }// namespace lox
 #endif//CPPLOX_UPVALUE_H

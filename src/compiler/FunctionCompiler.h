@@ -11,6 +11,8 @@
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 #include <stack>
 
+#define DEBUG false
+
 template<>
 struct llvm::DenseMapInfo<std::string_view> {
     static inline std::string_view getEmptyKey() {
@@ -39,7 +41,23 @@ namespace lox {
 
     class FunctionCompiler {
 
-        using ScopedHTType = ScopedHashTable<std::string_view, AllocaInst *>;
+        struct Local {
+            FunctionCompiler& compiler;
+            std::string_view name;
+            Value *value;
+            bool isCaptured = false;
+            ~Local() {
+                if (isCaptured) {
+#if DEBUG
+                    static const auto fmt = B.CreateGlobalStringPtr(("closing upvalues for " + name + " (%p)\n").str());
+                    B.PrintF({fmt, value});
+#endif
+                    closeUpvalues(compiler.Builder, value);
+                }
+            }
+        };
+
+        using ScopedHTType = ScopedHashTable<std::string_view, std::shared_ptr<Local>>;
         ScopedHTType variables;
         std::stack<ScopedHTType::ScopeTy> scopes;
         LoxBuilder Builder;
@@ -88,7 +106,7 @@ namespace lox {
         }
 
         [[nodiscard]] Value *lookupVariable(Assignable &assignable) {
-            if (const auto local = resolveLocal(this, assignable)) return local;
+            if (const auto local = resolveLocal(this, assignable)) return local->value;
 
             if (auto upvalue = resolveUpvalue(this, assignable)) {
                 // upvalue is a pointer to an upvalue object.
@@ -163,26 +181,22 @@ namespace lox {
             } else {
                 const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), key);
                 Builder.CreateStore(value, alloca);
-                variables.insert(key, alloca);
+                variables.insert(key, std::make_shared<Local>(*this, key, alloca));
             }
         }
 
-        Value *captureLocal(Value *value);
+        Value *captureLocal(Value *local);
 
     private:
         static Value *resolveUpvalue(FunctionCompiler *compiler, Assignable &assignable) {
             if (compiler->enclosing == nullptr) return nullptr;
 
-            //std::cout << "resolveUpvalue(" << assignable.name.getLexeme() << ")" << std::endl;
-
             if (const auto local = resolveLocal(compiler->enclosing, assignable)) {
-                assignable.isCaptured = true;
-                //std::cout << "Found local: " << assignable.name.getLexeme() << std::endl;
-                return addUpvalue(compiler, local, true);
+                local->isCaptured = true;
+                return addUpvalue(compiler, local->value, true);
             }
 
             if (const auto upvalue = resolveUpvalue(compiler->enclosing, assignable)) {
-                //std::cout << "Found non-local: " << assignable.name.getLexeme() << std::endl;
                 return addUpvalue(compiler, upvalue, false);
             }
 
@@ -205,9 +219,9 @@ namespace lox {
             return upvaluePtr;
         }
 
-        static Value *resolveLocal(const FunctionCompiler *compiler, const Assignable &assignable) {
+        static Local *resolveLocal(const FunctionCompiler *compiler, const Assignable &assignable) {
             const std::string_view &name = assignable.name.getLexeme();
-            if (const auto local = compiler->variables.lookup(name)) return local;
+            if (const auto local = compiler->variables.lookup(name)) return local.get();
             return nullptr;
         }
     };

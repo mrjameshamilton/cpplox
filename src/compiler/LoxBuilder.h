@@ -69,6 +69,9 @@ namespace lox {
         void PrintF(const std::string &stringFormat, Value *value);
         void PrintF(const std::initializer_list<Value *> value);
         void PrintString(const std::string &string);
+        void PrintString(const Twine &string) {
+            PrintString(string.str());
+        }
         void PrintNumber(Value *value);
         void PrintNil();
         void PrintObject(Value *value);
