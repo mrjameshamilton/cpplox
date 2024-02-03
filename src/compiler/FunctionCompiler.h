@@ -42,7 +42,7 @@ namespace lox {
     class FunctionCompiler {
 
         struct Local {
-            FunctionCompiler& compiler;
+            FunctionCompiler &compiler;
             std::string_view name;
             Value *value;
             bool isCaptured = false;

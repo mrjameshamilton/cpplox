@@ -20,10 +20,7 @@ namespace lox {
             CreateStructGEP(getModule().getStructType(ObjType::UPVALUE), ptr, 3)
         );
         return ObjVal(
-            CreatePtrToInt(
-                ptr,
-                getInt64Ty()
-            )
+            ptr
         );
     }
 

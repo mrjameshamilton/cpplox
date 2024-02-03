@@ -35,7 +35,7 @@ namespace lox {
 
         // Code generation for converting an int64 to a Lox value.
         Value *BoolVal(Value *value);
-        Value *ObjVal(Value *value);
+        Value *ObjVal(Value *ptrValue);
         Value *NumberVal(Value *value);
 
         // Code generation for converting a Lox value to a native type.

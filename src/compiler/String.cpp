@@ -16,14 +16,12 @@ namespace lox {
     Value *LoxBuilder::AllocateString(Value *String, Value *Length, const std::string_view name) {
         const auto NewString = AllocateObj(ObjType::STRING, name);
 
-        STORE_STRING_STRING(NewString, String);
-        STORE_STRING_LENGTH(NewString, Length);
+        const auto ptr = CreateLoad(getPtrTy(), NewString);
+        CreateStore(String, CreateStructGEP(getModule().getStructType(ObjType::STRING), ptr, 1));
+        CreateStore(Length, CreateStructGEP(getModule().getStructType(ObjType::STRING), ptr, 2));
 
         return ObjVal(
-            CreatePtrToInt(
-                CreateLoad(getPtrTy(), NewString),
-                getInt64Ty()
-            )
+            ptr
         );
     }
 

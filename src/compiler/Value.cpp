@@ -98,8 +98,9 @@ namespace lox {
         return CreateBitCast(value, getDoubleTy());
     }
 
-    Value *LoxBuilder::ObjVal(Value *value) {
-        return CreateOr(value, SIGN_BIT | QNAN);
+    Value *LoxBuilder::ObjVal(Value *ptrValue) {
+        assert(ptrValue->getType() == getPtrTy());
+        return CreateOr(CreatePtrToInt(ptrValue, getInt64Ty()), SIGN_BIT | QNAN);
     }
 
     Value *LoxBuilder::AsObj(Value *value, const std::optional<enum ObjType> type) {
