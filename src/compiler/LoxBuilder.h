@@ -40,11 +40,7 @@ namespace lox {
 
         // Code generation for converting a Lox value to a native type.
         Value *AsBool(Value *value);
-        Value *AsObj(Value *value, std::optional<ObjType> type = std::nullopt);
-        Value *AsUpvalue(Value *value);
-        Value *AsFunction(Value *value);
-        Value *AsClosure(Value *value);
-        Value *AsString(Value *value);
+        Value *AsObj(Value *value);
         Value *AsCString(Value *value);
         Value *AsNumber(Value *value);
         Value *getUninitializedVal();
@@ -58,7 +54,7 @@ namespace lox {
         Value *AllocateObj(lox::ObjType objType, const std::string_view name = "");
         Value *AllocateString(Value *String, Value *Length, const std::string_view name = "");
         Value *AllocateFunction(llvm::Function *Function, bool isNative = false);
-        Value *AllocateClosure(Value *function);
+        Value *AllocateClosure(llvm::Function *function, bool isNative = false);
         Value *AllocateUpvalue(Value *value);
         Value *AllocateArray(Type *type, int size, const std::string_view &name);
 

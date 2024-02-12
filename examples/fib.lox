@@ -10,4 +10,3 @@ print end - start;
 
 print fib;
 print clock;
-print x;

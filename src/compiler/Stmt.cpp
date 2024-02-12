@@ -31,10 +31,9 @@ namespace lox {
             Builder.getModule()
         );
 
-        const auto function = Builder.AllocateFunction(F);
-        const auto closure = Builder.AllocateClosure(Builder.AsFunction(function));
+        const auto closurePtr = Builder.AllocateClosure(F, false);
 
-        insertVariable(functionStmt->name.getLexeme(), closure);
+        insertVariable(functionStmt->name.getLexeme(), Builder.ObjVal(closurePtr));
 
         FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, this);
         C.compile(functionStmt->body, functionStmt->parameters);
@@ -42,7 +41,6 @@ namespace lox {
         // Store captured variables in the closure's upvalue array.
         if (!C.upvalues.empty()) {
             const auto upvaluesArrayPtr = Builder.AllocateArray(Builder.getModule().getStructType(ObjType::UPVALUE), C.upvalues.size(), "upvaluesArrayPtr");
-            const auto closurePtr = Builder.AsClosure(closure);
 
             Builder.CreateStore(
                 upvaluesArrayPtr,

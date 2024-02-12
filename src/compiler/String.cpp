@@ -20,9 +20,7 @@ namespace lox {
         CreateStore(String, CreateStructGEP(getModule().getStructType(ObjType::STRING), ptr, 1));
         CreateStore(Length, CreateStructGEP(getModule().getStructType(ObjType::STRING), ptr, 2));
 
-        return ObjVal(
-            ptr
-        );
+        return ptr;
     }
 
     Value *LoxBuilder::StrEquals(Value *a, Value *b) {
@@ -35,7 +33,7 @@ namespace lox {
                 ),
                 Function::InternalLinkage,
                 "strEquals",
-                this->getModule()
+                getModule()
             );
 
             LoxBuilder B(getContext(), getModule(), *F);
@@ -46,9 +44,9 @@ namespace lox {
             const auto arguments = F->args().begin();
 
             const auto p0str = CreateEntryBlockAlloca(F, B.getPtrTy(), "p0str");
-            B.CreateStore(B.AsString(arguments), p0str);
+            B.CreateStore(B.AsObj(arguments), p0str);
             const auto p1str = CreateEntryBlockAlloca(F, B.getPtrTy(), "p1str");
-            B.CreateStore(B.AsString(arguments + 1), p1str);
+            B.CreateStore(B.AsObj(arguments + 1), p1str);
 
             const auto String0Length = LOAD_STRING_LENGTH(p0str);
             const auto String1Length = LOAD_STRING_LENGTH(p1str);
@@ -61,7 +59,7 @@ namespace lox {
 
             B.SetInsertPoint(CheckContents);
 
-            static const auto MemCmp = this->getModule().getOrInsertFunction(
+            static const auto MemCmp = getModule().getOrInsertFunction(
                 "memcmp",
                 FunctionType::get(B.getInt32Ty(), {B.getPtrTy(), B.getPtrTy(), B.getInt64Ty()}, false)
             );
@@ -92,7 +90,7 @@ namespace lox {
                 ),
                 Function::InternalLinkage,
                 "concat",
-                this->getModule()
+                getModule()
             );
 
             LoxBuilder B(getContext(), getModule(), *F);
@@ -103,9 +101,9 @@ namespace lox {
             const auto arguments = F->args().begin();
 
             const auto p0str = CreateEntryBlockAlloca(F, B.getPtrTy(), "p0str");
-            B.CreateStore(B.AsString(arguments), p0str);
+            B.CreateStore(B.AsObj(arguments), p0str);
             const auto p1str = CreateEntryBlockAlloca(F, B.getPtrTy(), "p1str");
-            B.CreateStore(B.AsString(arguments + 1), p1str);
+            B.CreateStore(B.AsObj(arguments + 1), p1str);
 
             const auto String0Length = LOAD_STRING_LENGTH(p0str);
             const auto String1Length = LOAD_STRING_LENGTH(p1str);
@@ -160,7 +158,7 @@ namespace lox {
                 "NewString"
             );
 
-            B.CreateRet(NewString);
+            B.CreateRet(B.ObjVal(NewString));
 
             return F;
         }());

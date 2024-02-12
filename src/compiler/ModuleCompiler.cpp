@@ -16,7 +16,7 @@ namespace lox {
     void ModuleCompiler::evaluate(const Program &program) const {
         // Native clock function.
         Function *Clock = Function::Create(
-            FunctionType::get(IntegerType::getInt64Ty(*Context), {}, false),
+            FunctionType::get(IntegerType::getInt64Ty(*Context), {Builder->getPtrTy()}, false),
             Function::InternalLinkage,
             "clock_native",
             *M
@@ -52,7 +52,7 @@ namespace lox {
         FunctionCompiler MainCompiler(*Context, *M, *F);
 
         MainCompiler.compile(program, {}, [&MainCompiler, &Clock](LoxBuilder &B) {
-            MainCompiler.insertVariable("clock", B.AllocateFunction(Clock, true));
+            MainCompiler.insertVariable("clock", B.ObjVal(B.AllocateClosure(Clock, true)));
         });
 
         Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));

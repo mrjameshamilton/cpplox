@@ -162,12 +162,12 @@ namespace lox {
         Builder->CreateBr(DefaultBlock);
 
         Builder->SetInsertPoint(IsFunctionBlock);
-        Builder->CreateFree(Builder->AsFunction(value));
+        Builder->CreateFree(Builder->AsObj(value));
         // Don't need to free the name, because it will be freed as a String obj anyway.
         Builder->CreateBr(DefaultBlock);
 
         Builder->SetInsertPoint(IsClosureBlock);
-        const auto closure = Builder->AsClosure(value);
+        const auto closure = Builder->AsObj(value);
         const auto size = Builder->CreateLoad(Builder->getInt32Ty(), Builder->CreateStructGEP(Builder->getModule().getStructType(ObjType::CLOSURE), closure, 3));
         const auto IsNotNull = Builder->CreateBasicBlock("NotNullArray");
         const auto NullArray = Builder->CreateBasicBlock("NullArray");
@@ -181,7 +181,7 @@ namespace lox {
         Builder->CreateBr(DefaultBlock);
 
         Builder->SetInsertPoint(IsUpvalueBlock);
-        Builder->CreateFree(Builder->AsUpvalue(value));
+        Builder->CreateFree(Builder->AsObj(value));
 
         Builder->CreateBr(DefaultBlock);
         Builder->SetInsertPoint(DefaultBlock);

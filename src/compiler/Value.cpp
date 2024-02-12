@@ -95,6 +95,7 @@ namespace lox {
     }
 
     Value *LoxBuilder::AsNumber(Value *value) {
+        assert(value->getType() == getInt64Ty());
         return CreateBitCast(value, getDoubleTy());
     }
 
@@ -103,32 +104,14 @@ namespace lox {
         return CreateOr(CreatePtrToInt(ptrValue, getInt64Ty()), SIGN_BIT | QNAN);
     }
 
-    Value *LoxBuilder::AsObj(Value *value, const std::optional<enum ObjType> type) {
-        return CreateBitCast(
-            CreateIntToPtr(CreateAnd(value, ~(SIGN_BIT | QNAN)), getPtrTy()),
-            (type.has_value() ? getModule().getStructType(type.value()) : getModule().getObjStructType())->getPointerTo()
-        );
-    }
-
-    Value *LoxBuilder::AsUpvalue(llvm::Value *value) {
-        return AsObj(value, ObjType::UPVALUE);
-    }
-
-    Value *LoxBuilder::AsFunction(Value *value) {
-        return AsObj(value, ObjType::FUNCTION);
-    }
-
-    Value *LoxBuilder::AsClosure(Value *value) {
-        return AsObj(value, ObjType::CLOSURE);
-    }
-
-    Value *LoxBuilder::AsString(Value *value) {
-        return AsObj(value, ObjType::STRING);
+    Value *LoxBuilder::AsObj(Value *value) {
+        assert(value->getType() == getInt64Ty());
+        return CreateIntToPtr(CreateAnd(value, ~(SIGN_BIT | QNAN)), getPtrTy());
     }
 
     Value *LoxBuilder::AsCString(Value *value) {
-        const auto string = CreateIntToPtr(CreateAnd(value, ~(SIGN_BIT | QNAN)), getPtrTy());
-        return CreateLoad(getPtrTy(), CreateStructGEP(getModule().getStructType(ObjType::STRING), string, 1));
+        assert(value->getType() == getInt64Ty());
+        return CreateLoad(getPtrTy(), CreateStructGEP(getModule().getStructType(ObjType::STRING), AsObj(value), 1));
     }
 
     Value *LoxBuilder::NumberVal(Value *value) {
@@ -222,7 +205,6 @@ namespace lox {
 
     void LoxBuilder::PrintObject(Value *value) {
         const auto IsStringBlock = CreateBasicBlock("print.string");
-        const auto IsFunctionBlock = CreateBasicBlock("print.function");
         const auto IsClosureBlock = CreateBasicBlock("print.closure");
         const auto IsUpvalueBlock = CreateBasicBlock("print.upvalue");
         const auto IsNativeFunctionBlock = CreateBasicBlock("print.native.function");
@@ -232,7 +214,6 @@ namespace lox {
 
         const auto Switch = CreateSwitch(ObjType(value), DefaultBlock);
         Switch->addCase(ObjTypeInt(ObjType::STRING), IsStringBlock);
-        Switch->addCase(ObjTypeInt(ObjType::FUNCTION), IsFunctionBlock);
         Switch->addCase(ObjTypeInt(ObjType::CLOSURE), IsClosureBlock);
         Switch->addCase(ObjTypeInt(ObjType::UPVALUE), IsUpvalueBlock);
 
@@ -241,17 +222,12 @@ namespace lox {
         CreateBr(EndBlock);
 
         SetInsertPoint(IsClosureBlock);
-        static auto fmt1 = CreateGlobalStringPtr("<fn %s>\n", "printf_fmt_fun");
-        const auto closure = AsClosure(value);
-        const auto f = CreateLoad(getPtrTy(), CreateStructGEP(getModule().getStructType(ObjType::CLOSURE), closure, 1));
-        PrintF({fmt1, AsCString(CreateLoad(getInt64Ty(), CreateStructGEP(getModule().getStructType(ObjType::FUNCTION), f, 3)))});
-        CreateBr(EndBlock);
+        const auto closure = AsObj(value);
+        const auto function = CreateLoad(getPtrTy(), CreateStructGEP(getModule().getStructType(ObjType::CLOSURE), closure, 1));
 
-        SetInsertPoint(IsFunctionBlock);
         static auto fmt = CreateGlobalStringPtr("<fn %s>\n", "printf_fmt_fun");
         static auto nfmt = CreateGlobalStringPtr("<native fn>\n", "printf_nfmt_fun");
 
-        const auto function = AsFunction(value);
         const auto isNative = CreateLoad(getInt1Ty(), CreateStructGEP(getModule().getStructType(ObjType::FUNCTION), function, 4));
 
         CreateCondBr(isNative, IsNativeFunctionBlock, IsNotNativeFunctionBlock);
@@ -264,7 +240,7 @@ namespace lox {
 
         SetInsertPoint(IsUpvalueBlock);
         static const auto stmt = CreateGlobalStringPtr("Upvalue(%p, %p) = ");
-        const auto upvalue = AsUpvalue(value);
+        const auto upvalue = AsObj(value);
         const auto object = CreateLoad(getPtrTy(), CreateStructGEP(getModule().getStructType(ObjType::UPVALUE), upvalue, 1));
         PrintF({stmt, value, object});
         CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("Print"), CreateLoad(getInt64Ty(), object));

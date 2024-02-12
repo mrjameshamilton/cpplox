@@ -12,19 +12,18 @@ namespace lox {
         CreateStore(name, CreateStructGEP(getModule().getStructType(ObjType::FUNCTION), ptr, 3));
         CreateStore(isNative ? getTrue() : getFalse(), CreateStructGEP(getModule().getStructType(ObjType::FUNCTION), ptr, 4));
 
-        return ObjVal(
-            ptr
-        );
+        return ptr;
     }
 
-    Value *LoxBuilder::AllocateClosure(llvm::Value *function) {
-        Value *obj = AllocateObj(ObjType::CLOSURE, "closure");
+    Value *LoxBuilder::AllocateClosure(llvm::Function *F, bool isNative) {
+        const auto function = AllocateFunction(F, isNative);
+        const auto obj = AllocateObj(ObjType::CLOSURE, "closure");
 
         const auto ptr = CreateLoad(getPtrTy(), obj);
         CreateStore(function, CreateStructGEP(getModule().getStructType(ObjType::CLOSURE), ptr, 1));
         CreateStore(getInt8(0), CreateStructGEP(getModule().getStructType(ObjType::CLOSURE), ptr, 2));
         CreateStore(getInt32(0), CreateStructGEP(getModule().getStructType(ObjType::CLOSURE), ptr, 3));
 
-        return ObjVal(ptr);
+        return ptr;
     }
 }// namespace lox

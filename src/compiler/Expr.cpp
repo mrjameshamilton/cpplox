@@ -149,21 +149,10 @@ namespace lox {
 
         const auto IsClosureBlock = Builder.CreateBasicBlock("is.callable");
         const auto CallFunctionBlock = Builder.CreateBasicBlock("is.function");
-        const auto IsNativeBlock = Builder.CreateBasicBlock("is.native");
-        const auto NotNativeBlock = Builder.CreateBasicBlock("not.native");
         const auto NotCallableBlock = Builder.CreateBasicBlock("not.callable");
 
         Builder.CreateCondBr(Builder.IsClosure(value), IsClosureBlock, NotCallableBlock);
         Builder.SetInsertPoint(NotCallableBlock);
-        Builder.CreateCondBr(Builder.IsFunction(value), IsNativeBlock, NotNativeBlock);
-        Builder.SetInsertPoint(IsNativeBlock);
-        // Native functions are not wrapped in a closure.
-        // TODO: also wrap native in closure, to simplify?
-        const auto native = Builder.AsFunction(value);
-        const auto upnil = Constant::getNullValue(Builder.getPtrTy());
-        Builder.CreateBr(CallFunctionBlock);
-
-        Builder.SetInsertPoint(NotNativeBlock);
         static const auto fmt = Builder.CreateGlobalStringPtr("Can only call functions and classes.\n");
         Builder.RuntimeError(
             callExpr->keyword.getLine(),
@@ -175,19 +164,13 @@ namespace lox {
 
         Builder.SetInsertPoint(IsClosureBlock);
         // The function is wrapped in a closure.
-        const auto closure = Builder.AsClosure(value);
+        const auto closure = Builder.AsObj(value);
         const auto function = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 1));
-        const auto up = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 2));
+        const auto upvalues = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 2));
+        const auto callee = function;
         Builder.CreateBr(CallFunctionBlock);
 
         Builder.SetInsertPoint(CallFunctionBlock);
-        const auto callee = Builder.CreatePHI(Builder.getPtrTy(), 2);
-        callee->addIncoming(function, IsClosureBlock);
-        callee->addIncoming(native, IsNativeBlock);
-        // TODO:
-        const auto upvalues = Builder.CreatePHI(Builder.getPtrTy(), 2);
-        upvalues->addIncoming(up, IsClosureBlock);
-        upvalues->addIncoming(upnil, IsNativeBlock);
 
         std::vector<Type *> paramTypes(callExpr->arguments.size(), Builder.getInt64Ty());
         auto paramValues = to<std::vector<Value *>>(
@@ -279,12 +262,12 @@ namespace lox {
                     return Builder.getInt64(std::bit_cast<int64_t>(double_value));
                 },
                 [this](const std::string_view string_value) -> Value * {
-                    const auto value = Builder.AllocateString(
+                    const auto strPtr = Builder.AllocateString(
                         Builder.CreateGlobalStringPtr(string_value),
                         Builder.getInt32(string_value.length())
                     );
 
-                    return value;
+                    return Builder.ObjVal(strPtr);
                 },
                 [this](const std::nullptr_t) -> Value * { return Builder.getNilVal(); },
             },

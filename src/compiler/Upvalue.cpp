@@ -19,9 +19,7 @@ namespace lox {
             getNilVal(),
             CreateStructGEP(getModule().getStructType(ObjType::UPVALUE), ptr, 3)
         );
-        return ObjVal(
-            ptr
-        );
+        return ptr;
     }
 
     Value *FunctionCompiler::captureLocal(Value *local) {
@@ -79,16 +77,15 @@ namespace lox {
 
         Builder.SetInsertPoint(WhileEnd);
 
-        const auto newUpvalue = Builder.AllocateUpvalue(local);
-        const auto asUpvalue = Builder.AsUpvalue(newUpvalue);
+        const auto upvaluePtr = Builder.AllocateUpvalue(local);
 
         Builder.CreateStore(
             Builder.CreateLoad(Builder.getPtrTy(), openUpvalues),
-            Builder.CreateStructGEP(UpvalueStructType, asUpvalue, 2, "next")
+            Builder.CreateStructGEP(UpvalueStructType, upvaluePtr, 2, "next")
         );
 
-        Builder.CreateStore(asUpvalue, openUpvalues);
-        const auto Y = asUpvalue;
+        Builder.CreateStore(upvaluePtr, openUpvalues);
+        const auto Y = upvaluePtr;
         Builder.CreateBr(EndBlock);
 
         Builder.SetInsertPoint(IsSameBlock);
