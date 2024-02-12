@@ -116,6 +116,7 @@ namespace lox {
         const auto WhileBody = Builder.CreateBasicBlock("while.body");
         const auto WhileEnd = Builder.CreateBasicBlock("while.end");
 
+        // Find the upvalue that points to the local.
         Builder.CreateBr(WhileCond);
         Builder.SetInsertPoint(WhileCond);
         Builder.CreateCondBr(Builder.CreateIsNotNull(Builder.CreateLoad(Builder.getPtrTy(), upvalue)), WhileBody, WhileEnd);
@@ -160,9 +161,9 @@ namespace lox {
         Builder.CreateBr(EndBlock);
 
         Builder.SetInsertPoint(IsSameBlock);
-        const auto X = Builder.CreateLoad(Builder.getPtrTy(), upvalue);
-        const auto closed = Builder.CreateStructGEP(UpValueStructType, X, 3, "closed");
-        const auto v = Builder.CreateStructGEP(UpValueStructType, X, 1, "loc");
+        const auto foundUpvalue = Builder.CreateLoad(Builder.getPtrTy(), upvalue);
+        const auto closed = Builder.CreateStructGEP(UpValueStructType, foundUpvalue, 3, "closed");
+        const auto loc = Builder.CreateStructGEP(UpValueStructType, foundUpvalue, 1, "loc");
 
 #if DEBUG
         Builder.PrintString("Before");
@@ -174,11 +175,13 @@ namespace lox {
         ));
 #endif
 
+        // Close the upvalue by copying the value from the current location.
         Builder.CreateStore(
-            Builder.CreateLoad(Builder.getInt64Ty(), Builder.CreateLoad(Builder.getPtrTy(), v)),
+            Builder.CreateLoad(Builder.getInt64Ty(), Builder.CreateLoad(Builder.getPtrTy(), loc)),
             closed
         );
 
+        // And then setting the new location to the "closed" field.
         Builder.CreateStore(
             closed,
             Builder.CreateStructGEP(UpValueStructType, Builder.CreateLoad(Builder.getPtrTy(), upvalue), 1, "loc")
