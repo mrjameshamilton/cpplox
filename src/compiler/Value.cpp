@@ -80,6 +80,13 @@ namespace lox {
         );
     }
 
+    Value *LoxBuilder::IsInstance(Value *value) {
+        return CreateAnd(
+            IsObj(value),
+            CreateICmpEQ(ObjType(value), ObjTypeInt(ObjType::INSTANCE))
+        );
+    }
+
     Value *LoxBuilder::ObjType(Value *value) {
         return CreateLoad(
             getInt8Ty(),
@@ -216,6 +223,7 @@ namespace lox {
         const auto IsClosureBlock = CreateBasicBlock("print.closure");
         const auto IsUpvalueBlock = CreateBasicBlock("print.upvalue");
         const auto IsClassBlock = CreateBasicBlock("print.class");
+        const auto IsInstanceBlock = CreateBasicBlock("print.instance");
         const auto IsNativeFunctionBlock = CreateBasicBlock("print.native.function");
         const auto IsNotNativeFunctionBlock = CreateBasicBlock("print.not.native.function");
         const auto DefaultBlock = CreateBasicBlock("print.default");
@@ -226,6 +234,7 @@ namespace lox {
         Switch->addCase(ObjTypeInt(ObjType::CLOSURE), IsClosureBlock);
         Switch->addCase(ObjTypeInt(ObjType::UPVALUE), IsUpvalueBlock);
         Switch->addCase(ObjTypeInt(ObjType::CLASS), IsClassBlock);
+        Switch->addCase(ObjTypeInt(ObjType::INSTANCE), IsInstanceBlock);
 
         SetInsertPoint(IsStringBlock);
         PrintString(value);
@@ -261,6 +270,14 @@ namespace lox {
         const auto klass = AsObj(value);
         static auto klass_fmt = CreateGlobalStringPtr("%s\n", "printf_fmt_class");
         PrintF({klass_fmt, AsCString(CreateLoad(getInt64Ty(), CreateStructGEP(getModule().getStructType(ObjType::CLASS), klass, 1)))});
+        CreateBr(EndBlock);
+
+        SetInsertPoint(IsInstanceBlock);
+
+        const auto instance = AsObj(value);
+        static auto instance_fmt = CreateGlobalStringPtr("%s instance\n", "printf_fmt_instance");
+        const auto instanceKlass = CreateLoad(getPtrTy(), CreateStructGEP(getModule().getStructType(ObjType::INSTANCE), instance, 1));
+        PrintF({instance_fmt, AsCString(CreateLoad(getInt64Ty(), CreateStructGEP(getModule().getStructType(ObjType::CLASS), instanceKlass, 1)))});
         CreateBr(EndBlock);
 
         SetInsertPoint(DefaultBlock);

@@ -13,4 +13,12 @@ namespace lox {
         return ptr;
     }
 
+    Value *LoxBuilder::AllocateInstance(llvm::Value *klass) {
+        const auto obj = AllocateObj(ObjType::INSTANCE, "instance");
+
+        const auto ptr = CreateLoad(getPtrTy(), obj);
+        CreateStore(klass, CreateStructGEP(getModule().getStructType(ObjType::INSTANCE), ptr, 1));
+
+        return ptr;
+    }
 }// namespace lox

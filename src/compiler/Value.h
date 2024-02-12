@@ -23,6 +23,7 @@ namespace lox {
         CLOSURE = 3,
         UPVALUE = 4,
         CLASS = 5,
+        INSTANCE = 6,
     };
 }
 

@@ -33,6 +33,7 @@ namespace lox {
         Value *IsClosure(Value *value);
         Value *IsString(Value *value);
         Value *IsClass(Value *value);
+        Value *IsInstance(Value *value);
 
         // Code generation for converting an int64 to a Lox value.
         Value *BoolVal(Value *value);
@@ -59,6 +60,7 @@ namespace lox {
         Value *AllocateUpvalue(Value *value);
         Value *AllocateArray(Type *type, int size, const std::string_view &name);
         Value *AllocateClass(const std::string_view name);
+        Value *AllocateInstance(Value *klass);
 
         Value *Concat(Value *a, Value *b);
         Value *StrEquals(Value *a, Value *b);

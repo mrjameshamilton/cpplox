@@ -148,10 +148,23 @@ namespace lox {
         const auto value = evaluate(callExpr->callee);
 
         const auto IsClosureBlock = Builder.CreateBasicBlock("is.callable");
-        const auto CallFunctionBlock = Builder.CreateBasicBlock("is.function");
+        const auto CheckClassBlock = Builder.CreateBasicBlock("check.class");
+        const auto IsClassBlock = Builder.CreateBasicBlock("is.class");
         const auto NotCallableBlock = Builder.CreateBasicBlock("not.callable");
+        const auto EndBlock = Builder.CreateBasicBlock("end.block");
 
-        Builder.CreateCondBr(Builder.IsClosure(value), IsClosureBlock, NotCallableBlock);
+        Builder.CreateCondBr(Builder.IsClosure(value), IsClosureBlock, CheckClassBlock);
+
+        Builder.SetInsertPoint(CheckClassBlock);
+
+        Builder.CreateCondBr(Builder.IsClass(value), IsClassBlock, NotCallableBlock);
+        Builder.SetInsertPoint(IsClassBlock);
+        const auto klass = Builder.AsObj(value);
+        const auto instance = Builder.AllocateInstance(klass);
+        const auto instanceVal = Builder.ObjVal(instance);
+
+        Builder.CreateBr(EndBlock);
+
         Builder.SetInsertPoint(NotCallableBlock);
         static const auto fmt = Builder.CreateGlobalStringPtr("Can only call functions and classes.\n");
         Builder.RuntimeError(
@@ -168,9 +181,6 @@ namespace lox {
         const auto function = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 1));
         const auto upvalues = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 2));
         const auto callee = function;
-        Builder.CreateBr(CallFunctionBlock);
-
-        Builder.SetInsertPoint(CallFunctionBlock);
 
         std::vector<Type *> paramTypes(callExpr->arguments.size(), Builder.getInt64Ty());
         auto paramValues = to<std::vector<Value *>>(
@@ -224,7 +234,15 @@ namespace lox {
 #if DEBUG
         Builder.PrintF({Builder.CreateGlobalStringPtr("Calling func at %p with function ptr %p\n"), callee, functionPtr});
 #endif
-        return Builder.CreateCall(FT, functionPtr, paramValues);
+        const auto returnVal = Builder.CreateCall(FT, functionPtr, paramValues);
+
+        Builder.CreateBr(EndBlock);
+        Builder.SetInsertPoint(EndBlock);
+        const auto result = Builder.CreatePHI(Builder.getInt64Ty(), 2);
+        result->addIncoming(instanceVal, IsClassBlock);
+        result->addIncoming(returnVal, CallBlock);
+
+        return result;
     }
 
     Value *FunctionCompiler::operator()(const GetExprPtr &getExpr) const {

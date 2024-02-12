@@ -4,3 +4,7 @@ class Foo {
 }
 
 print Foo;
+
+var foo = Foo();
+
+print foo;
