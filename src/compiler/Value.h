@@ -22,6 +22,7 @@ namespace lox {
         FUNCTION = 2,
         CLOSURE = 3,
         UPVALUE = 4,
+        CLASS = 5,
     };
 }
 

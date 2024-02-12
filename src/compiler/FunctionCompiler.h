@@ -80,7 +80,7 @@ namespace lox {
         void operator()(const VarStmtPtr &varStmt);
         void operator()(const WhileStmtPtr &whileStmt);
         void operator()(const IfStmtPtr &ifStmt);
-        void operator()(const ClassStmtPtr &classStmt) const;
+        void operator()(const ClassStmtPtr &classStmt);
 
         // Expression code generation.
         Value *evaluate(const Expr &expr);

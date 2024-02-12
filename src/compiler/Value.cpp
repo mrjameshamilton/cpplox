@@ -1,4 +1,5 @@
 #include "Value.h"
+#include "Class.h"
 #include "LoxBuilder.h"
 #include "ModuleCompiler.h"
 
@@ -69,6 +70,13 @@ namespace lox {
         return CreateAnd(
             IsObj(value),
             CreateICmpEQ(ObjType(value), ObjTypeInt(ObjType::STRING))
+        );
+    }
+
+    Value *LoxBuilder::IsClass(Value *value) {
+        return CreateAnd(
+            IsObj(value),
+            CreateICmpEQ(ObjType(value), ObjTypeInt(ObjType::CLASS))
         );
     }
 
@@ -207,6 +215,7 @@ namespace lox {
         const auto IsStringBlock = CreateBasicBlock("print.string");
         const auto IsClosureBlock = CreateBasicBlock("print.closure");
         const auto IsUpvalueBlock = CreateBasicBlock("print.upvalue");
+        const auto IsClassBlock = CreateBasicBlock("print.class");
         const auto IsNativeFunctionBlock = CreateBasicBlock("print.native.function");
         const auto IsNotNativeFunctionBlock = CreateBasicBlock("print.not.native.function");
         const auto DefaultBlock = CreateBasicBlock("print.default");
@@ -216,6 +225,7 @@ namespace lox {
         Switch->addCase(ObjTypeInt(ObjType::STRING), IsStringBlock);
         Switch->addCase(ObjTypeInt(ObjType::CLOSURE), IsClosureBlock);
         Switch->addCase(ObjTypeInt(ObjType::UPVALUE), IsUpvalueBlock);
+        Switch->addCase(ObjTypeInt(ObjType::CLASS), IsClassBlock);
 
         SetInsertPoint(IsStringBlock);
         PrintString(value);
@@ -244,6 +254,13 @@ namespace lox {
         const auto object = CreateLoad(getPtrTy(), CreateStructGEP(getModule().getStructType(ObjType::UPVALUE), upvalue, 1));
         PrintF({stmt, value, object});
         CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("Print"), CreateLoad(getInt64Ty(), object));
+        CreateBr(EndBlock);
+
+        SetInsertPoint(IsClassBlock);
+
+        const auto klass = AsObj(value);
+        static auto klass_fmt = CreateGlobalStringPtr("%s\n", "printf_fmt_class");
+        PrintF({klass_fmt, AsCString(CreateLoad(getInt64Ty(), CreateStructGEP(getModule().getStructType(ObjType::CLASS), klass, 1)))});
         CreateBr(EndBlock);
 
         SetInsertPoint(DefaultBlock);

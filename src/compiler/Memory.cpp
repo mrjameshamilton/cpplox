@@ -141,6 +141,7 @@ namespace lox {
         const auto IsFunctionBlock = Builder->CreateBasicBlock("function");
         const auto IsClosureBlock = Builder->CreateBasicBlock("closure");
         const auto IsUpvalueBlock = Builder->CreateBasicBlock("upvalue");
+        const auto IsClassBlock = Builder->CreateBasicBlock("class");
         const auto DefaultBlock = Builder->CreateBasicBlock("default");
 
 #if DEBUG_LOG_GC
@@ -154,6 +155,7 @@ namespace lox {
         Switch->addCase(Builder->ObjTypeInt(ObjType::FUNCTION), IsFunctionBlock);
         Switch->addCase(Builder->ObjTypeInt(ObjType::CLOSURE), IsClosureBlock);
         Switch->addCase(Builder->ObjTypeInt(ObjType::UPVALUE), IsUpvalueBlock);
+        Switch->addCase(Builder->ObjTypeInt(ObjType::CLASS), IsClassBlock);
 
         Builder->SetInsertPoint(IsStringBlock);
         Builder->CreateFree(value);
@@ -181,6 +183,10 @@ namespace lox {
         Builder->CreateBr(DefaultBlock);
 
         Builder->SetInsertPoint(IsUpvalueBlock);
+        Builder->CreateFree(Builder->AsObj(value));
+        Builder->CreateBr(DefaultBlock);
+
+        Builder->SetInsertPoint(IsClassBlock);
         Builder->CreateFree(Builder->AsObj(value));
 
         Builder->CreateBr(DefaultBlock);

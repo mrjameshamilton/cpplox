@@ -56,6 +56,14 @@ namespace lox {
             },
             "Upvalue"
         );
+        StructType *const ClassStruct = StructType::create(
+            getContext(),
+            {
+                ObjStructType,
+                StringStructType,// name
+            },
+            "ClassStruct"
+        );
         GlobalVariable *const objects = cast<GlobalVariable>(getOrInsertGlobal(
             "objects",
             PointerType::get(getContext(), 0)
@@ -92,6 +100,8 @@ namespace lox {
                     return ClosureStructType;
                 case ObjType::UPVALUE:
                     return UpvalueStruct;
+                case ObjType::CLASS:
+                    return ClassStruct;
                 // TODO: other types.
                 default:
                     throw std::runtime_error("Not implemented");

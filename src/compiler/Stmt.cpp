@@ -1,3 +1,4 @@
+#include "Class.h"
 #include "FunctionCompiler.h"
 #include "Upvalue.h"
 
@@ -117,6 +118,9 @@ namespace lox {
         Builder.SetInsertPoint(EndBlock);
     }
 
-    void FunctionCompiler::operator()(const ClassStmtPtr &classStmt) const {
+    void FunctionCompiler::operator()(const ClassStmtPtr &classStmt) {
+        const auto klass = Builder.AllocateClass(classStmt->name.getLexeme());
+
+        insertVariable(classStmt->name.getLexeme(), Builder.ObjVal(klass));
     }
 }// namespace lox

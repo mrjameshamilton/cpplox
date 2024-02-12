@@ -37,6 +37,8 @@ add_executable(cpplox src/main.cpp
         src/compiler/LoxModule.h
         src/compiler/Upvalue.cpp
         src/compiler/Upvalue.h
+        src/compiler/Class.cpp
+        src/compiler/Class.h
 )
 
 target_compile_options(cpplox PRIVATE
