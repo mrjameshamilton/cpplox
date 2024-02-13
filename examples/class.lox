@@ -8,3 +8,5 @@ print Foo;
 var foo = Foo();
 
 print foo;
+
+print "hello";

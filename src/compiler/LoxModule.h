@@ -20,9 +20,12 @@ namespace lox {
 
         StructType *const StringStructType = StructType::create(
             getContext(),
-            {ObjStructType,
-             PointerType::getUnqual(getContext()),
-             IntegerType::getInt32Ty(getContext())},
+            {
+                ObjStructType,
+                PointerType::getUnqual(getContext()), // char* ptr
+                IntegerType::getInt32Ty(getContext()),// length
+                IntegerType::getInt32Ty(getContext()),// hash
+            },
             "String"
         );
         StructType *const FunctionStructType = StructType::create(

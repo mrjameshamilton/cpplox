@@ -13,12 +13,74 @@ namespace lox {
 #define STORE_STRING_STRING(PTR, STR) \
     CreateStore(STR, CreateStructGEP(getModule().getStructType(ObjType::STRING), CreateLoad(getPtrTy(), PTR), 1))
 
+    Value *StringHash(LoxBuilder &Builder, Value *String, Value *Length) {
+        static auto StrHashFunction([&Builder] {
+            // FNV-1a hash function.
+            const auto F = Function::Create(
+                FunctionType::get(
+                    Builder.getInt32Ty(),
+                    {Builder.getPtrTy(), Builder.getInt32Ty()},
+                    false
+                ),
+                Function::InternalLinkage,
+                "strHash",
+                Builder.getModule()
+            );
+
+            LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
+
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
+
+            const auto arguments = F->args().begin();
+
+            const auto str = arguments;
+            const auto len = arguments + 1;
+
+            const auto hash = CreateEntryBlockAlloca(F, B.getInt32Ty(), "hash");
+            const auto i = CreateEntryBlockAlloca(F, B.getInt32Ty(), "i");
+
+            B.CreateStore(B.getInt32(-2128831035), hash);
+            B.CreateStore(B.getInt32(0), i);
+
+            const auto ForCond = B.CreateBasicBlock("for.cond");
+            const auto ForBody = B.CreateBasicBlock("for.body");
+            const auto ForInc = B.CreateBasicBlock("for.inc");
+            const auto ForEnd = B.CreateBasicBlock("for.end");
+
+            B.CreateBr(ForCond);
+            B.SetInsertPoint(ForCond);
+            B.CreateCondBr(B.CreateICmpSLT(B.CreateLoad(B.getInt32Ty(), i), len), ForBody, ForEnd);
+            B.SetInsertPoint(ForBody);
+
+            const auto char_index = B.CreateInBoundsGEP(B.getInt8Ty(), str, B.CreateLoad(B.getInt32Ty(), i));
+            const auto char_ = B.CreateLoad(B.getInt8Ty(), char_index);
+            const auto xor_ = B.CreateXor(B.CreateZExt(char_, B.getInt32Ty()), B.CreateLoad(B.getInt32Ty(), hash));
+            const auto mul = B.CreateMul(xor_, B.getInt32(16777619));
+
+            B.CreateStore(mul, hash);
+
+            B.CreateBr(ForInc);
+            B.SetInsertPoint(ForInc);
+            B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
+            B.CreateBr(ForCond);
+
+            B.SetInsertPoint(ForEnd);
+            B.CreateRet(B.CreateLoad(B.getInt32Ty(), hash));
+
+            return F;
+        }());
+
+        return Builder.CreateCall(StrHashFunction, {String, Length});
+    }
+
     Value *LoxBuilder::AllocateString(Value *String, Value *Length, const std::string_view name) {
         const auto NewString = AllocateObj(ObjType::STRING, name);
 
         const auto ptr = CreateLoad(getPtrTy(), NewString);
         CreateStore(String, CreateStructGEP(getModule().getStructType(ObjType::STRING), ptr, 1));
         CreateStore(Length, CreateStructGEP(getModule().getStructType(ObjType::STRING), ptr, 2));
+        CreateStore(StringHash(*this, String, Length), CreateStructGEP(getModule().getStructType(ObjType::STRING), ptr, 3));
 
         return ptr;
     }
