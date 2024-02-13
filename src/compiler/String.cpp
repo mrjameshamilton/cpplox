@@ -13,7 +13,7 @@ namespace lox {
 #define STORE_STRING_STRING(PTR, STR) \
     CreateStore(STR, CreateStructGEP(getModule().getStructType(ObjType::STRING), CreateLoad(getPtrTy(), PTR), 1))
 
-    Value *StringHash(LoxBuilder &Builder, Value *String, Value *Length) {
+    static Value *StringHash(LoxBuilder &Builder, Value *String, Value *Length) {
         static auto StrHashFunction([&Builder] {
             // FNV-1a hash function.
             const auto F = Function::Create(
