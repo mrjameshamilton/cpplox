@@ -312,11 +312,12 @@ namespace lox {
                 Builder.CreateBr(EndBlock);
                 Builder.SetInsertPoint(LeftIsTruthyBlock);
                 const auto X = evaluate(logicalExpr->right);
+                const auto EndLeftTruthyBlock = Builder.GetInsertBlock();
                 Builder.CreateBr(EndBlock);
                 Builder.SetInsertPoint(EndBlock);
 
                 const auto Result = Builder.CreatePHI(Builder.getInt64Ty(), 2);
-                Result->addIncoming(X, LeftIsTruthyBlock);
+                Result->addIncoming(X, EndLeftTruthyBlock);
                 Result->addIncoming(Y, EndLeftNotTruthyBlock);
 
                 return Result;
