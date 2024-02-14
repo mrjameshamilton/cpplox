@@ -210,8 +210,9 @@ namespace lox {
         Token name;
         std::vector<Token> parameters;
         StmtList body;
-        explicit FunctionStmt(const Token &name, std::vector<Token> parameters, StmtList body)
-            : name{name}, parameters{std::move(parameters)}, body{std::move(body)} {}
+        bool isMethod;
+        explicit FunctionStmt(const Token &name, std::vector<Token> parameters, StmtList body, bool _isMethod)
+            : name{name}, parameters{std::move(parameters)}, body{std::move(body)}, isMethod{_isMethod} {}
     };
 
     struct ReturnStmt : Uncopyable {

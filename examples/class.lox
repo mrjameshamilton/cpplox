@@ -1,6 +1,7 @@
-
 class Foo {
-
+    foo() {
+        print "foo";
+    }
 }
 
 print Foo;

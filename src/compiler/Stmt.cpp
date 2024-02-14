@@ -20,21 +20,28 @@ namespace lox {
         endScope();
     }
 
-    void FunctionCompiler::operator()(const FunctionStmtPtr &functionStmt) {
+    Value *FunctionCompiler::CreateFunction(const FunctionStmtPtr &functionStmt, const std::string_view name) {
         std::vector<Type *> paramTypes(functionStmt->parameters.size(), Builder.getInt64Ty());
+        if (functionStmt->isMethod) {
+            // The first parameter is for the receiver instance.
+            paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
+        }
         paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
         FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
 
         Function *F = Function::Create(
             FT,
             Function::InternalLinkage,
-            functionStmt->name.getLexeme(),
+            name,
             Builder.getModule()
         );
 
         const auto closurePtr = Builder.AllocateClosure(F, false);
 
-        insertVariable(functionStmt->name.getLexeme(), Builder.ObjVal(closurePtr));
+        if (!functionStmt->isMethod) {
+            // Methods aren't stored as variables.
+            insertVariable(functionStmt->name.getLexeme(), Builder.ObjVal(closurePtr));
+        }
 
         FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, this);
         C.compile(functionStmt->body, functionStmt->parameters);
@@ -57,6 +64,15 @@ namespace lox {
                 Builder.CreateStore(upvalue->isLocal ? captureLocal(upvalue->value) : upvalue->value, upvalueIndex);
             }
         }
+
+        return closurePtr;
+    }
+
+    void FunctionCompiler::operator()(const FunctionStmtPtr &functionStmt) {
+        CreateFunction(
+            functionStmt,
+            functionStmt->name.getLexeme()
+        );
     }
 
     void FunctionCompiler::operator()(const ExpressionStmtPtr &expressionStmt) {
@@ -122,5 +138,9 @@ namespace lox {
         const auto klass = Builder.AllocateClass(classStmt->name.getLexeme());
 
         insertVariable(classStmt->name.getLexeme(), Builder.ObjVal(klass));
+
+        for (auto &method: classStmt->methods) {
+            const auto methodPtr = CreateFunction(method, (classStmt->name.getLexeme() + "_" + method->name.getLexeme()).str());
+        }
     }
 }// namespace lox

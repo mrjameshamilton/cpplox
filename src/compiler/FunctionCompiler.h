@@ -224,6 +224,8 @@ namespace lox {
             if (const auto local = compiler->variables.lookup(name)) return local.get();
             return nullptr;
         }
+
+        Value *CreateFunction(const FunctionStmtPtr &functionStmt, const std::string_view name);
     };
 
 }// namespace lox

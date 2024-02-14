@@ -190,7 +190,7 @@ namespace lox {
             consume(LEFT_BRACE, "Expect '{' before " + kind + " body.");
             StmtList body = block();
 
-            return std::make_shared<FunctionStmt>(name, parameters, std::move(body));
+            return std::make_shared<FunctionStmt>(name, parameters, std::move(body), kind == "method");
         }
 
         ReturnStmtPtr returnStatement() {
