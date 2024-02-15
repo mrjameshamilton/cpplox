@@ -13,70 +13,130 @@ namespace lox {
     }
 
     Value *LoxBuilder::AllocateObj(const enum ObjType objType, const std::string_view name) {
-        const auto objects = getModule().getObjects();
-        Type *StructType = getModule().getStructType(objType);
+        static auto AllocateObjectFunction([this] {
+            const auto F = Function::Create(
+                FunctionType::get(
+                    getPtrTy(),
+                    {getInt8Ty()},
+                    false
+                ),
+                Function::InternalLinkage,
+                "$allocateObject",
+                getModule()
+            );
 
-        Type *IntPtrTy = IntegerType::getInt32Ty(this->getContext());
-        // The malloc size IR that is generated with getSizeOf uses a hack described here:
-        // https://mukulrathi.com/create-your-own-programming-language/concurrency-runtime-language-tutorial/#malloc
-        Constant *allocsize = ConstantExpr::getSizeOf(StructType);
-        allocsize = ConstantExpr::getTruncOrBitCast(allocsize, IntPtrTy);
+            LoxBuilder B(getContext(), getModule(), *F);
 
-        const auto NewObjMalloc = CreateMalloc(
-            IntPtrTy,
-            getPtrTy(),
-            allocsize,
-            nullptr
-        );
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
 
-        CreateStore(
-            ObjTypeInt(objType),
-            CreateStructGEP(getModule().getObjStructType(), NewObjMalloc, 0, "ObjType")
-        );
+            const auto arguments = F->args().begin();
 
-        CreateStore(
-            getFalse(),
-            CreateStructGEP(getModule().getObjStructType(), NewObjMalloc, 1, "isMarked")
-        );
+            const auto objType = arguments;
+
+            const auto objects = B.getModule().getObjects();
+            const auto DefaultBlock = B.CreateBasicBlock("default");
+            const auto EndBlock = B.CreateBasicBlock("end");
+
+            const auto Switch = B.CreateSwitch(objType, DefaultBlock);
+
+            const std::initializer_list<lox::ObjType> ObjTypes{
+                ObjType::STRING,
+                ObjType::FUNCTION,
+                ObjType::CLOSURE,
+                ObjType::UPVALUE,
+                ObjType::CLASS,
+                ObjType::INSTANCE,
+            };
+
+            const auto CurrentBlock = B.GetInsertBlock();
+
+            B.SetInsertPoint(EndBlock);
+            const auto allocsize = B.CreatePHI(B.getInt32Ty(), ObjTypes.size());
+
+            B.SetInsertPoint(CurrentBlock);
+
+            // The malloc size IR that is generated with getSizeOf uses a hack described here:
+            // https://mukulrathi.com/create-your-own-programming-language/concurrency-runtime-language-tutorial/#malloc
+
+            Type *IntPtrTy = IntegerType::getInt32Ty(B.getContext());
+            for (auto type : ObjTypes) {
+                const auto Block = B.CreateBasicBlock("obj_" + std::to_string(static_cast<uint8_t>(type)));
+                Switch->addCase(B.ObjTypeInt(type), Block);
+                B.SetInsertPoint(Block);
+                allocsize->addIncoming(
+                    ConstantExpr::getTruncOrBitCast(ConstantExpr::getSizeOf(B.getModule().getStructType(type)), IntPtrTy),
+                    Block
+                );
+                B.CreateBr(EndBlock);
+            }
+
+            B.SetInsertPoint(DefaultBlock);
+            B.CreateUnreachable();
+
+            B.SetInsertPoint(EndBlock);
+
+            const auto NewObjMalloc = B.CreateMalloc(
+                IntPtrTy,
+                B.getPtrTy(),
+                allocsize,
+                nullptr
+            );
+
+            B.CreateStore(
+                objType,
+                B.CreateStructGEP(B.getModule().getObjStructType(), NewObjMalloc, 0, "ObjType")
+            );
+
+            B.CreateStore(
+                B.getFalse(),
+                B.CreateStructGEP(B.getModule().getObjStructType(), NewObjMalloc, 1, "isMarked")
+            );
+
+            B.CreateStore(
+                B.CreateLoad(B.getPtrTy(), objects),
+                B.CreateStructGEP(B.getModule().getObjStructType(), NewObjMalloc, 2, "next")
+            );
+
+            B.CreateStore(NewObjMalloc, objects);
+
+#if DEBUG_LOG_GC
+            static const auto fmt = B.CreateGlobalStringPtr("%p\n");
+            B.PrintF({fmt, B.CreateLoad(B.getPtrTy(), objects)});
+            static const auto fmt2 = B.CreateGlobalStringPtr("\t%p allocate %zu.\n");
+            B.PrintF({fmt2, NewObjMalloc, allocsize});
+            static const auto fmt3 = B.CreateGlobalStringPtr("\tobject.next = %p\n");
+            B.PrintF({fmt3, B.CreateLoad(getPtrTy(), B.CreateStructGEP(B.getModule().getObjStructType(), NewObjMalloc, 2, "next"))});
+#endif
+
+            B.CreateRet(NewObjMalloc);
+
+            return F;
+        }());
 
 #if DEBUG_LOG_GC
         switch (objType) {
             case ObjType::STRING:
-                PrintString("Allocate string");
+                PrintString(Twine("Allocate string"));
                 break;
             case ObjType::FUNCTION:
-                PrintString("Allocate function");
+                PrintString(Twine("Allocate function"));
                 break;
             case ObjType::CLOSURE:
-                PrintString("Allocate closure");
+                PrintString(Twine("Allocate closure"));
                 break;
             case ObjType::UPVALUE:
-                PrintString("Allocate upvalue");
+                PrintString(Twine("Allocate upvalue"));
                 break;
             default:
-                PrintString("Allocate object");
+                PrintString(Twine("Allocate object"));
         }
         static const auto fmt0 = CreateGlobalStringPtr("\tobjects: %p => ");
+        const auto objects = getModule().getObjects();
         PrintF({fmt0, CreateLoad(getPtrTy(), objects)});
 #endif
 
-        CreateStore(
-            CreateLoad(getPtrTy(), objects),
-            CreateStructGEP(getModule().getObjStructType(), NewObjMalloc, 2, "next")
-        );
-
-        CreateStore(NewObjMalloc, objects);
-
-#if DEBUG_LOG_GC
-        static const auto fmt = CreateGlobalStringPtr("%p\n");
-        PrintF({fmt, CreateLoad(getPtrTy(), objects)});
-        static const auto fmt2 = CreateGlobalStringPtr("\t%p allocate %zu.\n");
-        PrintF({fmt2, NewObjMalloc, allocsize});
-        static const auto fmt3 = CreateGlobalStringPtr("\tobject.next = %p\n");
-        PrintF({fmt3, CreateLoad(getPtrTy(), CreateStructGEP(getModule().getObjStructType(), NewObjMalloc, 2, "next"))});
-#endif
-
-        return NewObjMalloc;
+        return CreateCall(AllocateObjectFunction, {ObjTypeInt(objType)}, name);
     }
 
     Value *LoxBuilder::AllocateArray(llvm::Type *type, int size, const std::string_view &name) {
