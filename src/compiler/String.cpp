@@ -75,14 +75,41 @@ namespace lox {
     }
 
     Value *LoxBuilder::AllocateString(Value *String, Value *Length, const std::string_view name) {
-        const auto NewString = AllocateObj(ObjType::STRING, name);
+        static auto AllocateStringFunction([this] {
+            const auto F = Function::Create(
+                FunctionType::get(
+                    getPtrTy(),
+                    {getPtrTy(), getInt32Ty()},
+                    false
+                ),
+                Function::InternalLinkage,
+                "$allocateString",
+                getModule()
+            );
 
-        const auto ptr = CreateLoad(getPtrTy(), NewString);
-        CreateStore(String, CreateStructGEP(getModule().getStructType(ObjType::STRING), ptr, 1));
-        CreateStore(Length, CreateStructGEP(getModule().getStructType(ObjType::STRING), ptr, 2));
-        CreateStore(StringHash(*this, String, Length), CreateStructGEP(getModule().getStructType(ObjType::STRING), ptr, 3));
+            LoxBuilder B(getContext(), getModule(), *F);
 
-        return ptr;
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
+
+            const auto arguments = F->args().begin();
+
+            const auto String = arguments;
+            const auto Length = arguments + 1;
+
+            const auto NewString = B.AllocateObj(ObjType::STRING);
+
+            const auto ptr = B.CreateLoad(B.getPtrTy(), NewString);
+            B.CreateStore(String, B.CreateStructGEP(getModule().getStructType(ObjType::STRING), ptr, 1));
+            B.CreateStore(Length, B.CreateStructGEP(getModule().getStructType(ObjType::STRING), ptr, 2));
+            B.CreateStore(StringHash(B, String, Length), B.CreateStructGEP(getModule().getStructType(ObjType::STRING), ptr, 3));
+
+            B.CreateRet(ptr);
+
+            return F;
+        }());
+
+        return CreateCall(AllocateStringFunction, {String, Length}, name);
     }
 
     Value *LoxBuilder::StrEquals(Value *a, Value *b) {
