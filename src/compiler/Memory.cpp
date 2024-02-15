@@ -76,10 +76,7 @@ namespace lox {
         PrintF({fmt3, CreateLoad(getPtrTy(), CreateStructGEP(getModule().getObjStructType(), NewObjMalloc, 2, "next"))});
 #endif
 
-        const auto NewObj = CreateEntryBlockAlloca(GetInsertBlock()->getParent(), getPtrTy(), name);
-        CreateStore(NewObjMalloc, NewObj);
-
-        return NewObj;
+        return NewObjMalloc;
     }
 
     Value *LoxBuilder::AllocateArray(llvm::Type *type, int size, const std::string_view &name) {

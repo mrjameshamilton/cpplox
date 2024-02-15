@@ -5,8 +5,8 @@
 
 namespace lox {
     Value *LoxBuilder::AllocateUpvalue(Value *value) {
-        const auto obj = AllocateObj(ObjType::UPVALUE);
-        const auto ptr = CreateLoad(getPtrTy(), obj);
+        const auto ptr = AllocateObj(ObjType::UPVALUE);
+
         CreateStore(
             value,
             CreateStructGEP(getModule().getStructType(ObjType::UPVALUE), ptr, 1)

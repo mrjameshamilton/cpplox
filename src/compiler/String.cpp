@@ -97,9 +97,8 @@ namespace lox {
             const auto String = arguments;
             const auto Length = arguments + 1;
 
-            const auto NewString = B.AllocateObj(ObjType::STRING);
+            const auto ptr = B.AllocateObj(ObjType::STRING);
 
-            const auto ptr = B.CreateLoad(B.getPtrTy(), NewString);
             B.CreateStore(String, B.CreateStructGEP(getModule().getStructType(ObjType::STRING), ptr, 1));
             B.CreateStore(Length, B.CreateStructGEP(getModule().getStructType(ObjType::STRING), ptr, 2));
             B.CreateStore(StringHash(B, String, Length), B.CreateStructGEP(getModule().getStructType(ObjType::STRING), ptr, 3));
