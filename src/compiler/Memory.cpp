@@ -24,7 +24,7 @@ namespace lox {
 
         const auto NewObjMalloc = CreateMalloc(
             IntPtrTy,
-            StructType,
+            getPtrTy(),
             allocsize,
             nullptr
         );
