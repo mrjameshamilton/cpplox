@@ -50,14 +50,38 @@ namespace lox {
         );
     }
 
-    Value *LoxBuilder::AllocateClosure(llvm::Function *F, bool isNative) {
-        const auto function = AllocateFunction(F, isNative);
-        const auto ptr = AllocateObj(ObjType::CLOSURE, "closure");
+    Value *LoxBuilder::AllocateClosure(llvm::Function *Function, bool isNative) {
+        static auto AllocationClosureFunction([this] {
+            const auto F = Function::Create(
+                FunctionType::get(
+                    getPtrTy(),
+                    {getPtrTy()},
+                    false
+                ),
+                Function::InternalLinkage,
+                "$allocateClosure",
+                getModule()
+            );
 
-        CreateStore(function, CreateObjStructGEP(ObjType::CLOSURE, ptr, 1));
-        CreateStore(getInt8(0), CreateObjStructGEP(ObjType::CLOSURE, ptr, 2));
-        CreateStore(getInt32(0), CreateObjStructGEP(ObjType::CLOSURE, ptr, 3));
+            LoxBuilder B(getContext(), getModule(), *F);
 
-        return ptr;
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
+
+            const auto arguments = F->args().begin();
+
+            const auto function = arguments;
+
+            const auto ptr = B.AllocateObj(ObjType::CLOSURE, "closure");
+
+            B.CreateStore(function, B.CreateObjStructGEP(ObjType::CLOSURE, ptr, 1));
+            B.CreateStore(B.getInt8(0), B.CreateObjStructGEP(ObjType::CLOSURE, ptr, 2));
+            B.CreateStore(B.getInt32(0), B.CreateObjStructGEP(ObjType::CLOSURE, ptr, 3));
+            B.CreateRet(ptr);
+
+            return F;
+        }());
+
+        return CreateCall(AllocationClosureFunction, {AllocateFunction(Function, isNative)});
     }
 }// namespace lox
