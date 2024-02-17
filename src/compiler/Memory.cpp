@@ -60,7 +60,7 @@ namespace lox {
             // https://mukulrathi.com/create-your-own-programming-language/concurrency-runtime-language-tutorial/#malloc
 
             Type *IntPtrTy = IntegerType::getInt32Ty(B.getContext());
-            for (auto type : ObjTypes) {
+            for (auto type: ObjTypes) {
                 const auto Block = B.CreateBasicBlock("obj_" + std::to_string(static_cast<uint8_t>(type)));
                 Switch->addCase(B.ObjTypeInt(type), Block);
                 B.SetInsertPoint(Block);

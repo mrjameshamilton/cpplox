@@ -126,7 +126,7 @@ namespace lox {
 
     Value *LoxBuilder::AsCString(Value *value) {
         assert(value->getType() == getInt64Ty());
-        return CreateLoad(getPtrTy(), CreateStructGEP(getModule().getStructType(ObjType::STRING), AsObj(value), 1));
+        return CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::STRING, AsObj(value), 1));
     }
 
     Value *LoxBuilder::NumberVal(Value *value) {
@@ -242,25 +242,25 @@ namespace lox {
 
         SetInsertPoint(IsClosureBlock);
         const auto closure = AsObj(value);
-        const auto function = CreateLoad(getPtrTy(), CreateStructGEP(getModule().getStructType(ObjType::CLOSURE), closure, 1));
+        const auto function = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::CLOSURE, closure, 1));
 
         static auto fmt = CreateGlobalStringPtr("<fn %s>\n", "printf_fmt_fun");
         static auto nfmt = CreateGlobalStringPtr("<native fn>\n", "printf_nfmt_fun");
 
-        const auto isNative = CreateLoad(getInt1Ty(), CreateStructGEP(getModule().getStructType(ObjType::FUNCTION), function, 4));
+        const auto isNative = CreateLoad(getInt1Ty(), CreateObjStructGEP(ObjType::FUNCTION, function, 4));
 
         CreateCondBr(isNative, IsNativeFunctionBlock, IsNotNativeFunctionBlock);
         SetInsertPoint(IsNativeFunctionBlock);
         PrintF({nfmt});
         CreateBr(EndBlock);
         SetInsertPoint(IsNotNativeFunctionBlock);
-        PrintF({fmt, AsCString(CreateLoad(getInt64Ty(), CreateStructGEP(getModule().getStructType(ObjType::FUNCTION), function, 3)))});
+        PrintF({fmt, AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::FUNCTION, function, 3)))});
         CreateBr(EndBlock);
 
         SetInsertPoint(IsUpvalueBlock);
         static const auto stmt = CreateGlobalStringPtr("Upvalue(%p, %p) = ");
         const auto upvalue = AsObj(value);
-        const auto object = CreateLoad(getPtrTy(), CreateStructGEP(getModule().getStructType(ObjType::UPVALUE), upvalue, 1));
+        const auto object = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 1));
         PrintF({stmt, value, object});
         CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("Print"), CreateLoad(getInt64Ty(), object));
         CreateBr(EndBlock);
@@ -269,15 +269,15 @@ namespace lox {
 
         const auto klass = AsObj(value);
         static auto klass_fmt = CreateGlobalStringPtr("%s\n", "printf_fmt_class");
-        PrintF({klass_fmt, AsCString(CreateLoad(getInt64Ty(), CreateStructGEP(getModule().getStructType(ObjType::CLASS), klass, 1)))});
+        PrintF({klass_fmt, AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::CLASS, klass, 1)))});
         CreateBr(EndBlock);
 
         SetInsertPoint(IsInstanceBlock);
 
         const auto instance = AsObj(value);
         static auto instance_fmt = CreateGlobalStringPtr("%s instance\n", "printf_fmt_instance");
-        const auto instanceKlass = CreateLoad(getPtrTy(), CreateStructGEP(getModule().getStructType(ObjType::INSTANCE), instance, 1));
-        PrintF({instance_fmt, AsCString(CreateLoad(getInt64Ty(), CreateStructGEP(getModule().getStructType(ObjType::CLASS), instanceKlass, 1)))});
+        const auto instanceKlass = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
+        PrintF({instance_fmt, AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::CLASS, instanceKlass, 1)))});
         CreateBr(EndBlock);
 
         SetInsertPoint(DefaultBlock);

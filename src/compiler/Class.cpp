@@ -7,7 +7,7 @@ namespace lox {
 
         Value *name = AllocateString(CreateGlobalStringPtr(className), getInt32(className.size()), ("class_" + className).str());
 
-        CreateStore(name, CreateStructGEP(getModule().getStructType(ObjType::CLASS), ptr, 1));
+        CreateStore(name, CreateObjStructGEP(ObjType::CLASS, ptr, 1));
 
         return ptr;
     }
@@ -15,7 +15,7 @@ namespace lox {
     Value *LoxBuilder::AllocateInstance(llvm::Value *klass) {
         const auto ptr = AllocateObj(ObjType::INSTANCE, "instance");
 
-        CreateStore(klass, CreateStructGEP(getModule().getStructType(ObjType::INSTANCE), ptr, 1));
+        CreateStore(klass, CreateObjStructGEP(ObjType::INSTANCE, ptr, 1));
 
         return ptr;
     }

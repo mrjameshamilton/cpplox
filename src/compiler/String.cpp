@@ -4,15 +4,6 @@
 
 namespace lox {
 
-#define LOAD_STRING_LENGTH(PTR) \
-    B.CreateLoad(B.getInt32Ty(), B.CreateStructGEP(B.getModule().getStructType(ObjType::STRING), B.CreateLoad(B.getPtrTy(), PTR), 2), "length")
-#define LOAD_STRING_STRING(PTR) \
-    B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getStructType(ObjType::STRING), B.CreateLoad(B.getPtrTy(), PTR), 1), "string")
-#define STORE_STRING_LENGTH(PTR, LENGTH) \
-    CreateStore(LENGTH, CreateStructGEP(getModule().getStructType(ObjType::STRING), CreateLoad(getPtrTy(), PTR), 2))
-#define STORE_STRING_STRING(PTR, STR) \
-    CreateStore(STR, CreateStructGEP(getModule().getStructType(ObjType::STRING), CreateLoad(getPtrTy(), PTR), 1))
-
     static Value *StringHash(LoxBuilder &Builder, Value *String, Value *Length) {
         static auto StrHashFunction([&Builder] {
             // FNV-1a hash function.
@@ -23,7 +14,7 @@ namespace lox {
                     false
                 ),
                 Function::InternalLinkage,
-                "strHash",
+                "$strHash",
                 Builder.getModule()
             );
 
@@ -99,9 +90,9 @@ namespace lox {
 
             const auto ptr = B.AllocateObj(ObjType::STRING);
 
-            B.CreateStore(String, B.CreateStructGEP(getModule().getStructType(ObjType::STRING), ptr, 1));
-            B.CreateStore(Length, B.CreateStructGEP(getModule().getStructType(ObjType::STRING), ptr, 2));
-            B.CreateStore(StringHash(B, String, Length), B.CreateStructGEP(getModule().getStructType(ObjType::STRING), ptr, 3));
+            B.CreateStore(String, B.CreateObjStructGEP(ObjType::STRING, ptr, 1));
+            B.CreateStore(Length, B.CreateObjStructGEP(ObjType::STRING, ptr, 2));
+            B.CreateStore(StringHash(B, String, Length), B.CreateObjStructGEP(ObjType::STRING, ptr, 3));
 
             B.CreateRet(ptr);
 
@@ -120,7 +111,7 @@ namespace lox {
                     false
                 ),
                 Function::InternalLinkage,
-                "strEquals",
+                "$strEquals",
                 getModule()
             );
 
@@ -131,15 +122,13 @@ namespace lox {
 
             const auto arguments = F->args().begin();
 
-            const auto p0str = CreateEntryBlockAlloca(F, B.getPtrTy(), "p0str");
-            B.CreateStore(B.AsObj(arguments), p0str);
-            const auto p1str = CreateEntryBlockAlloca(F, B.getPtrTy(), "p1str");
-            B.CreateStore(B.AsObj(arguments + 1), p1str);
+            const auto a = B.AsObj(arguments);
+            const auto b = B.AsObj(arguments + 1);
 
-            const auto String0Length = LOAD_STRING_LENGTH(p0str);
-            const auto String1Length = LOAD_STRING_LENGTH(p1str);
-            const auto String0String = LOAD_STRING_STRING(p0str);
-            const auto String1String = LOAD_STRING_STRING(p1str);
+            const auto String0Length = B.CreateLoad(B.getInt32Ty(), B.CreateObjStructGEP(ObjType::STRING, a, 2), "length");
+            const auto String1Length = B.CreateLoad(B.getInt32Ty(), B.CreateObjStructGEP(ObjType::STRING, b, 2), "length");
+            const auto String0String = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::STRING, a, 1), "string");
+            const auto String1String = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::STRING, b, 1), "string");
 
             const auto NotEqualBlock = B.CreateBasicBlock("not.equal");
             const auto CheckContents = B.CreateBasicBlock("check.contents");
@@ -177,7 +166,7 @@ namespace lox {
                     false
                 ),
                 Function::InternalLinkage,
-                "concat",
+                "$concat",
                 getModule()
             );
 
@@ -188,15 +177,13 @@ namespace lox {
 
             const auto arguments = F->args().begin();
 
-            const auto p0str = CreateEntryBlockAlloca(F, B.getPtrTy(), "p0str");
-            B.CreateStore(B.AsObj(arguments), p0str);
-            const auto p1str = CreateEntryBlockAlloca(F, B.getPtrTy(), "p1str");
-            B.CreateStore(B.AsObj(arguments + 1), p1str);
+            const auto a = B.AsObj(arguments);
+            const auto b = B.AsObj(arguments + 1);
 
-            const auto String0Length = LOAD_STRING_LENGTH(p0str);
-            const auto String1Length = LOAD_STRING_LENGTH(p1str);
-            const auto String0String = LOAD_STRING_STRING(p0str);
-            const auto String1String = LOAD_STRING_STRING(p1str);
+            const auto String0Length = B.CreateLoad(B.getInt32Ty(), B.CreateObjStructGEP(ObjType::STRING, a, 2), "length");
+            const auto String1Length = B.CreateLoad(B.getInt32Ty(), B.CreateObjStructGEP(ObjType::STRING, b, 2), "length");
+            const auto String0String = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::STRING, a, 1), "string");
+            const auto String1String = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::STRING, b, 1), "string");
 
             const auto NewLength = B.CreateNSWAdd(
                 String0Length,
@@ -253,8 +240,4 @@ namespace lox {
 
         return CreateCall(ConcatFunction, {a, b});
     }
-#undef LOAD_STRING_LENGTH
-#undef LOAD_STRING_STRING
-#undef STORE_STRING_LENGTH
-#undef STORE_STRING_STRING
 }// namespace lox

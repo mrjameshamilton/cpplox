@@ -9,15 +9,15 @@ namespace lox {
 
         CreateStore(
             value,
-            CreateStructGEP(getModule().getStructType(ObjType::UPVALUE), ptr, 1)
+            CreateObjStructGEP(ObjType::UPVALUE, ptr, 1)
         );
         CreateStore(
             Constant::getNullValue(PointerType::getUnqual(getContext())),
-            CreateStructGEP(getModule().getStructType(ObjType::UPVALUE), ptr, 2)
+            CreateObjStructGEP(ObjType::UPVALUE, ptr, 2)
         );
         CreateStore(
             getNilVal(),
-            CreateStructGEP(getModule().getStructType(ObjType::UPVALUE), ptr, 3)
+            CreateObjStructGEP(ObjType::UPVALUE, ptr, 3)
         );
         return ptr;
     }

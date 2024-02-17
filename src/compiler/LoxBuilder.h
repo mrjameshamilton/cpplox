@@ -78,6 +78,10 @@ namespace lox {
         void PrintString(Value *value);
         void PrintBool(Value *value);
 
+        Value *CreateObjStructGEP(const enum ObjType objType, Value *Ptr, unsigned Idx, const Twine &Name = "") {
+            return IRBuilder::CreateStructGEP(getModule().getStructType(objType), Ptr, Idx, Name);
+        }
+
         void RuntimeError(const unsigned line, Value *message, const std::vector<Value *> &values, const llvm::Function *function);
 
         [[nodiscard]] LoxModule &getModule() const { return M; }
