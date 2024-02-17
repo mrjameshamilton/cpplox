@@ -40,10 +40,9 @@ namespace lox {
 
                 Builder.CreateCondBr(Builder.CreateAnd(Builder.IsNumber(left), Builder.IsNumber(right)), EndBlock, InvalidNumBlock);
                 Builder.SetInsertPoint(InvalidNumBlock);
-                static const auto msg = Builder.CreateGlobalStringPtr("Operands must be numbers.\n");
                 Builder.RuntimeError(
                     binaryExpr->token.getLine(),
-                    msg,
+                    "Operands must be numbers.\n",
                     {},
                     enclosing == nullptr ? nullptr : Builder.getFunction()
                 );
@@ -76,10 +75,9 @@ namespace lox {
                 Builder.CreateBr(EndBlock);
 
                 Builder.SetInsertPoint(InvalidBlock);
-                static const auto msg = Builder.CreateGlobalStringPtr("Operands must be two numbers or two strings.\n");
                 Builder.RuntimeError(
                     binaryExpr->token.getLine(),
-                    msg,
+                    "Operands must be two numbers or two strings.\n",
                     {},
                     enclosing == nullptr ? nullptr : Builder.getFunction()
                 );
@@ -166,10 +164,9 @@ namespace lox {
         Builder.CreateBr(EndBlock);
 
         Builder.SetInsertPoint(NotCallableBlock);
-        static const auto fmt = Builder.CreateGlobalStringPtr("Can only call functions and classes.\n");
         Builder.RuntimeError(
             callExpr->keyword.getLine(),
-            fmt,
+            "Can only call functions and classes.\n",
             {},
             enclosing == nullptr ? nullptr : Builder.getFunction()
         );
@@ -191,9 +188,6 @@ namespace lox {
 
         paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
         paramValues.insert(paramValues.begin(), upvalues);
-
-        static const auto stmt = Builder.CreateGlobalStringPtr("upvalues param: %p\n");
-        //Builder.PrintF({stmt, upvalues});
 
         FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
 
@@ -221,10 +215,9 @@ namespace lox {
 
         Builder.SetInsertPoint(WrongArityBlock);
 
-        static const auto fmt2 = Builder.CreateGlobalStringPtr("Expected %d arguments but got %d.\n");
         Builder.RuntimeError(
             callExpr->keyword.getLine(),
-            fmt2,
+            "Expected %d arguments but got %d.\n",
             {arity, actual},
             enclosing == nullptr ? nullptr : Builder.getFunction()
         );
@@ -232,7 +225,7 @@ namespace lox {
 
         Builder.SetInsertPoint(CallBlock);
 #if DEBUG
-        Builder.PrintF({Builder.CreateGlobalStringPtr("Calling func at %p with function ptr %p\n"), callee, functionPtr});
+        Builder.PrintF({Builder.CreateGlobalCachedString("Calling func at %p with function ptr %p\n"), callee, functionPtr});
 #endif
         const auto returnVal = Builder.CreateCall(FT, functionPtr, paramValues);
 
@@ -281,7 +274,7 @@ namespace lox {
                 },
                 [this](const std::string_view string_value) -> Value * {
                     const auto strPtr = Builder.AllocateString(
-                        Builder.CreateGlobalStringPtr(string_value),
+                        Builder.CreateGlobalCachedString(string_value),
                         Builder.getInt32(string_value.length())
                     );
 
@@ -363,10 +356,9 @@ namespace lox {
 
                 Builder.CreateCondBr(Builder.IsNumber(left), EndBlock, InvalidNumBlock);
                 Builder.SetInsertPoint(InvalidNumBlock);
-                static const auto msg = Builder.CreateGlobalStringPtr("Operand must be a number.\n");
                 Builder.RuntimeError(
                     unaryExpr->token.getLine(),
-                    msg,
+                    "Operand must be a number.\n",
                     {},
                     enclosing == nullptr ? nullptr : Builder.getFunction()
                 );

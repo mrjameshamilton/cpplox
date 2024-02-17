@@ -49,7 +49,7 @@ namespace lox {
             ~Local() {
                 if (isCaptured) {
 #if DEBUG
-                    static const auto fmt = B.CreateGlobalStringPtr(("closing upvalues for " + name + " (%p)\n").str());
+                    static const auto fmt = B.CreateGlobalCachedString(("closing upvalues for " + name + " (%p)\n").str());
                     B.PrintF({fmt, value});
 #endif
                     closeUpvalues(compiler.Builder, value);
@@ -129,11 +129,10 @@ namespace lox {
             const auto loadedValue = Builder.CreateLoad(Builder.getInt64Ty(), global);
             Builder.CreateCondBr(Builder.IsUninitialized(loadedValue), UndefinedBlock, EndBlock);
             Builder.SetInsertPoint(UndefinedBlock);
-            static const auto fmt = Builder.CreateGlobalStringPtr("Undefined variable '%s'.\n");
             Builder.RuntimeError(
                 assignable.name.getLine(),
-                fmt,
-                {Builder.CreateGlobalStringPtr(assignable.name.getLexeme())},
+                "Undefined variable '%s'.\n",
+                {Builder.CreateGlobalCachedString(assignable.name.getLexeme())},
                 enclosing == nullptr ? nullptr : Builder.getFunction()
             );
             Builder.CreateBr(EndBlock);

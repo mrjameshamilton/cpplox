@@ -44,7 +44,7 @@ namespace lox {
         return CreateCall(
             AllocateFunctionFunction,
             {Function,
-             CreateGlobalStringPtr(Function->getName()), getInt32(Function->getName().size()), getInt32(Function->arg_size() - 1),
+             CreateGlobalCachedString(Function->getName()), getInt32(Function->getName().size()), getInt32(Function->arg_size() - 1),
              isNative ? getTrue() : getFalse()
             }
         );

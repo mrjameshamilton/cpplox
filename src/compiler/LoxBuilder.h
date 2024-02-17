@@ -82,7 +82,18 @@ namespace lox {
             return IRBuilder::CreateStructGEP(getModule().getStructType(objType), Ptr, Idx, Name);
         }
 
-        void RuntimeError(const unsigned line, Value *message, const std::vector<Value *> &values, const llvm::Function *function);
+        Constant *CreateGlobalCachedString(std::string_view string) {
+            auto &strings = getModule().getStringCache();
+            if (strings.contains(string)) {
+                return strings.at(string);
+            }
+
+            auto ptr = CreateGlobalStringPtr(string);
+            strings[string] = ptr;
+            return ptr;
+        }
+
+        void RuntimeError(const unsigned line, StringRef message, const std::vector<Value *> &values, const llvm::Function *function);
 
         [[nodiscard]] LoxModule &getModule() const { return M; }
         [[nodiscard]] llvm::Function *getFunction() const { return &Function; }

@@ -85,6 +85,8 @@ namespace lox {
             PointerType::get(getContext(), 0)
         ));
 
+        llvm::StringMap<Constant *> strings;
+
     public:
         explicit LoxModule(LLVMContext &Context) : Module("lox", Context) {
             objects->setLinkage(GlobalValue::PrivateLinkage);
@@ -128,6 +130,10 @@ namespace lox {
 
         GlobalVariable *getOpenUpvalues() const {
             return openUpvalues;
+        }
+
+        llvm::StringMap<Constant *> &getStringCache() {
+            return strings;
         }
     };
 }// namespace lox

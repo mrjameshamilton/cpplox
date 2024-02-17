@@ -192,7 +192,7 @@ namespace lox {
     }
 
     void LoxBuilder::PrintF(const std::string &stringFormat, Value *value) {
-        PrintF({CreateGlobalStringPtr(stringFormat), value});
+        PrintF({CreateGlobalCachedString(stringFormat), value});
     }
 
     void LoxBuilder::PrintF(const std::initializer_list<Value *> value) {
@@ -204,18 +204,15 @@ namespace lox {
     }
 
     void LoxBuilder::PrintString(const std::string &string) {
-        static const auto fmt = CreateGlobalStringPtr("%s\n", "printf_fmt_str");
-        PrintF({fmt, CreateGlobalStringPtr(string)});
+        PrintF({CreateGlobalCachedString("%s\n"), CreateGlobalCachedString(string)});
     }
 
     void LoxBuilder::PrintNumber(Value *value) {
-        static const auto gfmt = CreateGlobalStringPtr("%g\n", "printf_fmt_num");
-        PrintF({gfmt, AsNumber(value)});
+        PrintF({CreateGlobalCachedString("%g\n"), AsNumber(value)});
     }
 
     void LoxBuilder::PrintNil() {
-        static const auto fmt = CreateGlobalStringPtr("nil\n", "printf_fmt_nil");
-        PrintF({fmt});
+        PrintF({CreateGlobalCachedString("nil\n")});
     }
 
     void LoxBuilder::PrintObject(Value *value) {
@@ -244,40 +241,34 @@ namespace lox {
         const auto closure = AsObj(value);
         const auto function = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::CLOSURE, closure, 1));
 
-        static auto fmt = CreateGlobalStringPtr("<fn %s>\n", "printf_fmt_fun");
-        static auto nfmt = CreateGlobalStringPtr("<native fn>\n", "printf_nfmt_fun");
-
         const auto isNative = CreateLoad(getInt1Ty(), CreateObjStructGEP(ObjType::FUNCTION, function, 4));
 
         CreateCondBr(isNative, IsNativeFunctionBlock, IsNotNativeFunctionBlock);
         SetInsertPoint(IsNativeFunctionBlock);
-        PrintF({nfmt});
+        PrintF({CreateGlobalCachedString("<native fn>\n")});
         CreateBr(EndBlock);
         SetInsertPoint(IsNotNativeFunctionBlock);
-        PrintF({fmt, AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::FUNCTION, function, 3)))});
+        PrintF({CreateGlobalCachedString("<fn %s>\n"), AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::FUNCTION, function, 3)))});
         CreateBr(EndBlock);
 
         SetInsertPoint(IsUpvalueBlock);
-        static const auto stmt = CreateGlobalStringPtr("Upvalue(%p, %p) = ");
         const auto upvalue = AsObj(value);
         const auto object = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 1));
-        PrintF({stmt, value, object});
+        PrintF({CreateGlobalCachedString("Upvalue(%p, %p) = "), value, object});
         CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("Print"), CreateLoad(getInt64Ty(), object));
         CreateBr(EndBlock);
 
         SetInsertPoint(IsClassBlock);
 
         const auto klass = AsObj(value);
-        static auto klass_fmt = CreateGlobalStringPtr("%s\n", "printf_fmt_class");
-        PrintF({klass_fmt, AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::CLASS, klass, 1)))});
+        PrintF({CreateGlobalCachedString("%s\n"), AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::CLASS, klass, 1)))});
         CreateBr(EndBlock);
 
         SetInsertPoint(IsInstanceBlock);
 
         const auto instance = AsObj(value);
-        static auto instance_fmt = CreateGlobalStringPtr("%s instance\n", "printf_fmt_instance");
         const auto instanceKlass = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
-        PrintF({instance_fmt, AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::CLASS, instanceKlass, 1)))});
+        PrintF({CreateGlobalCachedString("%s instance\n"), AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::CLASS, instanceKlass, 1)))});
         CreateBr(EndBlock);
 
         SetInsertPoint(DefaultBlock);
@@ -287,18 +278,14 @@ namespace lox {
     }
 
     void LoxBuilder::PrintString(Value *value) {
-        static const auto fmt = CreateGlobalStringPtr("%s\n", "printf_fmt_str");
-        PrintF({fmt, AsCString(value)});
+        PrintF({CreateGlobalCachedString("%s\n"), AsCString(value)});
     }
 
     void LoxBuilder::PrintBool(Value *value) {
-        static const auto fmt = CreateGlobalStringPtr("%s\n", "printf_fmt_bool");
-        static const auto true_ = CreateGlobalStringPtr("true", "true_str");
-        static const auto false_ = CreateGlobalStringPtr("false", "false_str");
-        PrintF({fmt, CreateSelect(AsBool(value), true_, false_)});
+        PrintF({CreateGlobalCachedString("%s\n"), CreateSelect(AsBool(value), CreateGlobalCachedString("true"), CreateGlobalCachedString("false"))});
     }
 
-    void LoxBuilder::RuntimeError(const unsigned line, Value *message, const std::vector<Value *> &values, const llvm::Function *function) {
+    void LoxBuilder::RuntimeError(const unsigned line, StringRef message, const std::vector<Value *> &values, const llvm::Function *function) {
         static const auto StdErr = getModule().getOrInsertGlobal("stderr", getPtrTy());
         static const auto FPrintF = getModule().getOrInsertFunction(
             "fprintf",
@@ -310,18 +297,16 @@ namespace lox {
         );
 
         std::vector values2(values);
-        values2.insert(values2.begin(), message);
+        values2.insert(values2.begin(), CreateGlobalCachedString(message));
         values2.insert(values2.begin(), CreateLoad(getPtrTy(), StdErr));
 
         CreateCall(FPrintF, values2);
-        static const auto fmtScript = CreateGlobalStringPtr("[line %d] in script\n");
-        static const auto fmtFunc = CreateGlobalStringPtr("[line %d] in %s()\n");
         if (function == nullptr) {
             CreateCall(
                 FPrintF,
                 {
                     CreateLoad(getPtrTy(), StdErr),
-                    fmtScript,
+                    CreateGlobalCachedString("[line %d] in script\n"),
                     getInt32(line),
                 }
             );
@@ -329,9 +314,9 @@ namespace lox {
             CreateCall(
                 FPrintF,
                 {CreateLoad(getPtrTy(), StdErr),
-                 fmtFunc,
+                 CreateGlobalCachedString("[line %d] in %s()\n"),
                  getInt32(line),
-                 CreateGlobalStringPtr(function->getName())
+                 CreateGlobalCachedString(function->getName())
                 }
             );
         }

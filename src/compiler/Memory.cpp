@@ -101,11 +101,11 @@ namespace lox {
             B.CreateStore(NewObjMalloc, objects);
 
 #if DEBUG_LOG_GC
-            static const auto fmt = B.CreateGlobalStringPtr("%p\n");
+            static const auto fmt = B.CreateGlobalCachedString("%p\n");
             B.PrintF({fmt, B.CreateLoad(B.getPtrTy(), objects)});
-            static const auto fmt2 = B.CreateGlobalStringPtr("\t%p allocate %zu.\n");
+            static const auto fmt2 = B.CreateGlobalCachedString("\t%p allocate %zu.\n");
             B.PrintF({fmt2, NewObjMalloc, allocsize});
-            static const auto fmt3 = B.CreateGlobalStringPtr("\tobject.next = %p\n");
+            static const auto fmt3 = B.CreateGlobalCachedString("\tobject.next = %p\n");
             B.PrintF({fmt3, B.CreateLoad(getPtrTy(), B.CreateStructGEP(B.getModule().getObjStructType(), NewObjMalloc, 2, "next"))});
 #endif
 
@@ -131,7 +131,7 @@ namespace lox {
             default:
                 PrintString(Twine("Allocate object"));
         }
-        static const auto fmt0 = CreateGlobalStringPtr("\tobjects: %p => ");
+        static const auto fmt0 = CreateGlobalCachedString("\tobjects: %p => ");
         const auto objects = getModule().getObjects();
         PrintF({fmt0, CreateLoad(getPtrTy(), objects)});
 #endif
@@ -203,7 +203,7 @@ namespace lox {
         const auto DefaultBlock = Builder->CreateBasicBlock("default");
 
 #if DEBUG_LOG_GC
-        static const auto fmt = Builder->CreateGlobalStringPtr("free %p: ");
+        static const auto fmt = Builder->CreateGlobalCachedString("free %p: ");
         Builder->PrintF({fmt, value});
         Builder->PrintObject(value);
 #endif

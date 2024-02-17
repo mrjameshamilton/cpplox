@@ -11,3 +11,15 @@ var foo = Foo();
 print foo;
 
 print "hello" + "a";
+
+print "hello";
+
+fun foo() {
+    print "foo";
+}
+
+foo();
+
+print 1<2;
+print 2<1;
+print 1+1;
