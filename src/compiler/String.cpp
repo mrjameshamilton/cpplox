@@ -198,11 +198,8 @@ namespace lox {
                 nullptr
             );
 
-            const auto StringTemp = CreateEntryBlockAlloca(F, B.getPtrTy(), "StringTemp");
-            B.CreateStore(StringMalloc, StringTemp);
-
             B.CreateMemCpy(
-                B.CreateLoad(B.getPtrTy(), StringTemp),
+                StringMalloc,
                 Align(1),
                 String0String,
                 Align(1),
@@ -212,7 +209,7 @@ namespace lox {
             B.CreateMemCpy(
                 B.CreateInBoundsGEP(
                     B.getInt8Ty(),
-                    B.CreateLoad(B.getPtrTy(), StringTemp),
+                    StringMalloc,
                     {B.CreateSExt(String0Length, B.getInt64Ty())}
                 ),
                 Align(1),
@@ -228,7 +225,7 @@ namespace lox {
             );
 
             const auto NewString = B.AllocateString(
-                B.CreateLoad(B.getPtrTy(), StringTemp),
+                StringMalloc,
                 NewLength,
                 "NewString"
             );
