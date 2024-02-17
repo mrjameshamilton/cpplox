@@ -23,13 +23,11 @@ namespace lox {
             const auto arguments = F->args().begin();
 
             const auto functionPtr = arguments;
-            const auto namePtr = arguments + 1;
-            const auto nameLength = arguments + 2;
-            const auto argSize = arguments + 3;
-            const auto isNative = arguments + 4;
+            const auto name = arguments + 1;
+            const auto argSize = arguments + 2;
+            const auto isNative = arguments + 3;
 
             const auto ptr = B.AllocateObj(ObjType::FUNCTION, "function");
-            const auto name = B.AllocateString(namePtr, nameLength, "name");
 
             B.CreateStore(argSize, B.CreateObjStructGEP(ObjType::FUNCTION, ptr, 1), "argSize");
             B.CreateStore(functionPtr, B.CreateObjStructGEP(ObjType::FUNCTION, ptr, 2, "funcPtr"));
@@ -44,7 +42,7 @@ namespace lox {
         return CreateCall(
             AllocateFunctionFunction,
             {Function,
-             CreateGlobalCachedString(Function->getName()), getInt32(Function->getName().size()), getInt32(Function->arg_size() - 1),
+             AllocateString(Function->getName()), getInt32(Function->arg_size() - 1),
              isNative ? getTrue() : getFalse()
             }
         );

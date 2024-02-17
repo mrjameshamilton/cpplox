@@ -102,6 +102,51 @@ namespace lox {
         return CreateCall(AllocateStringFunction, {String, Length}, name);
     }
 
+    Value *LoxBuilder::AllocateString(const StringRef String, const std::string_view name) {
+        static auto AllocateStringFunction([this] {
+            const auto F = Function::Create(
+                FunctionType::get(
+                    getPtrTy(),
+                    {getPtrTy(), getInt32Ty(), getInt32Ty()},
+                    false
+                ),
+                Function::InternalLinkage,
+                "$allocateString",
+                getModule()
+            );
+
+            LoxBuilder B(getContext(), getModule(), *F);
+
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
+
+            const auto arguments = F->args().begin();
+
+            const auto String = arguments;
+            const auto Length = arguments + 1;
+            const auto hash = arguments + 2;
+
+            const auto ptr = B.AllocateObj(ObjType::STRING);
+
+            B.CreateStore(String, B.CreateObjStructGEP(ObjType::STRING, ptr, 1));
+            B.CreateStore(Length, B.CreateObjStructGEP(ObjType::STRING, ptr, 2));
+            B.CreateStore(hash, B.CreateObjStructGEP(ObjType::STRING, ptr, 3));
+
+            B.CreateRet(ptr);
+
+            return F;
+        }());
+
+        // FNV-1a hash function.
+        unsigned int hash = -2128831035;
+        for (char i : String) {
+            hash ^= i;
+            hash *= 16777619;
+        }
+
+        return CreateCall(AllocateStringFunction, {CreateGlobalCachedString(String), getInt32(String.size()), getInt32(hash)}, name);
+    }
+
     Value *LoxBuilder::StrEquals(Value *a, Value *b) {
         static auto StrEqualsFunction([this] {
             const auto F = Function::Create(

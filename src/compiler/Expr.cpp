@@ -273,12 +273,7 @@ namespace lox {
                     return Builder.getInt64(std::bit_cast<int64_t>(double_value));
                 },
                 [this](const std::string_view string_value) -> Value * {
-                    const auto strPtr = Builder.AllocateString(
-                        Builder.CreateGlobalCachedString(string_value),
-                        Builder.getInt32(string_value.length())
-                    );
-
-                    return Builder.ObjVal(strPtr);
+                    return Builder.ObjVal(Builder.AllocateString(string_value));
                 },
                 [this](const std::nullptr_t) -> Value * { return Builder.getNilVal(); },
             },
