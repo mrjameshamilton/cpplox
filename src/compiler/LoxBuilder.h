@@ -60,6 +60,7 @@ namespace lox {
         Value *AllocateClosure(llvm::Function *function, bool isNative = false);
         Value *AllocateUpvalue(Value *value);
         Value *AllocateArray(Type *type, int size, const std::string_view &name);
+        Value *AllocateArray(Type *type, Value *size, const std::string_view &name);
         Value *AllocateClass(const std::string_view name);
         Value *AllocateInstance(Value *klass);
 

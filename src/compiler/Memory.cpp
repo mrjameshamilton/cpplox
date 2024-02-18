@@ -140,12 +140,15 @@ namespace lox {
     }
 
     Value *LoxBuilder::AllocateArray(llvm::Type *type, int size, const std::string_view &name) {
+        return AllocateArray(type, getInt32(size), name);
+    }
+
+    Value *LoxBuilder::AllocateArray(llvm::Type *type, Value *arraySize, const std::string_view &name) {
         Type *IntPtrTy = IntegerType::getInt32Ty(getContext());
         // The malloc size IR that is generated with getSizeOf uses a hack described here:
         // https://mukulrathi.com/create-your-own-programming-language/concurrency-runtime-language-tutorial/#malloc
-        Constant *allocsize = ConstantExpr::getSizeOf(type->getPointerTo());
+        Constant *allocsize = ConstantExpr::getSizeOf(type);
         allocsize = ConstantExpr::getTruncOrBitCast(allocsize, IntPtrTy);
-        Constant *arraySize = ConstantInt::get(IntPtrTy, size);
         return CreateMalloc(
             IntPtrTy,
             getPtrTy(),
