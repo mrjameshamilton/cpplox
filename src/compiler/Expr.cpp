@@ -114,10 +114,10 @@ namespace lox {
             case BinaryOp::BANG_EQUAL:
             case BinaryOp::EQUAL_EQUAL:
                 // A == B if both are numbers and they're equal as fp numbers or they're both equal int64 values.
+                // All strings are interned, so we don't need to check characters for equality: strings
+                // that have the same character sequence will have the same address.
                 const auto IsNumBlock = Builder.CreateBasicBlock("if.num");
                 const auto NotNumBlock = Builder.CreateBasicBlock("not.num");
-                const auto IsStringBlock = Builder.CreateBasicBlock("is.string");
-                const auto NotStringBlock = Builder.CreateBasicBlock("not.string");
                 const auto EndBlock = Builder.CreateBasicBlock("end");
 
                 Builder.CreateCondBr(Builder.CreateAnd(Builder.IsNumber(left), Builder.IsNumber(right)), IsNumBlock, NotNumBlock);
@@ -125,19 +125,13 @@ namespace lox {
                 const auto X = Builder.CreateFCmpOEQ(Builder.AsNumber(left), Builder.AsNumber(right));
                 Builder.CreateBr(EndBlock);
                 Builder.SetInsertPoint(NotNumBlock);
-                Builder.CreateCondBr(Builder.CreateAnd(Builder.IsString(left), Builder.IsString(right)), IsStringBlock, NotStringBlock);
-                Builder.SetInsertPoint(IsStringBlock);
-                const auto Y = Builder.StrEquals(left, right);
-                Builder.CreateBr(EndBlock);
-                Builder.SetInsertPoint(NotStringBlock);
-                const auto Z = Builder.CreateICmpEQ(left, right);
+                const auto Y = Builder.CreateICmpEQ(left, right);
                 Builder.CreateBr(EndBlock);
                 Builder.SetInsertPoint(EndBlock);
 
-                const auto Result = Builder.CreatePHI(Builder.getInt1Ty(), 3);
+                const auto Result = Builder.CreatePHI(Builder.getInt1Ty(), 2);
                 Result->addIncoming(X, IsNumBlock);
-                Result->addIncoming(Y, IsStringBlock);
-                Result->addIncoming(Z, NotStringBlock);
+                Result->addIncoming(Y, NotNumBlock);
 
                 return Builder.BoolVal(binaryExpr->op == BinaryOp::EQUAL_EQUAL ? Result : Builder.CreateNot(Result));
         }

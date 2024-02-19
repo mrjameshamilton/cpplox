@@ -63,7 +63,7 @@ namespace lox {
             getContext(),
             {
                 ObjStructType,
-                StringStructType->getPointerTo(), // name
+                StringStructType->getPointerTo(),// name
             },
             "ClassStruct"
         );
@@ -98,6 +98,10 @@ namespace lox {
             "objects",
             PointerType::get(getContext(), 0)
         ));
+        GlobalVariable *const runtimeStrings = cast<GlobalVariable>(getOrInsertGlobal(
+            "strings",
+            PointerType::get(getContext(), 0)
+        ));
         GlobalVariable *const openUpvalues = cast<GlobalVariable>(getOrInsertGlobal(
             "openUpvalues",
             PointerType::get(getContext(), 0)
@@ -111,6 +115,11 @@ namespace lox {
             objects->setAlignment(Align(8));
             objects->setConstant(false);
             objects->setInitializer(ConstantPointerNull::get(PointerType::get(Context, 0)));
+
+            runtimeStrings->setLinkage(GlobalValue::PrivateLinkage);
+            runtimeStrings->setAlignment(Align(8));
+            runtimeStrings->setConstant(false);
+            runtimeStrings->setInitializer(ConstantPointerNull::get(PointerType::get(Context, 0)));
 
             openUpvalues->setLinkage(GlobalValue::PrivateLinkage);
             openUpvalues->setAlignment(Align(8));
@@ -151,6 +160,10 @@ namespace lox {
 
         GlobalVariable *getOpenUpvalues() const {
             return openUpvalues;
+        }
+
+        GlobalVariable *getRuntimeStrings() const {
+            return runtimeStrings;
         }
 
         llvm::StringMap<Constant *> &getStringCache() {

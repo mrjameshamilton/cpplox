@@ -56,6 +56,7 @@ namespace lox {
         });
 
         Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));
+        Builder->CreateStore(Builder->AllocateTable(), M->getRuntimeStrings());
         Builder->CreateCall(F);
 
         FreeObjects();

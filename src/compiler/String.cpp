@@ -4,6 +4,115 @@
 
 namespace lox {
 
+    // Use a hash table for string interning.
+    Value *FindStringEntry(LoxBuilder &Builder, llvm::Value *Table, Value *String, Value *Length, Value *Hash) {
+        static auto FindEntryFunction([&Builder] {
+            const auto F = Function::Create(
+                FunctionType::get(
+                    Builder.getPtrTy(),
+                    {Builder.getPtrTy(), Builder.getPtrTy(), Builder.getInt32Ty(), Builder.getInt32Ty()},
+                    false
+                ),
+                Function::InternalLinkage,
+                "$tableFindString",
+                Builder.getModule()
+            );
+
+            LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
+
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
+
+            const auto arguments = F->arg_begin();
+            const auto table = arguments;
+            const auto string = arguments + 1;
+            const auto length = arguments + 2;
+            const auto hash = arguments + 3;
+
+            const auto count = B.CreateLoad(B.getInt32Ty(), B.CreateObjStructGEP(ObjType::TABLE, table, 1));
+
+            const auto IsEmptyBlock = B.CreateBasicBlock("table.empty");
+            const auto NotEmptyBlock = B.CreateBasicBlock("table.notempty");
+
+            B.CreateCondBr(B.CreateICmpEQ(B.getInt32(0), count), IsEmptyBlock, NotEmptyBlock);
+
+            B.SetInsertPoint(IsEmptyBlock);
+            B.CreateRet(B.getNullPtr());
+
+            B.SetInsertPoint(NotEmptyBlock);
+
+            const auto index = CreateEntryBlockAlloca(F, B.getInt32Ty(), "index");
+            const auto capacity = B.CreateLoad(B.getInt32Ty(), B.CreateObjStructGEP(ObjType::TABLE, table, 2));
+            B.CreateStore(B.CreateURem(hash, capacity), index);
+
+            const auto ForStartBlock = B.CreateBasicBlock("for.start");
+
+            B.CreateBr(ForStartBlock);
+            B.SetInsertPoint(ForStartBlock);
+            const auto entries = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::TABLE, table, 3));
+            const auto entry = B.CreateInBoundsGEP(B.getModule().getStructType(ObjType::ENTRY), entries, B.CreateLoad(B.getInt32Ty(), index), "entry");
+            const auto entryKey = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::ENTRY, entry, 0));
+
+            const auto KeyIsNullBlock = B.CreateBasicBlock("key.null");
+            const auto KeyIsNotNullBlock = B.CreateBasicBlock("key.notnull");
+            const auto CheckKeyIsSameBlock = B.CreateBasicBlock("key.issame?");
+            const auto EndIfBlock = B.CreateBasicBlock("key.endif");
+
+            B.CreateCondBr(B.CreateIsNull(entryKey), KeyIsNullBlock, KeyIsNotNullBlock);
+
+            B.SetInsertPoint(KeyIsNullBlock);
+
+            const auto IsNilBlock = B.CreateBasicBlock("value.isnil");
+
+            const auto entryValue = B.CreateLoad(B.getInt64Ty(), B.CreateObjStructGEP(ObjType::ENTRY, entry, 1));
+            B.CreateCondBr(B.IsNil(entryValue), IsNilBlock, EndIfBlock);
+
+            B.SetInsertPoint(IsNilBlock);
+            B.CreateRet(B.getNullPtr());
+
+            B.SetInsertPoint(KeyIsNotNullBlock);
+            B.CreateBr(CheckKeyIsSameBlock);
+
+            B.SetInsertPoint(CheckKeyIsSameBlock);
+
+            const auto SameLengthBlock = B.CreateBasicBlock("same.length");
+            const auto SameHashBlock = B.CreateBasicBlock("same.hash");
+            const auto SameStringBlock = B.CreateBasicBlock("same.string");
+
+            const auto keyLength = B.CreateLoad(B.getInt32Ty(), B.CreateObjStructGEP(ObjType::STRING, entryKey, 2));
+            B.CreateCondBr(B.CreateICmpEQ(keyLength, length), SameLengthBlock, EndIfBlock);
+
+            B.SetInsertPoint(SameLengthBlock);
+            const auto keyHash = B.CreateLoad(B.getInt32Ty(), B.CreateObjStructGEP(ObjType::STRING, entryKey, 3));
+            B.CreateCondBr(B.CreateICmpEQ(keyHash, hash), SameHashBlock, EndIfBlock);
+
+            B.SetInsertPoint(SameHashBlock);
+            const auto keyString = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::STRING, entryKey, 1));
+            static const auto MemCmp = B.getModule().getOrInsertFunction(
+                "memcmp",
+                FunctionType::get(B.getInt32Ty(), {B.getPtrTy(), B.getPtrTy(), B.getInt64Ty()}, false)
+            );
+            B.CreateCondBr(B.CreateICmpEQ(B.CreateCall(MemCmp, {string, keyString, length}), B.getInt32(0)), SameStringBlock, EndIfBlock);
+
+            B.SetInsertPoint(SameStringBlock);
+            B.CreateRet(B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::ENTRY, entry, 0)));
+
+            B.SetInsertPoint(EndIfBlock);
+
+            // index = (index + 1) & (capacity - 1) === index = index % capacity
+            B.CreateStore(
+                B.CreateAnd(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), index), B.getInt32(1)), B.CreateSub(capacity, B.getInt32(1))),
+                index
+            );
+
+            B.CreateBr(ForStartBlock);
+
+            return F;
+        }());
+
+        return Builder.CreateCall(FindEntryFunction, {Table, String, Length, Hash});
+    }
+
     static Value *StringHash(LoxBuilder &Builder, Value *String, Value *Length) {
         static auto StrHashFunction([&Builder] {
             // FNV-1a hash function.
@@ -94,6 +203,8 @@ namespace lox {
             B.CreateStore(Length, B.CreateObjStructGEP(ObjType::STRING, ptr, 2));
             B.CreateStore(StringHash(B, String, Length), B.CreateObjStructGEP(ObjType::STRING, ptr, 3));
 
+            B.TableSet(B.getModule().getRuntimeStrings(), ptr, B.getNilVal());
+
             B.CreateRet(ptr);
 
             return F;
@@ -126,11 +237,25 @@ namespace lox {
             const auto Length = arguments + 1;
             const auto hash = arguments + 2;
 
+            const auto interned = FindStringEntry(B, B.getModule().getRuntimeStrings(), String, Length, hash);
+
+            const auto IsInternedBlock = B.CreateBasicBlock("is.interned");
+            const auto NotInternedBlock = B.CreateBasicBlock("end");
+
+            B.CreateCondBr(B.CreateIsNull(interned), NotInternedBlock, IsInternedBlock);
+
+            B.SetInsertPoint(IsInternedBlock);
+            B.CreateRet(interned);
+
+            B.SetInsertPoint(NotInternedBlock);
+
             const auto ptr = B.AllocateObj(ObjType::STRING);
 
             B.CreateStore(String, B.CreateObjStructGEP(ObjType::STRING, ptr, 1));
             B.CreateStore(Length, B.CreateObjStructGEP(ObjType::STRING, ptr, 2));
             B.CreateStore(hash, B.CreateObjStructGEP(ObjType::STRING, ptr, 3));
+
+            B.TableSet(B.getModule().getRuntimeStrings(), ptr, B.getNilVal());
 
             B.CreateRet(ptr);
 
@@ -145,61 +270,6 @@ namespace lox {
         }
 
         return CreateCall(AllocateStringFunction, {CreateGlobalCachedString(String), getInt32(String.size()), getInt32(hash)}, name);
-    }
-
-    Value *LoxBuilder::StrEquals(Value *a, Value *b) {
-        static auto StrEqualsFunction([this] {
-            const auto F = Function::Create(
-                FunctionType::get(
-                    getInt1Ty(),
-                    {getInt64Ty(), getInt64Ty()},
-                    false
-                ),
-                Function::InternalLinkage,
-                "$strEquals",
-                getModule()
-            );
-
-            LoxBuilder B(getContext(), getModule(), *F);
-
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
-            B.SetInsertPoint(EntryBasicBlock);
-
-            const auto arguments = F->args().begin();
-
-            const auto a = B.AsObj(arguments);
-            const auto b = B.AsObj(arguments + 1);
-
-            const auto String0Length = B.CreateLoad(B.getInt32Ty(), B.CreateObjStructGEP(ObjType::STRING, a, 2), "length");
-            const auto String1Length = B.CreateLoad(B.getInt32Ty(), B.CreateObjStructGEP(ObjType::STRING, b, 2), "length");
-            const auto String0String = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::STRING, a, 1), "string");
-            const auto String1String = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::STRING, b, 1), "string");
-
-            const auto NotEqualBlock = B.CreateBasicBlock("not.equal");
-            const auto CheckContents = B.CreateBasicBlock("check.contents");
-            B.CreateCondBr(B.CreateICmpNE(String0Length, String1Length), NotEqualBlock, CheckContents);
-
-            B.SetInsertPoint(CheckContents);
-
-            static const auto MemCmp = getModule().getOrInsertFunction(
-                "memcmp",
-                FunctionType::get(B.getInt32Ty(), {B.getPtrTy(), B.getPtrTy(), B.getInt64Ty()}, false)
-            );
-
-            B.CreateRet(
-                B.CreateICmpEQ(
-                    B.CreateCall(MemCmp, {String0String, String1String, String0Length}),
-                    B.getInt32(0)
-                )
-            );
-
-            B.SetInsertPoint(NotEqualBlock);
-            B.CreateRet(B.getFalse());
-
-            return F;
-        }());
-
-        return CreateCall(StrEqualsFunction, {a, b});
     }
 
     Value *LoxBuilder::Concat(Value *a, Value *b) {
@@ -268,6 +338,20 @@ namespace lox {
                     B.getInt64Ty()
                 )
             );
+
+            const auto interned = FindStringEntry(B, B.getModule().getRuntimeStrings(), StringMalloc, NewLength, StringHash(B, StringMalloc, NewLength));
+
+            const auto IsInternedBlock = B.CreateBasicBlock("is.interned");
+            const auto NotInternedBlock = B.CreateBasicBlock("end");
+
+            B.CreateCondBr(B.CreateIsNull(interned), NotInternedBlock, IsInternedBlock);
+
+            B.SetInsertPoint(IsInternedBlock);
+            // Temporary string not required anymore.
+            B.CreateFree(StringMalloc);
+            B.CreateRet(B.ObjVal(interned));
+
+            B.SetInsertPoint(NotInternedBlock);
 
             const auto NewString = B.AllocateString(
                 StringMalloc,

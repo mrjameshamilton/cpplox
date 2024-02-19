@@ -67,7 +67,6 @@ namespace lox {
         Value *TableGet(Value *Table, Value *Key, Value *Result);
 
         Value *Concat(Value *a, Value *b);
-        Value *StrEquals(Value *a, Value *b);
 
         void Print(Value *value);
         void PrintF(const std::string &stringFormat, Value *value);
@@ -84,6 +83,10 @@ namespace lox {
 
         Value *CreateObjStructGEP(const enum ObjType objType, Value *Ptr, unsigned Idx, const Twine &Name = "") {
             return IRBuilder::CreateStructGEP(getModule().getStructType(objType), Ptr, Idx, Name);
+        }
+
+        Constant *getNullPtr() {
+            return Constant::getNullValue(PointerType::getUnqual(getContext()));
         }
 
         Constant *CreateGlobalCachedString(std::string_view string) {
