@@ -34,7 +34,7 @@ namespace lox {
                 ObjStructType,
                 IntegerType::getInt32Ty(getContext()),// arity
                 PointerType::getUnqual(getContext()), // func ptr
-                StringStructType,                     // name
+                StringStructType->getPointerTo(),     // name
                 IntegerType::getInt1Ty(getContext()), // isNative
             },
             "Function"
@@ -63,7 +63,7 @@ namespace lox {
             getContext(),
             {
                 ObjStructType,
-                StringStructType,// name
+                StringStructType->getPointerTo(), // name
             },
             "ClassStruct"
         );
@@ -71,7 +71,7 @@ namespace lox {
             getContext(),
             {
                 ObjStructType,
-                ClassStruct,                         // klass
+                ClassStruct->getPointerTo(),         // klass
                 PointerType::getUnqual(getContext()),// fields
             },
             "InstanceStruct"
@@ -88,8 +88,9 @@ namespace lox {
         );
         StructType *const EntryStruct = StructType::create(
             getContext(),
-            {StringStructType,                     // key
-             IntegerType::getInt64Ty(getContext()),// value
+            {
+                StringStructType->getPointerTo(),     // key
+                IntegerType::getInt64Ty(getContext()),// value
             },
             "Entry"
         );
