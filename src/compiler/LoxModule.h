@@ -71,10 +71,27 @@ namespace lox {
             getContext(),
             {
                 ObjStructType,
-                ClassStruct,// klass
-                // TODO: fields
+                ClassStruct,                         // klass
+                PointerType::getUnqual(getContext()),// fields
             },
             "InstanceStruct"
+        );
+        StructType *const TableStruct = StructType::create(
+            getContext(),
+            {
+                ObjStructType,
+                IntegerType::getInt32Ty(getContext()),// count
+                IntegerType::getInt32Ty(getContext()),// capacity
+                PointerType::getUnqual(getContext()), // entries
+            },
+            "Table"
+        );
+        StructType *const EntryStruct = StructType::create(
+            getContext(),
+            {StringStructType,                     // key
+             IntegerType::getInt64Ty(getContext()),// value
+            },
+            "Entry"
         );
         GlobalVariable *const objects = cast<GlobalVariable>(getOrInsertGlobal(
             "objects",
@@ -118,7 +135,10 @@ namespace lox {
                     return ClassStruct;
                 case ObjType::INSTANCE:
                     return InstanceStruct;
-                // TODO: other types.
+                case ObjType::TABLE:
+                    return TableStruct;
+                case ObjType::ENTRY:
+                    return EntryStruct;
                 default:
                     throw std::runtime_error("Not implemented");
             }

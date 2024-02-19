@@ -15,7 +15,10 @@ namespace lox {
     Value *LoxBuilder::AllocateInstance(llvm::Value *klass) {
         const auto ptr = AllocateObj(ObjType::INSTANCE, "instance");
 
+        Value *fields = AllocateTable();
+
         CreateStore(klass, CreateObjStructGEP(ObjType::INSTANCE, ptr, 1));
+        CreateStore(fields, CreateObjStructGEP(ObjType::INSTANCE, ptr, 2));
 
         return ptr;
     }

@@ -39,6 +39,8 @@ add_executable(cpplox src/main.cpp
         src/compiler/Upvalue.h
         src/compiler/Class.cpp
         src/compiler/Class.h
+        src/compiler/Table.cpp
+        src/compiler/Table.h
 )
 
 target_compile_options(cpplox PRIVATE

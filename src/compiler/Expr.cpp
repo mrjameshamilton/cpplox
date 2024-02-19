@@ -3,12 +3,15 @@
 #include <bit>
 #include <iostream>
 #include <ranges>
+#include <string_view>
 #include <vector>
+
 
 #define DEBUG false
 
 using namespace llvm;
 using namespace llvm::sys;
+using namespace std::string_view_literals;
 
 namespace lox {
 
@@ -238,12 +241,43 @@ namespace lox {
         return result;
     }
 
-    Value *FunctionCompiler::operator()(const GetExprPtr &getExpr) const {
-        throw std::runtime_error("not implemented");
+    void CheckInstance(FunctionCompiler &Compiler, LoxBuilder &Builder, std::string_view message, unsigned int line, Value *instance) {
+        const auto NotInstanceBlock = Builder.CreateBasicBlock("not.instance");
+        const auto EndBlock = Builder.CreateBasicBlock("end");
+
+        Builder.CreateCondBr(Builder.IsInstance(instance), EndBlock, NotInstanceBlock);
+
+        Builder.SetInsertPoint(NotInstanceBlock);
+        Builder.RuntimeError(line, message, {}, Compiler.getEnclosing() == nullptr ? nullptr : Builder.getFunction());
+        Builder.CreateUnreachable();
+
+        Builder.SetInsertPoint(EndBlock);
     }
 
-    Value *FunctionCompiler::operator()(const SetExprPtr &setExpr) const {
-        throw std::runtime_error("not implemented");
+    Value *FunctionCompiler::operator()(const GetExprPtr &getExpr) {
+        Value *object = evaluate(getExpr->object);
+        CheckInstance(*this, Builder, "Only instances have properties.\n"sv, getExpr->name.getLine(), object);
+
+        const auto instance = Builder.AsObj(object);
+        const auto fields = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
+
+        const auto result = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getPtrTy(), "result");
+        Builder.TableGet(fields, Builder.CreateGlobalCachedString(getExpr->name.getLexeme()), result);
+
+        return Builder.CreateLoad(Builder.getInt64Ty(), result);
+    }
+
+    Value *FunctionCompiler::operator()(const SetExprPtr &setExpr) {
+        const auto object = evaluate(setExpr->object);
+        CheckInstance(*this, Builder, "Only instances have fields.\n"sv, setExpr->name.getLine(), object);
+
+        const auto instance = Builder.AsObj(object);
+        const auto value = evaluate(setExpr->value);
+        const auto fields = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
+
+        Builder.TableSet(fields, Builder.CreateGlobalCachedString(setExpr->name.getLexeme()), value);
+
+        return value;
     }
 
     Value *FunctionCompiler::operator()(const ThisExprPtr &thisExpr) const {

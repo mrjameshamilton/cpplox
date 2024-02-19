@@ -1,25 +1,6 @@
-class Foo {
-    foo() {
-        print "foo";
-    }
-}
+class Pair {}
 
-print Foo;
-
-var foo = Foo();
-
-print foo;
-
-print "hello" + "a";
-
-print "hello";
-
-fun foo() {
-    print "foo";
-}
-
-foo();
-
-print 1<2;
-print 2<1;
-print 1+1;
+var pair = Pair();
+pair.first = 1;
+pair.second = 2;
+print pair.first + pair.second; // 3.

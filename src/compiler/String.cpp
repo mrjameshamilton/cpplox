@@ -139,7 +139,7 @@ namespace lox {
 
         // FNV-1a hash function.
         unsigned int hash = -2128831035;
-        for (char i : String) {
+        for (char i: String) {
             hash ^= i;
             hash *= 16777619;
         }

@@ -24,6 +24,8 @@ namespace lox {
         UPVALUE = 4,
         CLASS = 5,
         INSTANCE = 6,
+        TABLE = 7,
+        ENTRY = 8,
     };
 }
 

@@ -29,7 +29,6 @@ namespace lox {
         Value *IsNil(Value *value);
         Value *IsNumber(Value *value);
         Value *IsObj(Value *value);
-        Value *IsFunction(Value *value);
         Value *IsClosure(Value *value);
         Value *IsString(Value *value);
         Value *IsClass(Value *value);
@@ -63,6 +62,9 @@ namespace lox {
         Value *AllocateArray(Type *type, Value *size, const std::string_view &name);
         Value *AllocateClass(const std::string_view name);
         Value *AllocateInstance(Value *klass);
+        Value *AllocateTable();
+        Value *TableSet(Value *Table, Value *Key, Value *V);
+        Value *TableGet(Value *Table, Value *Key, Value *Result);
 
         Value *Concat(Value *a, Value *b);
         Value *StrEquals(Value *a, Value *b);

@@ -33,33 +33,32 @@ namespace lox {
     }
 
     Value *LoxBuilder::IsBool(Value *value) {
+        assert(value->getType() == getInt64Ty());
         return CreateICmpEQ(CreateOr(value, 1), getTrueVal());
     }
 
     Value *LoxBuilder::IsUninitialized(Value *value) {
+        assert(value->getType() == getInt64Ty());
         return CreateICmpEQ(value, getUninitializedVal());
     }
 
     Value *LoxBuilder::IsNil(Value *value) {
+        assert(value->getType() == getInt64Ty());
         return CreateICmpEQ(value, getNilVal());
     }
 
     Value *LoxBuilder::IsNumber(Value *value) {
+        assert(value->getType() == getInt64Ty());
         return CreateICmpNE(CreateAnd(value, QNAN), getInt64(QNAN));
     }
 
     Value *LoxBuilder::IsObj(Value *value) {
+        assert(value->getType() == getInt64Ty());
         return CreateICmpEQ(CreateAnd(value, QNAN | SIGN_BIT), getInt64(QNAN | SIGN_BIT));
     }
 
-    Value *LoxBuilder::IsFunction(Value *value) {
-        return CreateAnd(
-            IsObj(value),
-            CreateICmpEQ(ObjType(value), ObjTypeInt(ObjType::FUNCTION))
-        );
-    }
-
     Value *LoxBuilder::IsClosure(Value *value) {
+        assert(value->getType() == getInt64Ty());
         return CreateAnd(
             IsObj(value),
             CreateICmpEQ(ObjType(value), ObjTypeInt(ObjType::CLOSURE))
@@ -67,6 +66,7 @@ namespace lox {
     }
 
     Value *LoxBuilder::IsString(Value *value) {
+        assert(value->getType() == getInt64Ty());
         return CreateAnd(
             IsObj(value),
             CreateICmpEQ(ObjType(value), ObjTypeInt(ObjType::STRING))
@@ -74,6 +74,7 @@ namespace lox {
     }
 
     Value *LoxBuilder::IsClass(Value *value) {
+        assert(value->getType() == getInt64Ty());
         return CreateAnd(
             IsObj(value),
             CreateICmpEQ(ObjType(value), ObjTypeInt(ObjType::CLASS))
@@ -81,6 +82,7 @@ namespace lox {
     }
 
     Value *LoxBuilder::IsInstance(Value *value) {
+        assert(value->getType() == getInt64Ty());
         return CreateAnd(
             IsObj(value),
             CreateICmpEQ(ObjType(value), ObjTypeInt(ObjType::INSTANCE))
@@ -88,6 +90,7 @@ namespace lox {
     }
 
     Value *LoxBuilder::ObjType(Value *value) {
+        assert(value->getType() == getInt64Ty());
         return CreateLoad(
             getInt8Ty(),
             CreateStructGEP(getModule().getObjStructType(), AsObj(value), 0)
@@ -97,7 +100,6 @@ namespace lox {
     ConstantInt *LoxBuilder::ObjTypeInt(enum ObjType objType) {
         return getInt8(static_cast<uint8_t>(objType));
     }
-
 
     Value *LoxBuilder::BoolVal(Value *value) {
         assert(value->getType() == getInt1Ty());

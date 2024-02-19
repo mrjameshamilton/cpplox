@@ -87,8 +87,8 @@ namespace lox {
         Value *operator()(const AssignExprPtr &assignExpr);
         Value *operator()(const BinaryExprPtr &binaryExpr);
         Value *operator()(const CallExprPtr &callExpr);
-        Value *operator()(const GetExprPtr &getExpr) const;
-        Value *operator()(const SetExprPtr &setExpr) const;
+        Value *operator()(const GetExprPtr &getExpr);
+        Value *operator()(const SetExprPtr &setExpr);
         Value *operator()(const ThisExprPtr &thisExpr) const;
         Value *operator()(const SuperExprPtr &superExpr) const;
         Value *operator()(const VarExprPtr &varExpr);
@@ -103,6 +103,10 @@ namespace lox {
 
         void endScope() {
             scopes.pop();
+        }
+
+        FunctionCompiler *getEnclosing() {
+            return enclosing;
         }
 
         [[nodiscard]] Value *lookupVariable(Assignable &assignable) {
