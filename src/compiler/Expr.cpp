@@ -256,7 +256,22 @@ namespace lox {
         const auto fields = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
 
         const auto result = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getPtrTy(), "result");
-        Builder.TableGet(fields, Builder.CreateGlobalCachedString(getExpr->name.getLexeme()), result);
+        const auto exists = Builder.TableGet(fields, Builder.CreateGlobalCachedString(getExpr->name.getLexeme()), result);
+
+        const auto IsUndefinedBlock = Builder.CreateBasicBlock("property.undefined");
+        const auto IsDefinedBlock = Builder.CreateBasicBlock("property.defined");
+
+        Builder.CreateCondBr(exists, IsDefinedBlock, IsUndefinedBlock);
+        Builder.SetInsertPoint(IsUndefinedBlock);
+        Builder.RuntimeError(
+            getExpr->name.getLine(),
+            "Undefined property '%s'.\n"sv,
+            {Builder.CreateGlobalCachedString(getExpr->name.getLexeme())},
+            getEnclosing() == nullptr ? nullptr : Builder.getFunction()
+        );
+        Builder.CreateUnreachable();
+
+        Builder.SetInsertPoint(IsDefinedBlock);
 
         return Builder.CreateLoad(Builder.getInt64Ty(), result);
     }
