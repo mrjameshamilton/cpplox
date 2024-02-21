@@ -12,7 +12,7 @@ namespace lox {
             CreateObjStructGEP(ObjType::UPVALUE, ptr, 1)
         );
         CreateStore(
-            Constant::getNullValue(PointerType::getUnqual(getContext())),
+            getNullPtr(),
             CreateObjStructGEP(ObjType::UPVALUE, ptr, 2)
         );
         CreateStore(

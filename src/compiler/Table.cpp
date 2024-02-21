@@ -27,7 +27,7 @@ namespace lox {
 
             B.CreateStore(B.getInt32(0), B.CreateObjStructGEP(ObjType::TABLE, ptr, 1));
             B.CreateStore(B.getInt32(0), B.CreateObjStructGEP(ObjType::TABLE, ptr, 2));
-            B.CreateStore(Constant::getNullValue(PointerType::getUnqual(getContext())), B.CreateObjStructGEP(ObjType::TABLE, ptr, 3));
+            B.CreateStore(B.getNullPtr(), B.CreateObjStructGEP(ObjType::TABLE, ptr, 3));
 
             B.CreateRet(ptr);
 
@@ -186,7 +186,7 @@ namespace lox {
 
             // key
             B.CreateStore(
-                Constant::getNullValue(PointerType::getUnqual(getContext())),
+                B.getNullPtr(),
                 B.CreateObjStructGEP(ObjType::ENTRY, entry, 0)
             );
 
