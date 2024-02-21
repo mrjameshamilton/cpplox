@@ -324,16 +324,14 @@ namespace lox {
 
             const auto capacity = B.CreateLoad(B.getInt32Ty(), B.CreateObjStructGEP(ObjType::TABLE, table, 2));
             const auto entry = FindEntry(B, B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::TABLE, table, 3)), capacity, key);
-            const auto isNewKey = CreateEntryBlockAlloca(F, B.getInt1Ty(), "isNewKey");
-
-            B.CreateStore(B.CreateIsNull(B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::ENTRY, entry, 0))), isNewKey);
+            const auto isNewKey = B.CreateIsNull(B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::ENTRY, entry, 0)));
 
             const auto IsNewEntryBlock = B.CreateBasicBlock("newentry");
             const auto EndBlock = B.CreateBasicBlock("end");
 
             B.CreateCondBr(
                 B.CreateAnd(
-                    B.CreateICmpEQ(B.getInt1(true), B.CreateLoad(B.getInt1Ty(), isNewKey)),
+                    isNewKey,
                     B.IsNil(B.CreateLoad(B.getInt64Ty(), B.CreateObjStructGEP(ObjType::ENTRY, entry, 1)))
                 ),
                 IsNewEntryBlock,
@@ -361,7 +359,7 @@ namespace lox {
                 B.CreateObjStructGEP(ObjType::ENTRY, entry, 1)
             );
 
-            B.CreateRet(B.CreateLoad(B.getInt1Ty(), isNewKey));
+            B.CreateRet(isNewKey);
 
             return F;
         }());
