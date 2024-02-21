@@ -133,6 +133,15 @@ namespace lox {
         return Builder.CreateCall(FindEntryFunction, {Entries, Capacity, Key});
     }
 
+    void PrintEntry(LoxBuilder &B, Value *value) {
+        const auto entryKey = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::ENTRY, value, 0));
+        const auto entryKeyString = B.AsCString(B.ObjVal(entryKey));
+        const auto entryValue = B.CreateLoad(B.getInt64Ty(), B.CreateObjStructGEP(ObjType::ENTRY, value, 1));
+
+        B.PrintF({B.CreateGlobalCachedString("entry: %p = "), entryKeyString});
+        B.Print(entryValue);
+    }
+
     Value *LoxBuilder::TableSet(llvm::Value *Table, llvm::Value *Key, llvm::Value *V) {
         assert(V->getType() == IntegerType::get(getContext(), 64));
         static auto AdjustCapacityFunction([this] {
@@ -207,25 +216,39 @@ namespace lox {
             const auto ForInc2 = B.CreateBasicBlock("for.inc");
             const auto ForEnd2 = B.CreateBasicBlock("for.end");
 
+            const auto tableCapacity = B.CreateLoad(B.getInt32Ty(), B.CreateObjStructGEP(ObjType::TABLE, table, 2));
+
             B.CreateBr(ForCond2);
             B.SetInsertPoint(ForCond2);
-            B.CreateCondBr(B.CreateICmpSLT(B.CreateLoad(B.getInt32Ty(), i), capacity), ForBody2, ForEnd2);
+
+            B.CreateCondBr(
+                B.CreateICmpSLT(
+                    B.CreateLoad(B.getInt32Ty(), i),
+                    tableCapacity
+                ),
+                ForBody2,
+                ForEnd2
+            );
             B.SetInsertPoint(ForBody2);
 
             const auto NotNullBlock = B.CreateBasicBlock("key.notnull");
 
-            const auto entry2 = B.CreateInBoundsGEP(B.getModule().getStructType(ObjType::ENTRY), entries, B.CreateLoad(B.getInt32Ty(), i));
-            B.CreateCondBr(B.CreateIsNull(B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::ENTRY, entry2, 0))), ForInc2, NotNullBlock);
+            const auto entry2 = B.CreateInBoundsGEP(
+                B.getModule().getStructType(ObjType::ENTRY),
+                B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::TABLE, table, 3)),
+                B.CreateLoad(B.getInt32Ty(), i)
+            );
+            const auto entryKeyPtr = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::ENTRY, entry2, 0));
+            B.CreateCondBr(B.CreateIsNull(entryKeyPtr), ForInc2, NotNullBlock);
 
             B.SetInsertPoint(NotNullBlock);
 
-            const auto dest = FindEntry(B, entries, capacity, B.CreateObjStructGEP(ObjType::ENTRY, entry2, 0));
+            const auto dest = FindEntry(B, entries, capacity, entryKeyPtr);
 
             B.CreateStore(
-                B.CreateObjStructGEP(ObjType::ENTRY, entry2, 0),
+                entryKeyPtr,
                 B.CreateObjStructGEP(ObjType::ENTRY, dest, 0)
             );
-
             B.CreateStore(
                 B.CreateLoad(B.getInt64Ty(), B.CreateObjStructGEP(ObjType::ENTRY, entry2, 1)),
                 B.CreateObjStructGEP(ObjType::ENTRY, dest, 1)
@@ -241,7 +264,7 @@ namespace lox {
 
             B.SetInsertPoint(ForEnd2);
 
-            // TODO: free array
+            B.CreateFree(B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::TABLE, table, 3)));
             B.CreateStore(capacity, B.CreateObjStructGEP(ObjType::TABLE, table, 2));
             B.CreateStore(entries, B.CreateObjStructGEP(ObjType::TABLE, table, 3));
 
@@ -346,12 +369,12 @@ namespace lox {
         return CreateCall(TableSetFunction, {Table, Key, V});
     }
 
-    Value *LoxBuilder::TableGet(Value *Table, Value *Key, Value *Result) {
+    Value *LoxBuilder::TableGet(Value *Table, Value *Key) {
         static auto TableGetFunction([this] {
             const auto F = Function::Create(
                 FunctionType::get(
-                    getInt1Ty(),
-                    {getPtrTy(), getPtrTy(), getPtrTy()},
+                    getInt64Ty(),
+                    {getPtrTy(), getPtrTy()},
                     false
                 ),
                 Function::InternalLinkage,
@@ -367,7 +390,6 @@ namespace lox {
             const auto arguments = F->arg_begin();
             const auto table = arguments;
             const auto key = arguments + 1;
-            const auto value = arguments + 2;
 
             const auto count = B.CreateLoad(B.getInt32Ty(), B.CreateObjStructGEP(ObjType::TABLE, table, 1));
 
@@ -377,7 +399,7 @@ namespace lox {
             B.CreateCondBr(B.CreateICmpEQ(B.getInt32(0), count), IsEmptyBlock, NotEmptyBlock);
 
             B.SetInsertPoint(IsEmptyBlock);
-            B.CreateRet(B.getFalse());
+            B.CreateRet(B.getUninitializedVal());
 
             B.SetInsertPoint(NotEmptyBlock);
             const auto capacity = B.CreateLoad(B.getInt32Ty(), B.CreateObjStructGEP(ObjType::TABLE, table, 2));
@@ -392,22 +414,18 @@ namespace lox {
             B.CreateCondBr(B.CreateIsNull(entryKey), EntryKeyNullBlock, EndBlock);
 
             B.SetInsertPoint(EntryKeyNullBlock);
-            B.CreateRet(B.getFalse());
+            B.CreateRet(B.getUninitializedVal());
 
             B.SetInsertPoint(EndBlock);
 
-            const auto entryValue = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::ENTRY, entry, 1));
-            B.CreateStore(
-                entryValue,
-                value
-            );
+            const auto entryValue = B.CreateLoad(B.getInt64Ty(), B.CreateObjStructGEP(ObjType::ENTRY, entry, 1));
 
-            B.CreateRet(B.getTrue());
+            B.CreateRet(entryValue);
 
             return F;
         }());
 
-        return CreateCall(TableGetFunction, {Table, Key, Result});
+        return CreateCall(TableGetFunction, {Table, Key});
     }
 
 }// namespace lox

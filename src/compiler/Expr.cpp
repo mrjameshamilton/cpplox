@@ -255,13 +255,12 @@ namespace lox {
         const auto instance = Builder.AsObj(object);
         const auto fields = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
 
-        const auto result = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getPtrTy(), "result");
-        const auto exists = Builder.TableGet(fields, Builder.CreateGlobalCachedString(getExpr->name.getLexeme()), result);
+        const auto result = Builder.TableGet(fields, Builder.AllocateString(getExpr->name.getLexeme(), "s"));
 
         const auto IsUndefinedBlock = Builder.CreateBasicBlock("property.undefined");
         const auto IsDefinedBlock = Builder.CreateBasicBlock("property.defined");
 
-        Builder.CreateCondBr(exists, IsDefinedBlock, IsUndefinedBlock);
+        Builder.CreateCondBr(Builder.IsUninitialized(result), IsUndefinedBlock, IsDefinedBlock);
         Builder.SetInsertPoint(IsUndefinedBlock);
         Builder.RuntimeError(
             getExpr->name.getLine(),
@@ -273,7 +272,7 @@ namespace lox {
 
         Builder.SetInsertPoint(IsDefinedBlock);
 
-        return Builder.CreateLoad(Builder.getInt64Ty(), result);
+        return result;
     }
 
     Value *FunctionCompiler::operator()(const SetExprPtr &setExpr) {
@@ -284,7 +283,7 @@ namespace lox {
         const auto value = evaluate(setExpr->value);
         const auto fields = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
 
-        Builder.TableSet(fields, Builder.CreateGlobalCachedString(setExpr->name.getLexeme()), value);
+        Builder.TableSet(fields, Builder.AllocateString(setExpr->name.getLexeme(), "s"), value);
 
         return value;
     }

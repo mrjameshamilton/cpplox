@@ -64,7 +64,7 @@ namespace lox {
         Value *AllocateInstance(Value *klass);
         Value *AllocateTable();
         Value *TableSet(Value *Table, Value *Key, Value *V);
-        Value *TableGet(Value *Table, Value *Key, Value *Result);
+        Value *TableGet(Value *Table, Value *Key);
 
         Value *Concat(Value *a, Value *b);
 

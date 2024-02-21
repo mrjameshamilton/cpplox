@@ -136,6 +136,7 @@ namespace lox {
     }
 
     void LoxBuilder::Print(Value *value) {
+        assert(value->getType() == getInt64Ty());
         static auto PrintFunction([this] {
             const auto F = Function::Create(
                 FunctionType::get(
