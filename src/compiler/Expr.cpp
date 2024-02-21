@@ -283,7 +283,7 @@ namespace lox {
         const auto value = evaluate(setExpr->value);
         const auto fields = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
 
-        Builder.TableSet(fields, Builder.AllocateString(setExpr->name.getLexeme(), "s"), value);
+        Builder.TableSet(fields, Builder.AllocateString(setExpr->name.getLexeme(), "key"), value);
 
         return value;
     }
