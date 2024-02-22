@@ -26,6 +26,7 @@ namespace lox {
         INSTANCE = 6,
         TABLE = 7,
         ENTRY = 8,
+        BOUND_METHOD = 9,
     };
 }
 

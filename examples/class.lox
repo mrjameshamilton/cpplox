@@ -1,7 +1,8 @@
-class Foo {
-    foo() {
-        return "foo";
-    }
+class Scone {
+  topping(first, second) {
+    print "scone with " + first + " and " + second;
+  }
 }
 
-print Foo().foo();
+var scone = Scone();
+scone.topping("berries", "cream");

@@ -140,25 +140,37 @@ namespace lox {
     }
 
     Value *FunctionCompiler::operator()(const CallExprPtr &callExpr) {
+        // TODO: refactor / tidy.
+
         const auto value = evaluate(callExpr->callee);
 
-        const auto IsClosureBlock = Builder.CreateBasicBlock("is.callable");
+        const auto IsClosureBlock = Builder.CreateBasicBlock("is.closure");
+        const auto CheckMethodBlock = Builder.CreateBasicBlock("check.method");
         const auto CheckClassBlock = Builder.CreateBasicBlock("check.class");
         const auto IsClassBlock = Builder.CreateBasicBlock("is.class");
+        const auto IsMethodBlock = Builder.CreateBasicBlock("is.method");
         const auto NotCallableBlock = Builder.CreateBasicBlock("not.callable");
+        const auto ExecuteBlock = Builder.CreateBasicBlock("execute");
         const auto EndBlock = Builder.CreateBasicBlock("end.block");
 
         Builder.CreateCondBr(Builder.IsClosure(value), IsClosureBlock, CheckClassBlock);
 
         Builder.SetInsertPoint(CheckClassBlock);
-
-        Builder.CreateCondBr(Builder.IsClass(value), IsClassBlock, NotCallableBlock);
+        Builder.CreateCondBr(Builder.IsClass(value), IsClassBlock, CheckMethodBlock);
         Builder.SetInsertPoint(IsClassBlock);
         const auto klass = Builder.AsObj(value);
         const auto instance = Builder.AllocateInstance(klass);
         const auto instanceVal = Builder.ObjVal(instance);
 
         Builder.CreateBr(EndBlock);
+
+        Builder.SetInsertPoint(CheckMethodBlock);
+        Builder.CreateCondBr(Builder.IsBoundMethod(value), IsMethodBlock, NotCallableBlock);
+        Builder.SetInsertPoint(IsMethodBlock);
+        const auto valuePtr = Builder.AsObj(value);
+        const auto receiverPtr = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::BOUND_METHOD, valuePtr, 1));
+        const auto methodPtr = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::BOUND_METHOD, valuePtr, 2));
+        Builder.CreateBr(ExecuteBlock);
 
         Builder.SetInsertPoint(NotCallableBlock);
         Builder.RuntimeError(
@@ -170,11 +182,21 @@ namespace lox {
         Builder.CreateUnreachable();
 
         Builder.SetInsertPoint(IsClosureBlock);
+        const auto closurePtr = Builder.AsObj(value);
+        Builder.CreateBr(ExecuteBlock);
+
+        Builder.SetInsertPoint(ExecuteBlock);
+
         // The function is wrapped in a closure.
-        const auto closure = Builder.AsObj(value);
+        auto closure = Builder.CreatePHI(Builder.getPtrTy(), 2);
+        closure->addIncoming(closurePtr, IsClosureBlock);
+        closure->addIncoming(methodPtr, IsMethodBlock);
+        auto receiver = Builder.CreatePHI(Builder.getPtrTy(), 2);
+        receiver->addIncoming(receiverPtr, IsMethodBlock);
+        receiver->addIncoming(Builder.getNullPtr(), IsClosureBlock);
+
         const auto function = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 1));
         const auto upvalues = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 2));
-        const auto receiver = Builder.getNullPtr();// TODO
         const auto callee = function;
 
         std::vector<Type *> paramTypes(callExpr->arguments.size(), Builder.getInt64Ty());
@@ -258,7 +280,8 @@ namespace lox {
         const auto instance = Builder.AsObj(object);
         const auto fields = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
 
-        const auto result = Builder.TableGet(fields, Builder.AllocateString(getExpr->name.getLexeme(), "s"));
+        const auto key = Builder.AllocateString(getExpr->name.getLexeme(), "s");
+        const auto result = Builder.TableGet(fields, key);
 
         const auto CheckMethodBlock = Builder.CreateBasicBlock("property.ismethod?");
         const auto IsMethodBlock = Builder.CreateBasicBlock("property.ismethod");
@@ -271,12 +294,13 @@ namespace lox {
         Builder.SetInsertPoint(CheckMethodBlock);
         const auto klass = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
         const auto methods = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2));
-        const auto method = Builder.TableGet(methods, Builder.AllocateString(getExpr->name.getLexeme(), "m"));
+        const auto method = Builder.TableGet(methods, key);
 
         Builder.CreateCondBr(Builder.IsUninitialized(method), IsUndefinedBlock, IsMethodBlock);
 
         Builder.SetInsertPoint(IsMethodBlock);
-        //TODO: bind method.
+
+        const auto bound = Builder.ObjVal(Builder.BindMethod(instance, Builder.AsObj(method)));
 
         Builder.CreateBr(IsDefinedBlock);
 
@@ -292,7 +316,7 @@ namespace lox {
         Builder.SetInsertPoint(IsDefinedBlock);
         const auto R = Builder.CreatePHI(Builder.getInt64Ty(), 2);
         R->addIncoming(result, BeforeBlock);
-        R->addIncoming(method, IsMethodBlock);
+        R->addIncoming(bound, IsMethodBlock);
 
         return R;
     }

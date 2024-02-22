@@ -66,7 +66,7 @@ namespace lox {
                 StringStructType->getPointerTo(),    // name
                 PointerType::getUnqual(getContext()),// methods
             },
-            "ClassStruct"
+            "Class"
         );
         StructType *const InstanceStruct = StructType::create(
             getContext(),
@@ -75,7 +75,16 @@ namespace lox {
                 ClassStruct->getPointerTo(),         // klass
                 PointerType::getUnqual(getContext()),// fields
             },
-            "InstanceStruct"
+            "Instance"
+        );
+        StructType *const BoundMethodStruct = StructType::create(
+            getContext(),
+            {
+                ObjStructType,
+                PointerType::getUnqual(getContext()),// receiver
+                PointerType::getUnqual(getContext()),// closure
+            },
+            "BoundMethod"
         );
         StructType *const TableStruct = StructType::create(
             getContext(),
@@ -146,6 +155,8 @@ namespace lox {
                     return ClassStruct;
                 case ObjType::INSTANCE:
                     return InstanceStruct;
+                case ObjType::BOUND_METHOD:
+                    return BoundMethodStruct;
                 case ObjType::TABLE:
                     return TableStruct;
                 case ObjType::ENTRY:

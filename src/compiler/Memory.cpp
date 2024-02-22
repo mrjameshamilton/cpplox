@@ -47,6 +47,7 @@ namespace lox {
                 ObjType::UPVALUE,
                 ObjType::CLASS,
                 ObjType::INSTANCE,
+                ObjType::BOUND_METHOD
             };
 
             const auto CurrentBlock = B.GetInsertBlock();

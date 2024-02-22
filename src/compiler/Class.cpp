@@ -24,4 +24,13 @@ namespace lox {
 
         return ptr;
     }
+
+    Value *LoxBuilder::BindMethod(llvm::Value *receiver, llvm::Value *closure) {
+        const auto ptr = AllocateObj(ObjType::BOUND_METHOD, "bound_method");
+
+        CreateStore(receiver, CreateObjStructGEP(ObjType::BOUND_METHOD, ptr, 1));
+        CreateStore(closure, CreateObjStructGEP(ObjType::BOUND_METHOD, ptr, 2));
+
+        return ptr;
+    }
 }// namespace lox

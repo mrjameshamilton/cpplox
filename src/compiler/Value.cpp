@@ -89,6 +89,14 @@ namespace lox {
         );
     }
 
+    Value *LoxBuilder::IsBoundMethod(Value *value) {
+        assert(value->getType() == getInt64Ty());
+        return CreateAnd(
+            IsObj(value),
+            CreateICmpEQ(ObjType(value), ObjTypeInt(ObjType::BOUND_METHOD))
+        );
+    }
+
     Value *LoxBuilder::ObjType(Value *value) {
         assert(value->getType() == getInt64Ty());
         return CreateLoad(
