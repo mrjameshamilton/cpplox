@@ -6,8 +6,10 @@ namespace lox {
         const auto ptr = AllocateObj(ObjType::CLASS, "class");
 
         Value *name = AllocateString(className, ("class_" + className).str());
+        Value *methods = AllocateTable();
 
         CreateStore(name, CreateObjStructGEP(ObjType::CLASS, ptr, 1));
+        CreateStore(methods, CreateObjStructGEP(ObjType::CLASS, ptr, 2));
 
         return ptr;
     }

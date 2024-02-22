@@ -22,10 +22,9 @@ namespace lox {
 
     Value *FunctionCompiler::CreateFunction(const FunctionStmtPtr &functionStmt, const std::string_view name) {
         std::vector<Type *> paramTypes(functionStmt->parameters.size(), Builder.getInt64Ty());
-        if (functionStmt->isMethod) {
-            // The first parameter is for the receiver instance.
-            paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
-        }
+        // The first parameter is for the receiver instance.
+        paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
+        // The second parameter is the upvalues.
         paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
         FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
 
@@ -136,11 +135,13 @@ namespace lox {
 
     void FunctionCompiler::operator()(const ClassStmtPtr &classStmt) {
         const auto klass = Builder.AllocateClass(classStmt->name.getLexeme());
+        const auto methods = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2));
 
         insertVariable(classStmt->name.getLexeme(), Builder.ObjVal(klass));
 
         for (auto &method: classStmt->methods) {
             const auto methodPtr = CreateFunction(method, (classStmt->name.getLexeme() + "_" + method->name.getLexeme()).str());
+            Builder.TableSet(methods, Builder.AllocateString(method->name.getLexeme()), Builder.ObjVal(methodPtr));
         }
     }
 }// namespace lox

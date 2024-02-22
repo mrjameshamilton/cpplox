@@ -174,6 +174,7 @@ namespace lox {
         const auto closure = Builder.AsObj(value);
         const auto function = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 1));
         const auto upvalues = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 2));
+        const auto receiver = Builder.getNullPtr();// TODO
         const auto callee = function;
 
         std::vector<Type *> paramTypes(callExpr->arguments.size(), Builder.getInt64Ty());
@@ -183,6 +184,8 @@ namespace lox {
             })
         );
 
+        paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
+        paramValues.insert(paramValues.begin(), receiver);
         paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
         paramValues.insert(paramValues.begin(), upvalues);
 
@@ -257,10 +260,26 @@ namespace lox {
 
         const auto result = Builder.TableGet(fields, Builder.AllocateString(getExpr->name.getLexeme(), "s"));
 
+        const auto CheckMethodBlock = Builder.CreateBasicBlock("property.ismethod?");
+        const auto IsMethodBlock = Builder.CreateBasicBlock("property.ismethod");
         const auto IsUndefinedBlock = Builder.CreateBasicBlock("property.undefined");
         const auto IsDefinedBlock = Builder.CreateBasicBlock("property.defined");
 
-        Builder.CreateCondBr(Builder.IsUninitialized(result), IsUndefinedBlock, IsDefinedBlock);
+        const auto BeforeBlock = Builder.GetInsertBlock();
+
+        Builder.CreateCondBr(Builder.IsUninitialized(result), CheckMethodBlock, IsDefinedBlock);
+        Builder.SetInsertPoint(CheckMethodBlock);
+        const auto klass = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
+        const auto methods = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2));
+        const auto method = Builder.TableGet(methods, Builder.AllocateString(getExpr->name.getLexeme(), "m"));
+
+        Builder.CreateCondBr(Builder.IsUninitialized(method), IsUndefinedBlock, IsMethodBlock);
+
+        Builder.SetInsertPoint(IsMethodBlock);
+        //TODO: bind method.
+
+        Builder.CreateBr(IsDefinedBlock);
+
         Builder.SetInsertPoint(IsUndefinedBlock);
         Builder.RuntimeError(
             getExpr->name.getLine(),
@@ -271,8 +290,11 @@ namespace lox {
         Builder.CreateUnreachable();
 
         Builder.SetInsertPoint(IsDefinedBlock);
+        const auto R = Builder.CreatePHI(Builder.getInt64Ty(), 2);
+        R->addIncoming(result, BeforeBlock);
+        R->addIncoming(method, IsMethodBlock);
 
-        return result;
+        return R;
     }
 
     Value *FunctionCompiler::operator()(const SetExprPtr &setExpr) {

@@ -16,7 +16,7 @@ namespace lox {
     void ModuleCompiler::evaluate(const Program &program) const {
         // Native clock function.
         Function *Clock = Function::Create(
-            FunctionType::get(IntegerType::getInt64Ty(*Context), {Builder->getPtrTy()}, false),
+            FunctionType::get(IntegerType::getInt64Ty(*Context), {Builder->getPtrTy(), Builder->getPtrTy()}, false),
             Function::InternalLinkage,
             "clock_native",
             *M

@@ -63,7 +63,8 @@ namespace lox {
             getContext(),
             {
                 ObjStructType,
-                StringStructType->getPointerTo(),// name
+                StringStructType->getPointerTo(),    // name
+                PointerType::getUnqual(getContext()),// methods
             },
             "ClassStruct"
         );

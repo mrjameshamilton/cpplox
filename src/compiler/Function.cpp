@@ -42,7 +42,7 @@ namespace lox {
         return CreateCall(
             AllocateFunctionFunction,
             {Function,
-             AllocateString(Function->getName()), getInt32(Function->arg_size() - 1),
+             AllocateString(Function->getName()), getInt32(Function->arg_size() - 2),// receiver + upvalues
              isNative ? getTrue() : getFalse()
             }
         );
