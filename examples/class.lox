@@ -1,9 +1,11 @@
-class Scone {
-  topping(first, second) {
-    print this;
-    print "scone with " + first + " and " + second;
+class Foo {
+  init() {
+    print "init";
+    return;
+    print "nope";
   }
 }
 
-var scone = Scone();
-scone.topping("berries", "cream");
+var foo = Foo(); // expect: init
+print foo.init(); // expect: init
+// expect: Foo instance

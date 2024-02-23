@@ -20,7 +20,7 @@ namespace lox {
         endScope();
     }
 
-    Value *FunctionCompiler::CreateFunction(const FunctionStmtPtr &functionStmt, const std::string_view name) {
+    Value *FunctionCompiler::CreateFunction(LoxFunctionType type, const FunctionStmtPtr &functionStmt, const std::string_view name) {
         std::vector<Type *> paramTypes(functionStmt->parameters.size(), Builder.getInt64Ty());
         // The second parameter is for the receiver instance.
         paramTypes.insert(paramTypes.begin(), Builder.getInt64Ty());
@@ -37,14 +37,14 @@ namespace lox {
 
         const auto closurePtr = Builder.AllocateClosure(F, false);
 
-        if (!functionStmt->isMethod) {
+        if (type == LoxFunctionType::FUNCTION) {
             // Methods aren't stored as variables.
             insertVariable(functionStmt->name.getLexeme(), Builder.ObjVal(closurePtr));
         }
 
-        FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, this);
+        FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, type, this);
         C.compile(functionStmt->body, functionStmt->parameters, [&C, &functionStmt](LoxBuilder &B) {
-            if (functionStmt->isMethod) {
+            if (C.type == LoxFunctionType::METHOD) {
                 C.insertVariable("this", B.getFunction()->arg_begin() + 1);
             }
         });
@@ -72,10 +72,7 @@ namespace lox {
     }
 
     void FunctionCompiler::operator()(const FunctionStmtPtr &functionStmt) {
-        CreateFunction(
-            functionStmt,
-            functionStmt->name.getLexeme()
-        );
+        CreateFunction(LoxFunctionType::FUNCTION, functionStmt, functionStmt->name.getLexeme());
     }
 
     void FunctionCompiler::operator()(const ExpressionStmtPtr &expressionStmt) {
@@ -91,7 +88,11 @@ namespace lox {
         BasicBlock *NewBasicBlock = Builder.CreateBasicBlock("return.unreachable");
         Builder.CreateBr(ExitBasicBlock);
         Builder.SetInsertPoint(ExitBasicBlock);
-        Builder.CreateRet(returnStmt->expression.has_value() ? evaluate(returnStmt->expression.value()) : Builder.getNilVal());
+        if (type == LoxFunctionType::INITIALIZER) {
+            Builder.CreateRet(Builder.getFunction()->arg_begin() + 1);
+        } else {
+            Builder.CreateRet(returnStmt->expression.has_value() ? evaluate(returnStmt->expression.value()) : Builder.getNilVal());
+        }
         Builder.SetInsertPoint(NewBasicBlock);
     }
 
@@ -144,7 +145,7 @@ namespace lox {
         insertVariable(classStmt->name.getLexeme(), Builder.ObjVal(klass));
 
         for (auto &method: classStmt->methods) {
-            const auto methodPtr = CreateFunction(method, (classStmt->name.getLexeme() + "_" + method->name.getLexeme()).str());
+            const auto methodPtr = CreateFunction(method->name.getLexeme() == "init" ? LoxFunctionType::INITIALIZER : LoxFunctionType::METHOD, method, (classStmt->name.getLexeme() + "_" + method->name.getLexeme()).str());
             Builder.TableSet(methods, Builder.AllocateString(method->name.getLexeme()), Builder.ObjVal(methodPtr));
         }
     }

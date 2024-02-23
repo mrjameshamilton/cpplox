@@ -139,11 +139,71 @@ namespace lox {
         std::unreachable();
     }
 
-    Value *FunctionCompiler::operator()(const CallExprPtr &callExpr) {
-        // TODO: refactor / tidy.
+    Value *FunctionCompiler::call(Value *receiver, Value *closure, std::vector<Value *> paramValues, const unsigned int line) {
+        assert(receiver->getType() == Builder.getInt64Ty());
+        assert(closure->getType() == Builder.getPtrTy());
 
+        const auto function = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 1));
+        const auto upvalues = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 2));
+
+        std::vector<Type *> paramTypes(paramValues.size(), Builder.getInt64Ty());
+
+        paramTypes.insert(paramTypes.begin(), Builder.getInt64Ty());
+        paramValues.insert(paramValues.begin(), receiver);
+        paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
+        paramValues.insert(paramValues.begin(), upvalues);
+
+        FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
+
+        const auto functionPtr = Builder.CreateLoad(
+            Builder.getPtrTy(),
+            Builder.CreateStructGEP(
+                Builder.getModule().getStructType(ObjType::FUNCTION),
+                function, 2
+            ),
+            "func"
+        );
+
+        // Check arity.
+        const auto arity = Builder.CreateLoad(
+            Builder.getInt32Ty(),
+            Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::FUNCTION), function, 1),
+            "arity"
+        );
+
+        const auto CallBlock = Builder.CreateBasicBlock("call");
+        const auto WrongArityBlock = Builder.CreateBasicBlock("wrong.arity");
+
+        const auto actual = Builder.getInt32(paramValues.size() - 2);
+        Builder.CreateCondBr(Builder.CreateICmpEQ(arity, actual), CallBlock, WrongArityBlock);
+
+        Builder.SetInsertPoint(WrongArityBlock);
+
+        Builder.RuntimeError(
+            line,
+            "Expected %d arguments but got %d.\n",
+            {arity, actual},
+            enclosing == nullptr ? nullptr : Builder.getFunction()
+        );
+        Builder.CreateUnreachable();
+
+        Builder.SetInsertPoint(CallBlock);
+#if DEBUG
+        Builder.PrintF({Builder.CreateGlobalCachedString("Calling func at %p with function ptr %p\n"), callee, functionPtr});
+#endif
+
+        return Builder.CreateCall(FT, functionPtr, paramValues);
+    }
+
+    Value *FunctionCompiler::operator()(const CallExprPtr &callExpr) {
         const auto value = evaluate(callExpr->callee);
         const auto valuePtr = Builder.AsObj(value);
+
+        auto paramValues = to<std::vector<Value *>>(
+            callExpr->arguments | std::views::transform([&](const auto &p) -> Value * {
+                return evaluate(p);
+            })
+        );
 
         const auto IsClosureBlock = Builder.CreateBasicBlock("is.closure");
         const auto CheckMethodBlock = Builder.CreateBasicBlock("check.method");
@@ -160,8 +220,20 @@ namespace lox {
         Builder.CreateCondBr(Builder.IsClass(value), IsClassBlock, CheckMethodBlock);
         Builder.SetInsertPoint(IsClassBlock);
         const auto klass = valuePtr;
+        const auto initializer = Builder.TableGet(Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2)), Builder.AllocateString("init"));
+
         const auto instance = Builder.AllocateInstance(klass);
         const auto instanceVal = Builder.ObjVal(instance);
+
+        const auto EndClassBlock = Builder.CreateBasicBlock("class.end");
+        const auto HasInitializerBlock = Builder.CreateBasicBlock("call.init");
+
+        Builder.CreateCondBr(Builder.IsUninitialized(initializer), EndClassBlock, HasInitializerBlock);
+        Builder.SetInsertPoint(HasInitializerBlock);
+        call(instanceVal, Builder.AsObj(initializer), paramValues, callExpr->keyword.getLine());
+        Builder.CreateBr(EndClassBlock);
+
+        Builder.SetInsertPoint(EndClassBlock);
 
         Builder.CreateBr(EndBlock);
 
@@ -195,67 +267,14 @@ namespace lox {
         receiver->addIncoming(receiverObjVal, IsMethodBlock);
         receiver->addIncoming(Builder.getNilVal(), IsClosureBlock);
 
-        const auto function = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 1));
-        const auto upvalues = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 2));
-        const auto callee = function;
-
-        std::vector<Type *> paramTypes(callExpr->arguments.size(), Builder.getInt64Ty());
-        auto paramValues = to<std::vector<Value *>>(
-            callExpr->arguments | std::views::transform([&](const auto &p) -> Value * {
-                return evaluate(p);
-            })
-        );
-
-        paramTypes.insert(paramTypes.begin(), Builder.getInt64Ty());
-        paramValues.insert(paramValues.begin(), receiver);
-        paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
-        paramValues.insert(paramValues.begin(), upvalues);
-
-        FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
-
-        const auto functionPtr = Builder.CreateLoad(
-            Builder.getPtrTy(),
-            Builder.CreateStructGEP(
-                Builder.getModule().getStructType(ObjType::FUNCTION),
-                callee, 2
-            ),
-            "func"
-        );
-
-        // Check arity.
-        const auto arity = Builder.CreateLoad(
-            Builder.getInt32Ty(),
-            Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::FUNCTION), callee, 1),
-            "arity"
-        );
-
-        const auto CallBlock = Builder.CreateBasicBlock("call");
-        const auto WrongArityBlock = Builder.CreateBasicBlock("wrong.arity");
-
-        const auto actual = Builder.getInt32(callExpr->arguments.size());
-        Builder.CreateCondBr(Builder.CreateICmpEQ(arity, actual), CallBlock, WrongArityBlock);
-
-        Builder.SetInsertPoint(WrongArityBlock);
-
-        Builder.RuntimeError(
-            callExpr->keyword.getLine(),
-            "Expected %d arguments but got %d.\n",
-            {arity, actual},
-            enclosing == nullptr ? nullptr : Builder.getFunction()
-        );
-        Builder.CreateUnreachable();
-
-        Builder.SetInsertPoint(CallBlock);
-#if DEBUG
-        Builder.PrintF({Builder.CreateGlobalCachedString("Calling func at %p with function ptr %p\n"), callee, functionPtr});
-#endif
-        const auto returnVal = Builder.CreateCall(FT, functionPtr, paramValues);
+        const auto returnVal = call(receiver, closure, paramValues, callExpr->keyword.getLine());
+        const auto EndCall = Builder.GetInsertBlock();
 
         Builder.CreateBr(EndBlock);
         Builder.SetInsertPoint(EndBlock);
         const auto result = Builder.CreatePHI(Builder.getInt64Ty(), 2);
-        result->addIncoming(instanceVal, IsClassBlock);
-        result->addIncoming(returnVal, CallBlock);
+        result->addIncoming(instanceVal, EndClassBlock);
+        result->addIncoming(returnVal, EndCall);
 
         return result;
     }

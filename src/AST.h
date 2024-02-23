@@ -35,6 +35,13 @@ namespace lox {
         AND = TokenType::AND
     };
 
+    enum class LoxFunctionType {
+        NONE,
+        FUNCTION,
+        INITIALIZER,
+        METHOD
+    };
+
     struct BinaryExpr;
     struct CallExpr;
     struct GetExpr;
@@ -210,9 +217,8 @@ namespace lox {
         Token name;
         std::vector<Token> parameters;
         StmtList body;
-        bool isMethod;
-        explicit FunctionStmt(const Token &name, std::vector<Token> parameters, StmtList body, bool _isMethod)
-            : name{name}, parameters{std::move(parameters)}, body{std::move(body)}, isMethod{_isMethod} {}
+        explicit FunctionStmt(const Token &name, std::vector<Token> parameters, StmtList body)
+            : name{name}, parameters{std::move(parameters)}, body{std::move(body)} {}
     };
 
     struct ReturnStmt : Uncopyable {

@@ -63,10 +63,11 @@ namespace lox {
         LoxBuilder Builder;
         FunctionCompiler *enclosing;
         std::vector<std::unique_ptr<Upvalue>> upvalues;
+        LoxFunctionType type;
 
     public:
-        explicit FunctionCompiler(LLVMContext &Context, LoxModule &Module, Function &F, FunctionCompiler *enclosing = nullptr)
-            : Builder{Context, Module, F}, enclosing(enclosing) {
+        explicit FunctionCompiler(LLVMContext &Context, LoxModule &Module, Function &F, LoxFunctionType type = LoxFunctionType::FUNCTION, FunctionCompiler *enclosing = nullptr)
+            : Builder{Context, Module, F}, type{type}, enclosing(enclosing) {
         }
 
         // Statement code generation.
@@ -87,6 +88,7 @@ namespace lox {
         Value *operator()(const AssignExprPtr &assignExpr);
         Value *operator()(const BinaryExprPtr &binaryExpr);
         Value *operator()(const CallExprPtr &callExpr);
+        Value *call(Value *receiver, Value *closure, std::vector<Value *> paramValues, unsigned int line);
         Value *operator()(const GetExprPtr &getExpr);
         Value *operator()(const SetExprPtr &setExpr);
         Value *operator()(const ThisExprPtr &thisExpr);
@@ -228,7 +230,7 @@ namespace lox {
             return nullptr;
         }
 
-        Value *CreateFunction(const FunctionStmtPtr &functionStmt, const std::string_view name);
+        Value *CreateFunction(LoxFunctionType type, const FunctionStmtPtr &functionStmt, const std::string_view name);
     };
 
 }// namespace lox

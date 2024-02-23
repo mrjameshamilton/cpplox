@@ -5,15 +5,8 @@
 using namespace std::literals;
 
 namespace lox {
+
     struct Resolver {
-
-        enum class FunctionType {
-            NONE,
-            FUNCTION,
-            INITIALIZER,
-            METHOD
-        };
-
         enum class ClassType {
             NONE,
             CLASS,
@@ -22,7 +15,7 @@ namespace lox {
 
         using Scope = std::unordered_map<std::string_view, bool>;
         std::vector<Scope> scopes;
-        FunctionType currentFunction = FunctionType::NONE;
+        LoxFunctionType currentFunction = LoxFunctionType::NONE;
         ClassType currentClass = ClassType::NONE;
 
         void beginScope() {
@@ -64,8 +57,8 @@ namespace lox {
             endScope();
         }
 
-        void resolveFunction(const FunctionStmtPtr &function, const FunctionType functionType) {
-            const FunctionType enclosingFunction = currentFunction;
+        void resolveFunction(const FunctionStmtPtr &function, const LoxFunctionType functionType) {
+            const LoxFunctionType enclosingFunction = currentFunction;
             currentFunction = functionType;
 
             beginScope();
@@ -81,7 +74,7 @@ namespace lox {
         void operator()(const FunctionStmtPtr &functionStmt) {
             declare(functionStmt->name);
             define(functionStmt->name);
-            resolveFunction(functionStmt, FunctionType::FUNCTION);
+            resolveFunction(functionStmt, LoxFunctionType::FUNCTION);
         }
 
         void operator()(const ExpressionStmtPtr &expressionStmt) {
@@ -93,9 +86,9 @@ namespace lox {
         }
 
         void operator()(const ReturnStmtPtr &returnStmt) {
-            if (currentFunction == FunctionType::NONE) {
+            if (currentFunction == LoxFunctionType::NONE) {
                 lox::error(returnStmt->keyword, "Can't return from top-level code.");
-            } else if (returnStmt->expression.has_value() && currentFunction == FunctionType::INITIALIZER) {
+            } else if (returnStmt->expression.has_value() && currentFunction == LoxFunctionType::INITIALIZER) {
                 lox::error(returnStmt->keyword, "Can't return a value from an initializer.");
             }
 
@@ -144,7 +137,7 @@ namespace lox {
             scopes.back()["this"] = true;
 
             for (auto &method: classStmt->methods) {
-                const auto functionType = method->name.getLexeme() == "init" ? FunctionType::INITIALIZER : FunctionType::METHOD;
+                const auto functionType = method->name.getLexeme() == "init" ? LoxFunctionType::INITIALIZER : LoxFunctionType::METHOD;
                 resolveFunction(method, functionType);
             }
 

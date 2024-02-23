@@ -43,13 +43,13 @@ namespace lox {
         // ---- Main -----
 
         Function *F = Function::Create(
-            FunctionType::get(IntegerType::getInt64Ty(*Context), {}, false),
+            llvm::FunctionType::get(IntegerType::getInt64Ty(*Context), {}, false),
             Function::InternalLinkage,
             "main",
             *M
         );
 
-        FunctionCompiler MainCompiler(*Context, *M, *F);
+        FunctionCompiler MainCompiler(*Context, *M, *F, LoxFunctionType::NONE);
 
         MainCompiler.compile(program, {}, [&MainCompiler, &Clock](LoxBuilder &B) {
             MainCompiler.insertVariable("clock", B.ObjVal(B.AllocateClosure(Clock, true)));
