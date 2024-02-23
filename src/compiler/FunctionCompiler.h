@@ -89,8 +89,8 @@ namespace lox {
         Value *operator()(const CallExprPtr &callExpr);
         Value *operator()(const GetExprPtr &getExpr);
         Value *operator()(const SetExprPtr &setExpr);
-        Value *operator()(const ThisExprPtr &thisExpr) const;
-        Value *operator()(const SuperExprPtr &superExpr) const;
+        Value *operator()(const ThisExprPtr &thisExpr);
+        Value *operator()(const SuperExprPtr &superExpr);
         Value *operator()(const VarExprPtr &varExpr);
         Value *operator()(const GroupingExprPtr &groupingExpr);
         Value *operator()(const LiteralExprPtr &literalExpr);
@@ -212,9 +212,9 @@ namespace lox {
             compiler->upvalues.emplace_back(std::make_unique<Upvalue>(upvalueArrayIndex, value, isLocal));
 
             // Construct instruction sequence to load an upvalue from
-            // the upvalue array which is the function's first argument,
+            // the upvalue array which is the function's second argument,
             // in the *compiler*'s function.
-            const auto upvalues = Builder.getFunction()->arg_begin();
+            const auto upvalues = Builder.getFunction()->arg_begin() + 1;
             const auto upvalueIndex = Builder.CreateGEP(Builder.getPtrTy(), upvalues, {Builder.getInt32(upvalueArrayIndex)}, "arrayindex");
             const auto upvaluePtr = Builder.CreateLoad(Builder.getPtrTy(), upvalueIndex, "upvaluePtr");
 

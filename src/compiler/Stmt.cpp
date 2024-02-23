@@ -43,7 +43,11 @@ namespace lox {
         }
 
         FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, this);
-        C.compile(functionStmt->body, functionStmt->parameters);
+        C.compile(functionStmt->body, functionStmt->parameters, [&C, &functionStmt](auto &B) {
+            if (functionStmt->isMethod) {
+                C.insertVariable("this", B.ObjVal(B.getFunction()->arg_begin()));
+            }
+        });
 
         // Store captured variables in the closure's upvalue array.
         if (!C.upvalues.empty()) {

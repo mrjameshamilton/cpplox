@@ -207,9 +207,9 @@ namespace lox {
         );
 
         paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
-        paramValues.insert(paramValues.begin(), receiver);
-        paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
         paramValues.insert(paramValues.begin(), upvalues);
+        paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
+        paramValues.insert(paramValues.begin(), receiver);
 
         FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
 
@@ -334,11 +334,11 @@ namespace lox {
         return value;
     }
 
-    Value *FunctionCompiler::operator()(const ThisExprPtr &thisExpr) const {
-        throw std::runtime_error("not implemented");
+    Value *FunctionCompiler::operator()(const ThisExprPtr &thisExpr) {
+        return Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(*thisExpr));
     }
 
-    Value *FunctionCompiler::operator()(const SuperExprPtr &superExpr) const {
+    Value *FunctionCompiler::operator()(const SuperExprPtr &superExpr) {
         throw std::runtime_error("not implemented");
     }
 
