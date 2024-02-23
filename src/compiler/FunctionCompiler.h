@@ -212,9 +212,9 @@ namespace lox {
             compiler->upvalues.emplace_back(std::make_unique<Upvalue>(upvalueArrayIndex, value, isLocal));
 
             // Construct instruction sequence to load an upvalue from
-            // the upvalue array which is the function's second argument,
+            // the upvalue array which is the function's first argument,
             // in the *compiler*'s function.
-            const auto upvalues = Builder.getFunction()->arg_begin() + 1;
+            const auto upvalues = Builder.getFunction()->arg_begin();
             const auto upvalueIndex = Builder.CreateGEP(Builder.getPtrTy(), upvalues, {Builder.getInt32(upvalueArrayIndex)}, "arrayindex");
             const auto upvaluePtr = Builder.CreateLoad(Builder.getPtrTy(), upvalueIndex, "upvaluePtr");
 

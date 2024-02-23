@@ -12,7 +12,7 @@ namespace lox {
         if (entryBlockBuilder) entryBlockBuilder(Builder);
 
         // Declare parameters and store them in local variables.
-        auto arg = Builder.getFunction()->arg_begin() + 2 /* first arg is receiver, second is upvalues array */;
+        auto arg = Builder.getFunction()->arg_begin() + 2 /* second arg is receiver, first is upvalues array */;
 
         for (auto &p: parameters) {
             insertVariable(p.getLexeme(), arg++);

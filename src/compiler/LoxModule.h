@@ -81,8 +81,8 @@ namespace lox {
             getContext(),
             {
                 ObjStructType,
-                PointerType::getUnqual(getContext()),// receiver
-                PointerType::getUnqual(getContext()),// closure
+                IntegerType::getInt64Ty(getContext()),// receiver
+                PointerType::getUnqual(getContext()), // closure
             },
             "BoundMethod"
         );

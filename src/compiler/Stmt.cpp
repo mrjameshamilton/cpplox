@@ -22,9 +22,9 @@ namespace lox {
 
     Value *FunctionCompiler::CreateFunction(const FunctionStmtPtr &functionStmt, const std::string_view name) {
         std::vector<Type *> paramTypes(functionStmt->parameters.size(), Builder.getInt64Ty());
-        // The first parameter is for the receiver instance.
-        paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
-        // The second parameter is the upvalues.
+        // The second parameter is for the receiver instance.
+        paramTypes.insert(paramTypes.begin(), Builder.getInt64Ty());
+        // The first parameter is the upvalues.
         paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
         FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
 
@@ -43,9 +43,9 @@ namespace lox {
         }
 
         FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, this);
-        C.compile(functionStmt->body, functionStmt->parameters, [&C, &functionStmt](auto &B) {
+        C.compile(functionStmt->body, functionStmt->parameters, [&C, &functionStmt](LoxBuilder &B) {
             if (functionStmt->isMethod) {
-                C.insertVariable("this", B.ObjVal(B.getFunction()->arg_begin()));
+                C.insertVariable("this", B.getFunction()->arg_begin() + 1);
             }
         });
 
