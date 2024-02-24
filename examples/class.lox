@@ -1,15 +1,14 @@
 class Foo {
-  init(arg) {
-    print "Foo.init(" + arg + ")";
-    this.field = "init";
-  }
+  methodOnFoo() { print "foo"; }
+  override() { print "foo"; }
 }
 
-var foo = Foo("one"); // expect: Foo.init(one)
-foo.field = "field";
+class Bar < Foo {
+  methodOnBar() { print "bar"; }
+  override() { print "bar"; }
+}
 
-var foo2 = foo.init("two"); // expect: Foo.init(two)
-print foo2; // expect: Foo instance
-
-// Make sure init() doesn't create a fresh instance.
-print foo.field; // expect: init
+var bar = Bar();
+bar.methodOnFoo(); // expect: foo
+bar.methodOnBar(); // expect: bar
+bar.override(); // expect: bar

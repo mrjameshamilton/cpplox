@@ -145,19 +145,10 @@ namespace lox {
 
         insertVariable(classStmt->name.getLexeme(), Builder.ObjVal(klass));
 
-        for (auto &method: classStmt->methods) {
-            const auto methodPtr =
-                CreateFunction(
-                    method->name.getLexeme() == "init" ? LoxFunctionType::INITIALIZER : LoxFunctionType::METHOD,
-                    method,
-                    (classStmt->name.getLexeme() + "_" + method->name.getLexeme()).str()
-                );
-            Builder.TableSet(methods, Builder.AllocateString(method->name.getLexeme()), Builder.ObjVal(methodPtr));
-        }
-
         if (classStmt->super_class.has_value()) {
             // Copy all methods from the superclass methods table, to the subclass
-            // to support inheritance.
+            // to support inheritance. Do this before adding methods to the sub-class
+            // to support overloaded methods.
 
             const auto value = Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(*classStmt->super_class.value()));
             const auto IsClassBlock = Builder.CreateBasicBlock("superclass.valid");
@@ -181,6 +172,16 @@ namespace lox {
             Builder.CreateUnreachable();
 
             Builder.SetInsertPoint(EndBlock);
+        }
+
+        for (auto &method: classStmt->methods) {
+            const auto methodPtr =
+                CreateFunction(
+                    method->name.getLexeme() == "init" ? LoxFunctionType::INITIALIZER : LoxFunctionType::METHOD,
+                    method,
+                    (classStmt->name.getLexeme() + "_" + method->name.getLexeme()).str()
+                );
+            Builder.TableSet(methods, Builder.AllocateString(method->name.getLexeme()), Builder.ObjVal(methodPtr));
         }
     }
 }// namespace lox
