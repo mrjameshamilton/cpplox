@@ -1,11 +1,16 @@
-class Foo {
-  init() {
-    print "init";
-    return;
-    print "nope";
+class Doughnut {
+  cook() {
+    print "Dunk in the fryer.";
   }
 }
 
-var foo = Foo(); // expect: init
-print foo.init(); // expect: init
-// expect: Foo instance
+class Cruller < Doughnut {
+  finish() {
+    print "Glaze with icing.";
+  }
+}
+
+Cruller().cook();
+
+var Number = 123;
+class Foo < Number {} // expect runtime error: Superclass must be a class.

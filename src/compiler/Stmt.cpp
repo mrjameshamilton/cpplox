@@ -145,8 +145,41 @@ namespace lox {
         insertVariable(classStmt->name.getLexeme(), Builder.ObjVal(klass));
 
         for (auto &method: classStmt->methods) {
-            const auto methodPtr = CreateFunction(method->name.getLexeme() == "init" ? LoxFunctionType::INITIALIZER : LoxFunctionType::METHOD, method, (classStmt->name.getLexeme() + "_" + method->name.getLexeme()).str());
+            const auto methodPtr =
+                CreateFunction(
+                    method->name.getLexeme() == "init" ? LoxFunctionType::INITIALIZER : LoxFunctionType::METHOD,
+                    method,
+                    (classStmt->name.getLexeme() + "_" + method->name.getLexeme()).str()
+                );
             Builder.TableSet(methods, Builder.AllocateString(method->name.getLexeme()), Builder.ObjVal(methodPtr));
+        }
+
+        if (classStmt->super_class.has_value()) {
+            // Copy all methods from the superclass methods table, to the subclass
+            // to support inheritance.
+
+            const auto value = Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(*classStmt->super_class.value()));
+            const auto IsClassBlock = Builder.CreateBasicBlock("superclass.valid");
+            const auto IsNotClassBlock = Builder.CreateBasicBlock("superclass.invalid");
+            const auto EndBlock = Builder.CreateBasicBlock("superclass.end");
+
+            Builder.CreateCondBr(Builder.IsClass(value), IsClassBlock, IsNotClassBlock);
+            Builder.SetInsertPoint(IsClassBlock);
+            const auto superklass = Builder.AsObj(value);
+            const auto supermethods = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, superklass, 2));
+            Builder.TableAddAll(supermethods, methods);
+            Builder.CreateBr(EndBlock);
+
+            Builder.SetInsertPoint(IsNotClassBlock);
+            Builder.RuntimeError(
+                classStmt->super_class->get()->name.getLine(),
+                "Superclass must be a class.\n",
+                {},
+                enclosing == nullptr ? nullptr : Builder.getFunction()
+            );
+            Builder.CreateUnreachable();
+
+            Builder.SetInsertPoint(EndBlock);
         }
     }
 }// namespace lox

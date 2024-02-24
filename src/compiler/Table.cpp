@@ -426,4 +426,75 @@ namespace lox {
         return CreateCall(TableGetFunction, {Table, Key});
     }
 
+    Value *LoxBuilder::TableAddAll(llvm::Value *FromTable, llvm::Value *ToTable) {
+        assert(FromTable->getType() == getPtrTy());
+        assert(ToTable->getType() == getPtrTy());
+
+        static auto TableAddAllFunction([this] {
+            const auto F = Function::Create(
+                FunctionType::get(
+                    getVoidTy(),
+                    {getPtrTy(), getPtrTy()},
+                    false
+                ),
+                Function::InternalLinkage,
+                "$tableAddAll",
+                getModule()
+            );
+
+            LoxBuilder B(getContext(), getModule(), *F);
+
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
+
+            const auto arguments = F->arg_begin();
+            const auto from = arguments;
+            const auto to = arguments + 1;
+
+            const auto capacity = B.CreateLoad(B.getInt32Ty(), B.CreateObjStructGEP(ObjType::TABLE, from, 2));
+
+            const auto entries = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::TABLE, from, 3), "entries");
+
+            const auto i = CreateEntryBlockAlloca(F, B.getInt32Ty(), "i");
+
+            B.CreateStore(B.getInt32(0), i);
+
+            // First initialize all entries to null values.
+            const auto ForCond = B.CreateBasicBlock("for.cond");
+            const auto ForBody = B.CreateBasicBlock("for.body");
+            const auto ForInc = B.CreateBasicBlock("for.inc");
+            const auto ForEnd = B.CreateBasicBlock("for.end");
+
+            B.CreateBr(ForCond);
+            B.SetInsertPoint(ForCond);
+            B.CreateCondBr(B.CreateICmpSLT(B.CreateLoad(B.getInt32Ty(), i), capacity), ForBody, ForEnd);
+            B.SetInsertPoint(ForBody);
+
+            const auto entry = B.CreateInBoundsGEP(B.getModule().getStructType(ObjType::ENTRY), entries, B.CreateLoad(B.getInt32Ty(), i), "entry");
+            const auto entryKey = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::ENTRY, entry, 0));
+
+            const auto KeyIsNotNullBlock = B.CreateBasicBlock("key.notnull");
+
+            B.CreateCondBr(B.CreateIsNull(entryKey), ForInc, KeyIsNotNullBlock);
+
+            B.SetInsertPoint(KeyIsNotNullBlock);
+
+            B.TableSet(to, entryKey, B.CreateLoad(B.getInt64Ty(), B.CreateObjStructGEP(ObjType::ENTRY, entry, 1)));
+
+            B.CreateBr(ForInc);
+            B.SetInsertPoint(ForInc);
+            B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
+            B.CreateBr(ForCond);
+
+            B.SetInsertPoint(ForEnd);
+
+            B.CreateRetVoid();
+
+            return F;
+        }());
+
+
+        return CreateCall(TableAddAllFunction, {FromTable, ToTable});
+    }
+
 }// namespace lox
