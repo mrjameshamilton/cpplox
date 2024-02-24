@@ -44,7 +44,7 @@ namespace lox {
 
         FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, type, this);
         C.compile(functionStmt->body, functionStmt->parameters, [&C](const LoxBuilder &B) {
-            if (C.type == LoxFunctionType::METHOD) {
+            if (C.type == LoxFunctionType::METHOD || C.type == LoxFunctionType::INITIALIZER) {
                 C.insertVariable("this", B.getFunction()->arg_begin() + 1);
             }
         });
