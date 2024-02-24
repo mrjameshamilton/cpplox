@@ -89,6 +89,7 @@ namespace lox {
         Builder.CreateBr(ExitBasicBlock);
         Builder.SetInsertPoint(ExitBasicBlock);
         if (type == LoxFunctionType::INITIALIZER) {
+            assert(!returnStmt->expression.has_value());
             Builder.CreateRet(Builder.getFunction()->arg_begin() + 1);
         } else {
             Builder.CreateRet(returnStmt->expression.has_value() ? evaluate(returnStmt->expression.value()) : Builder.getNilVal());

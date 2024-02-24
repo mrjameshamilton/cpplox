@@ -28,7 +28,11 @@ namespace lox {
         BasicBlock *ExitBasicBlock = Builder.CreateBasicBlock("exit");
         Builder.CreateBr(ExitBasicBlock);
         Builder.SetInsertPoint(ExitBasicBlock);
-        Builder.CreateRet(Builder.getNilVal());
+        if (type == LoxFunctionType::INITIALIZER) {
+            Builder.CreateRet(Builder.getFunction()->arg_begin() + 1);
+        } else {
+            Builder.CreateRet(Builder.getNilVal());
+        }
     }
 
 }// namespace lox
