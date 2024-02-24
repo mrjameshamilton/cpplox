@@ -111,6 +111,10 @@ namespace lox {
             return enclosing;
         }
 
+        LoxBuilder& getBuilder() {
+            return Builder;
+        }
+
         [[nodiscard]] Value *lookupVariable(Assignable &assignable) {
             if (const auto local = resolveLocal(this, assignable)) return local->value;
 

@@ -139,6 +139,24 @@ namespace lox {
         std::unreachable();
     }
 
+    void CheckArity(FunctionCompiler& Compiler, BasicBlock* CallBlock, Value* arity, const unsigned int actual, const unsigned int line) {
+        LoxBuilder& Builder = Compiler.getBuilder();
+
+        const auto WrongArityBlock = Builder.CreateBasicBlock("wrong.arity");
+
+        Builder.CreateCondBr(Builder.CreateICmpEQ(arity, Builder.getInt32(actual)), CallBlock, WrongArityBlock);
+
+        Builder.SetInsertPoint(WrongArityBlock);
+
+        Builder.RuntimeError(
+            line,
+            "Expected %d arguments but got %d.\n",
+            {arity, Builder.getInt32(actual)},
+            Compiler.getEnclosing() == nullptr ? nullptr : Builder.getFunction()
+        );
+        Builder.CreateUnreachable();
+    }
+
     Value *FunctionCompiler::call(Value *receiver, Value *closure, std::vector<Value *> paramValues, const unsigned int line) {
         assert(receiver->getType() == Builder.getInt64Ty());
         assert(closure->getType() == Builder.getPtrTy());
@@ -172,20 +190,8 @@ namespace lox {
         );
 
         const auto CallBlock = Builder.CreateBasicBlock("call");
-        const auto WrongArityBlock = Builder.CreateBasicBlock("wrong.arity");
 
-        const auto actual = Builder.getInt32(paramValues.size() - 2);
-        Builder.CreateCondBr(Builder.CreateICmpEQ(arity, actual), CallBlock, WrongArityBlock);
-
-        Builder.SetInsertPoint(WrongArityBlock);
-
-        Builder.RuntimeError(
-            line,
-            "Expected %d arguments but got %d.\n",
-            {arity, actual},
-            enclosing == nullptr ? nullptr : Builder.getFunction()
-        );
-        Builder.CreateUnreachable();
+        CheckArity(*this, CallBlock, arity, paramValues.size() - 2, line);
 
         Builder.SetInsertPoint(CallBlock);
 #if DEBUG
@@ -227,11 +233,15 @@ namespace lox {
 
         const auto EndClassBlock = Builder.CreateBasicBlock("class.end");
         const auto HasInitializerBlock = Builder.CreateBasicBlock("call.init");
+        const auto NoInitializerBlock = Builder.CreateBasicBlock("call.noinit");
 
-        Builder.CreateCondBr(Builder.IsUninitialized(initializer), EndClassBlock, HasInitializerBlock);
+        Builder.CreateCondBr(Builder.IsUninitialized(initializer), NoInitializerBlock, HasInitializerBlock);
         Builder.SetInsertPoint(HasInitializerBlock);
         call(instanceVal, Builder.AsObj(initializer), paramValues, callExpr->keyword.getLine());
         Builder.CreateBr(EndClassBlock);
+
+        Builder.SetInsertPoint(NoInitializerBlock);
+        CheckArity(*this, EndClassBlock, Builder.getInt32(0), paramValues.size(), callExpr->keyword.getLine());
 
         Builder.SetInsertPoint(EndClassBlock);
 
