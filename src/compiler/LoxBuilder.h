@@ -56,8 +56,8 @@ namespace lox {
         Value *AllocateObj(lox::ObjType objType, const std::string_view name = "");
         Value *AllocateString(Value *String, Value *Length, const std::string_view name = "");
         Value *AllocateString(StringRef String, const std::string_view name = "");
-        Value *AllocateFunction(llvm::Function *Function, bool isNative = false);
-        Value *AllocateClosure(llvm::Function *function, bool isNative = false);
+        Value *AllocateFunction(llvm::Function *Function, std::string_view name, const bool isNative);
+        Value *AllocateClosure(llvm::Function *function, std::string_view name, bool isNative);
         Value *AllocateUpvalue(Value *value);
         Value *AllocateArray(Type *type, int size, const std::string_view &name);
         Value *AllocateArray(Type *type, Value *size, const std::string_view &name);

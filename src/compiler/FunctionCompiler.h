@@ -111,7 +111,7 @@ namespace lox {
             return enclosing;
         }
 
-        LoxBuilder& getBuilder() {
+        LoxBuilder &getBuilder() {
             return Builder;
         }
 

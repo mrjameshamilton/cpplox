@@ -139,8 +139,8 @@ namespace lox {
         std::unreachable();
     }
 
-    void CheckArity(FunctionCompiler& Compiler, BasicBlock* CallBlock, Value* arity, const unsigned int actual, const unsigned int line) {
-        LoxBuilder& Builder = Compiler.getBuilder();
+    void CheckArity(FunctionCompiler &Compiler, BasicBlock *CallBlock, Value *arity, const unsigned int actual, const unsigned int line) {
+        LoxBuilder &Builder = Compiler.getBuilder();
 
         const auto WrongArityBlock = Builder.CreateBasicBlock("wrong.arity");
 

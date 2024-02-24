@@ -2,7 +2,7 @@
 
 namespace lox {
 
-    Value *LoxBuilder::AllocateFunction(llvm::Function *Function, const bool isNative) {
+    Value *LoxBuilder::AllocateFunction(llvm::Function *Function, std::string_view name, const bool isNative) {
         static auto AllocateFunctionFunction([this] {
             const auto F = Function::Create(
                 FunctionType::get(
@@ -42,13 +42,14 @@ namespace lox {
         return CreateCall(
             AllocateFunctionFunction,
             {Function,
-             AllocateString(Function->getName()), getInt32(Function->arg_size() - 2),// receiver + upvalues
+             AllocateString(name),
+             getInt32(Function->arg_size() - 2),// receiver + upvalues
              isNative ? getTrue() : getFalse()
             }
         );
     }
 
-    Value *LoxBuilder::AllocateClosure(llvm::Function *Function, bool isNative) {
+    Value *LoxBuilder::AllocateClosure(llvm::Function *Function, std::string_view name, bool isNative) {
         static auto AllocationClosureFunction([this] {
             const auto F = Function::Create(
                 FunctionType::get(
@@ -80,6 +81,6 @@ namespace lox {
             return F;
         }());
 
-        return CreateCall(AllocationClosureFunction, {AllocateFunction(Function, isNative)});
+        return CreateCall(AllocationClosureFunction, {AllocateFunction(Function, name, isNative)});
     }
 }// namespace lox

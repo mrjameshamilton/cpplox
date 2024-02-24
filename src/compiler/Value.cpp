@@ -234,6 +234,7 @@ namespace lox {
         const auto IsInstanceBlock = CreateBasicBlock("print.instance");
         const auto IsNativeFunctionBlock = CreateBasicBlock("print.native.function");
         const auto IsNotNativeFunctionBlock = CreateBasicBlock("print.not.native.function");
+        const auto IsBoundMethod = CreateBasicBlock("print.boundmethod");
         const auto DefaultBlock = CreateBasicBlock("print.default");
         const auto EndBlock = CreateBasicBlock("print.end");
 
@@ -243,6 +244,7 @@ namespace lox {
         Switch->addCase(ObjTypeInt(ObjType::UPVALUE), IsUpvalueBlock);
         Switch->addCase(ObjTypeInt(ObjType::CLASS), IsClassBlock);
         Switch->addCase(ObjTypeInt(ObjType::INSTANCE), IsInstanceBlock);
+        Switch->addCase(ObjTypeInt(ObjType::BOUND_METHOD), IsBoundMethod);
 
         SetInsertPoint(IsStringBlock);
         PrintString(value);
@@ -280,6 +282,13 @@ namespace lox {
         const auto instance = AsObj(value);
         const auto instanceKlass = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
         PrintF({CreateGlobalCachedString("%s instance\n"), AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::CLASS, instanceKlass, 1)))});
+        CreateBr(EndBlock);
+
+        SetInsertPoint(IsBoundMethod);
+        const auto bound = AsObj(value);
+        const auto methodClosure = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::BOUND_METHOD, bound, 2));
+        CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("Print"), ObjVal(methodClosure));
+
         CreateBr(EndBlock);
 
         SetInsertPoint(DefaultBlock);

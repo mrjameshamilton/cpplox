@@ -52,7 +52,7 @@ namespace lox {
         FunctionCompiler MainCompiler(*Context, *M, *F, LoxFunctionType::NONE);
 
         MainCompiler.compile(program, {}, [&MainCompiler, &Clock](LoxBuilder &B) {
-            MainCompiler.insertVariable("clock", B.ObjVal(B.AllocateClosure(Clock, true)));
+            MainCompiler.insertVariable("clock", B.ObjVal(B.AllocateClosure(Clock, "clock", true)));
         });
 
         Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));

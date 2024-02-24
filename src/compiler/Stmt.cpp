@@ -35,7 +35,7 @@ namespace lox {
             Builder.getModule()
         );
 
-        const auto closurePtr = Builder.AllocateClosure(F, false);
+        const auto closurePtr = Builder.AllocateClosure(F, functionStmt->name.getLexeme(), false);
 
         if (type == LoxFunctionType::FUNCTION) {
             // Methods aren't stored as variables.
