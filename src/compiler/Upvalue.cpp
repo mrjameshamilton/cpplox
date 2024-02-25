@@ -23,82 +23,108 @@ namespace lox {
     }
 
     Value *FunctionCompiler::captureLocal(Value *local) {
-        auto UpvalueStructType = Builder.getModule().getStructType(ObjType::UPVALUE);
+        static auto CaptureLocalFunction([this] {
+            const auto F = Function::Create(
+                FunctionType::get(
+                    Builder.getPtrTy(),
+                    {Builder.getPtrTy()},
+                    false
+                ),
+                Function::InternalLinkage,
+                "$captureLocal",
+                Builder.getModule()
+            );
 
-        const auto openUpvalues = Builder.getModule().getOpenUpvalues();
-        const auto upvalue = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getPtrTy(), "upvalue");
-        const auto next = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getPtrTy(), "next");
-        Builder.CreateStore(
-            Builder.CreateLoad(Builder.getPtrTy(), openUpvalues),
-            upvalue
-        );
+            LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
-        const auto WhileCond = Builder.CreateBasicBlock("while.cond");
-        const auto WhileBody = Builder.CreateBasicBlock("while.body");
-        const auto WhileEnd = Builder.CreateBasicBlock("while.end");
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
 
-        Builder.CreateBr(WhileCond);
-        Builder.SetInsertPoint(WhileCond);
-        Builder.CreateCondBr(Builder.CreateIsNotNull(Builder.CreateLoad(Builder.getPtrTy(), upvalue)), WhileBody, WhileEnd);
-        Builder.SetInsertPoint(WhileBody);
+            const auto arguments = F->args().begin();
 
-        Builder.CreateStore(
-            Builder.CreateLoad(
-                Builder.getPtrTy(),
-                Builder.CreateStructGEP(UpvalueStructType, Builder.CreateLoad(Builder.getPtrTy(), upvalue), 2, "next")
-            ),
-            next
-        );
+            const auto local = arguments;
 
-        const auto IsSameBlock = Builder.CreateBasicBlock("IsSame");
-        const auto IsDifferentBlock = Builder.CreateBasicBlock("IsDifferent");
-        const auto EndBlock = Builder.CreateBasicBlock("End");
+            const auto openUpvalues = B.getModule().getOpenUpvalues();
+            //B.PrintF({B.CreateGlobalCachedString("captureLocal(%p), openupvalues = %p\n"), local, openUpvalues});
+            const auto upvalue = CreateEntryBlockAlloca(B.getFunction(), B.getPtrTy(), "upvalue");
+            //const auto next = CreateEntryBlockAlloca(B.getFunction(), B.getPtrTy(), "next");
+            B.CreateStore(B.CreateLoad(B.getPtrTy(), openUpvalues), upvalue);
 
-        const auto upvalueLocation = Builder.CreateLoad(
-            Builder.getPtrTy(),
-            Builder.CreateStructGEP(UpvalueStructType, Builder.CreateLoad(Builder.getPtrTy(), upvalue), 1, "location")
-        );
+            const auto WhileCond = B.CreateBasicBlock("while.cond");
+            const auto WhileBody = B.CreateBasicBlock("while.body");
+            const auto WhileEnd = B.CreateBasicBlock("while.end");
 
-        Builder.CreateCondBr(
-            Builder.CreateICmpEQ(
-                Builder.getInt64(0), Builder.CreatePtrDiff(Builder.getPtrTy(), upvalueLocation, local)
-            ),
-            IsSameBlock,
-            IsDifferentBlock
-        );
+            //B.PrintF({B.CreateGlobalCachedString("%p?\n"), B.CreateLoad(B.getPtrTy(), upvalue)});
 
-        Builder.SetInsertPoint(IsDifferentBlock);
-        Builder.CreateStore(
-            Builder.CreateLoad(Builder.getPtrTy(), next),
-            upvalue
-        );
+            B.CreateBr(WhileCond);
+            B.SetInsertPoint(WhileCond);
+            B.CreateCondBr(B.CreateIsNotNull(B.CreateLoad(B.getPtrTy(), upvalue)), WhileBody, WhileEnd);
+            B.SetInsertPoint(WhileBody);
+            //B.PrintString(Twine("WhileBody"));
 
-        Builder.CreateBr(WhileCond);
+            const auto IsSameBlock1 = B.CreateBasicBlock("IsSame1");
+            const auto INotsSameBlock1 = B.CreateBasicBlock("NotIsSame1");
 
-        Builder.SetInsertPoint(WhileEnd);
+            const auto upvalueLocation = B.CreateLoad(
+                B.getPtrTy(),
+                B.CreateObjStructGEP(ObjType::UPVALUE, B.CreateLoad(B.getPtrTy(), upvalue), 1, "location")
+            );
 
-        const auto upvaluePtr = Builder.AllocateUpvalue(local);
+            //B.PrintF({B.CreateGlobalCachedString("%p == %p?\n"), upvalueLocation, local});
+            B.CreateCondBr(
+                B.CreateICmpEQ(
+                    B.getInt64(0), B.CreatePtrDiff(B.getPtrTy(), upvalueLocation, local)
+                ),
+                IsSameBlock1,
+                INotsSameBlock1
+            );
 
-        Builder.CreateStore(
-            Builder.CreateLoad(Builder.getPtrTy(), openUpvalues),
-            Builder.CreateStructGEP(UpvalueStructType, upvaluePtr, 2, "next")
-        );
+            B.SetInsertPoint(IsSameBlock1);
+            //B.PrintF({B.CreateGlobalCachedString("Returning same: %p = "), B.CreateLoad(B.getPtrTy(), upvalue)});
+            //B.Print(B.ObjVal(B.CreateLoad(B.getPtrTy(), upvalue)));
 
-        Builder.CreateStore(upvaluePtr, openUpvalues);
-        const auto Y = upvaluePtr;
-        Builder.CreateBr(EndBlock);
+            B.CreateRet(B.CreateLoad(B.getPtrTy(), upvalue));
 
-        Builder.SetInsertPoint(IsSameBlock);
-        const auto X = Builder.CreateLoad(Builder.getPtrTy(), upvalue);
-        Builder.CreateBr(EndBlock);
+            B.SetInsertPoint(INotsSameBlock1);
 
-        Builder.SetInsertPoint(EndBlock);
+            LoadInst *ptr = B.CreateLoad(B.getPtrTy(), upvalue);
+            //B.PrintString(Twine("WhileBody2"));
+            //B.Print(B.ObjVal(ptr));
 
-        const auto Result = Builder.CreatePHI(Builder.getPtrTy(), 2);
-        Result->addIncoming(X, IsSameBlock);
-        Result->addIncoming(Y, WhileEnd);
+            B.CreateStore(
+                B.CreateLoad(
+                    B.getPtrTy(),
+                    B.CreateObjStructGEP(ObjType::UPVALUE, ptr, 2, "next")
+                ),
+                upvalue
+            );
+            B.CreateBr(WhileCond);
 
-        return Result;
+            B.SetInsertPoint(WhileEnd);
+
+            //B.PrintString(Twine("WhileEnd"));
+            const auto upvaluePtr = B.AllocateUpvalue(local);
+
+            B.CreateStore(
+                openUpvalues,
+                B.CreateObjStructGEP(ObjType::UPVALUE, upvaluePtr, 2, "next")
+            );
+
+            B.CreateStore(
+                upvaluePtr,
+                openUpvalues
+            );
+
+            //B.PrintString(Twine("returning:"));
+            //B.Print(B.ObjVal(upvaluePtr));
+            // B.SetInsertPoint(EndBlock);
+
+            B.CreateRet(upvaluePtr);
+
+            return F;
+        }());
+
+        return Builder.CreateCall(CaptureLocalFunction, {local});
     }
 
     void closeUpvalues(LoxBuilder &Builder, Value *local) {
