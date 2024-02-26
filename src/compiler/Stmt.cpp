@@ -84,17 +84,18 @@ namespace lox {
     }
 
     void FunctionCompiler::operator()(const ReturnStmtPtr &returnStmt) {
-        BasicBlock *ExitBasicBlock = Builder.CreateBasicBlock("return");
-        BasicBlock *NewBasicBlock = Builder.CreateBasicBlock("return.unreachable");
-        Builder.CreateBr(ExitBasicBlock);
-        Builder.SetInsertPoint(ExitBasicBlock);
-        if (type == LoxFunctionType::INITIALIZER) {
-            assert(!returnStmt->expression.has_value());
-            Builder.CreateRet(Builder.getFunction()->arg_begin() + 1);
-        } else {
-            Builder.CreateRet(returnStmt->expression.has_value() ? evaluate(returnStmt->expression.value()) : Builder.getNilVal());
+        if (returnStmt->expression.has_value()) {
+            Builder.CreateStore(evaluate(returnStmt->expression.value()), returnVal);
         }
-        Builder.SetInsertPoint(NewBasicBlock);
+        Builder.CreateBr(ExitBasicBlock);
+
+        // Create somewhere to generate code that appears after a return e.g.
+        // fun foo() {
+        //    print "foo";
+        //    return;
+        //    print "bar";
+        // }
+        Builder.SetInsertPoint(Builder.CreateBasicBlock("unreachable"));
     }
 
     void FunctionCompiler::operator()(const VarStmtPtr &varStmt) {

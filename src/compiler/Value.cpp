@@ -170,6 +170,8 @@ namespace lox {
             const auto EndNilBlock = B.CreateBasicBlock("if.print.nil.end");
             const auto NumBlock = B.CreateBasicBlock("if.print.num");
             const auto ObjBlock = B.CreateBasicBlock("if.print.obj");
+            const auto EndObjBlock = B.CreateBasicBlock("if.print.obj.end");
+            const auto OtherBlock = B.CreateBasicBlock("if.print.other");
             const auto EndBlock = B.CreateBasicBlock("if.print.end");
 
             B.CreateCondBr(B.IsBool(value), BoolBlock, EndBoolBlock);
@@ -188,10 +190,17 @@ namespace lox {
             B.SetInsertPoint(NumBlock);
             B.PrintNumber(value);
             B.CreateBr(EndBlock);
+            B.SetInsertPoint(EndObjBlock);
 
+            B.CreateCondBr(B.IsObj(value), ObjBlock, OtherBlock);
             B.SetInsertPoint(ObjBlock);
             B.PrintObject(value);
             B.CreateBr(EndBlock);
+
+            B.SetInsertPoint(OtherBlock);
+            //B.PrintF({B.CreateGlobalCachedString("other %p\n"), value});
+            B.CreateUnreachable();
+            //B.CreateBr(EndBlock);
 
             B.SetInsertPoint(EndBlock);
             B.CreateRetVoid();
@@ -267,7 +276,8 @@ namespace lox {
         SetInsertPoint(IsUpvalueBlock);
         const auto upvalue = AsObj(value);
         const auto object = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 1));
-        PrintF({CreateGlobalCachedString("Upvalue(%p, %p) = "), value, object});
+        const auto next = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 2));
+        PrintF({CreateGlobalCachedString("Upvalue(%p, %p, next = %p) = "), upvalue, object, next});
         CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("Print"), CreateLoad(getInt64Ty(), object));
         CreateBr(EndBlock);
 

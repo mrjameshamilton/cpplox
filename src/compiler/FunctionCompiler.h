@@ -47,11 +47,9 @@ namespace lox {
             Value *value;
             bool isCaptured = false;
             ~Local() {
+                // TODO: this is not called in the correct place??
                 if (isCaptured) {
-#if DEBUG
-                    static const auto fmt = B.CreateGlobalCachedString(("closing upvalues for " + name + " (%p)\n").str());
-                    B.PrintF({fmt, value});
-#endif
+                    //compiler.Builder.PrintF({compiler.Builder.CreateGlobalCachedString(("closing upvalues for " + name + " (%p)\n").str()), value});
                     closeUpvalues(compiler.Builder, value);
                 }
             }
@@ -64,10 +62,14 @@ namespace lox {
         FunctionCompiler *enclosing;
         std::vector<std::unique_ptr<Upvalue>> upvalues;
         LoxFunctionType type;
+        BasicBlock *EntryBasicBlock = Builder.CreateBasicBlock("entry");
+        BasicBlock *ExitBasicBlock = Builder.CreateBasicBlock("prologue");
+        AllocaInst *returnVal;
 
     public:
         explicit FunctionCompiler(LLVMContext &Context, LoxModule &Module, Function &F, LoxFunctionType type = LoxFunctionType::FUNCTION, FunctionCompiler *enclosing = nullptr)
-            : Builder{Context, Module, F}, type{type}, enclosing(enclosing) {
+            : Builder{Context, Module, F}, enclosing(enclosing), type{type} {
+            Builder.SetInsertPoint(EntryBasicBlock);
         }
 
         // Statement code generation.
@@ -116,17 +118,30 @@ namespace lox {
         }
 
         [[nodiscard]] Value *lookupVariable(Assignable &assignable) {
+            //Builder.PrintF({Builder.CreateGlobalCachedString("lookupVariable(%s)\n"), Builder.CreateGlobalCachedString(assignable.name.getLexeme())});
             if (const auto local = resolveLocal(this, assignable)) return local->value;
 
             if (auto upvalue = resolveUpvalue(this, assignable)) {
                 // upvalue is a pointer to an upvalue object.
                 // We need to load the value at the pointer location in the upvalue struct,
                 // which points to the closed over value.
-                return Builder.CreateLoad(
+                LoadInst *pInst = Builder.CreateLoad(
                     Builder.getPtrTy(),
-                    Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::UPVALUE), upvalue, 1, "upvalue.locationptr"),
+                    Builder.CreateObjStructGEP(ObjType::UPVALUE, upvalue, 1, "upvalue.locationptr"),
                     "upvalue.valueptr"
                 );
+                /*
+                Builder.PrintF({Builder.CreateGlobalCachedString("resolvedUpvalue = ")});
+                Builder.Print(Builder.ObjVal(upvalue));
+                Builder.PrintF({Builder.CreateGlobalCachedString("value = ")});
+                Builder.Print(Builder.ObjVal(Builder.CreateLoad(Builder.getPtrTy(), pInst)));
+                Builder.PrintF({Builder.CreateGlobalCachedString("second = ")});
+                Builder.Print(Builder.ObjVal(Builder.CreateLoad(Builder.getPtrTy(), pInst)));
+                Builder.PrintF({Builder.CreateGlobalCachedString("third = ")});
+                Builder.Print(Builder.ObjVal(Builder.CreateLoad(Builder.getPtrTy(), pInst)));
+                Builder.PrintString(Twine("ENDX"));
+                 */
+                return pInst;
             }
 
             // Lookup global.
@@ -190,6 +205,7 @@ namespace lox {
             } else {
                 const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), key);
                 Builder.CreateStore(value, alloca);
+                //Builder.PrintF({Builder.CreateGlobalCachedString("insert(%s) = %p\n"), Builder.CreateGlobalCachedString(key), alloca});
                 variables.insert(key, std::make_shared<Local>(*this, key, alloca));
             }
         }
@@ -224,13 +240,21 @@ namespace lox {
             const auto upvalueIndex = Builder.CreateGEP(Builder.getPtrTy(), upvalues, {Builder.getInt32(upvalueArrayIndex)}, "arrayindex");
             const auto upvaluePtr = Builder.CreateLoad(Builder.getPtrTy(), upvalueIndex, "upvaluePtr");
 
+            //Builder.PrintF({Builder.CreateGlobalCachedString("addUpValue(%d, %p, %p)\n"), Builder.getInt32(upvalueArrayIndex), upvalueIndex, upvaluePtr});
+
             // The pointer from the upvalues array for new upvalue index.
             return upvaluePtr;
         }
 
-        static Local *resolveLocal(const FunctionCompiler *compiler, const Assignable &assignable) {
+        static std::shared_ptr<Local> resolveLocal(FunctionCompiler *compiler, const Assignable &assignable) {
             const std::string_view &name = assignable.name.getLexeme();
-            if (const auto local = compiler->variables.lookup(name)) return local.get();
+            if (const auto local = compiler->variables.lookup(name)) {
+                const auto pLocal = local;
+                auto &Builder = compiler->Builder;
+                //Builder.PrintF({Builder.CreateGlobalCachedString("resolveLocal(%s) = %p = "), Builder.CreateGlobalCachedString(name), pLocal->value});
+                //Builder.Print(Builder.ObjVal(Builder.CreateLoad(Builder.getPtrTy(), pLocal->value)));
+                return pLocal;
+            }
             return nullptr;
         }
 

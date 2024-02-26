@@ -4,10 +4,14 @@
 namespace lox {
 
     void FunctionCompiler::compile(const std::vector<Stmt> &statements, const std::vector<Token> &parameters, const std::function<void(LoxBuilder &)> &entryBlockBuilder) {
-        beginScope();
 
-        BasicBlock *EntryBasicBlock = Builder.CreateBasicBlock("entry");
         Builder.SetInsertPoint(EntryBasicBlock);
+
+        // The default return value is nil.
+        returnVal = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), "$returnVal");
+        Builder.CreateStore(Builder.getNilVal(), returnVal);
+
+        beginScope();
 
         if (entryBlockBuilder) entryBlockBuilder(Builder);
 
@@ -22,13 +26,26 @@ namespace lox {
             evaluate(stmt);
         }
 
+        if (!Builder.GetInsertBlock()->getTerminator()) {
+            // In the case where there was no return statement in the Lox code,
+            // then the current block at this point will be unterminated.
+            Builder.CreateBr(ExitBasicBlock);
+        }
+
+        Builder.SetInsertPoint(ExitBasicBlock);
+
+        // Code can be generated here to close open upvalues,
+        // since parameters go out of scope at the end of a function.
         endScope();
 
-        // Default return value.
-        BasicBlock *ExitBasicBlock = Builder.CreateBasicBlock("exit");
-        Builder.CreateBr(ExitBasicBlock);
-        Builder.SetInsertPoint(ExitBasicBlock);
-        Builder.CreateRet(type == LoxFunctionType::INITIALIZER ? Builder.getFunction()->arg_begin() + 1 : Builder.getNilVal());
+        const auto ReturnBlock = Builder.CreateBasicBlock("exit");
+        Builder.CreateBr(ReturnBlock);
+        Builder.SetInsertPoint(ReturnBlock);
+        if (type == LoxFunctionType::INITIALIZER) {
+            Builder.CreateRet(Builder.getFunction()->arg_begin() + 1);
+        } else {
+            Builder.CreateRet(Builder.CreateLoad(Builder.getInt64Ty(), returnVal));
+        }
     }
 
 }// namespace lox

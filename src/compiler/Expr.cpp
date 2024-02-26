@@ -277,14 +277,14 @@ namespace lox {
         receiver->addIncoming(receiverObjVal, IsMethodBlock);
         receiver->addIncoming(Builder.getNilVal(), IsClosureBlock);
 
-        const auto returnVal = call(receiver, closure, paramValues, callExpr->keyword.getLine());
+        const auto functionReturnVal = call(receiver, closure, paramValues, callExpr->keyword.getLine());
         const auto EndCall = Builder.GetInsertBlock();
 
         Builder.CreateBr(EndBlock);
         Builder.SetInsertPoint(EndBlock);
         const auto result = Builder.CreatePHI(Builder.getInt64Ty(), 2);
         result->addIncoming(instanceVal, EndClassBlock);
-        result->addIncoming(returnVal, EndCall);
+        result->addIncoming(functionReturnVal, EndCall);
 
         return result;
     }
@@ -296,6 +296,8 @@ namespace lox {
         Builder.CreateCondBr(Builder.IsInstance(instance), EndBlock, NotInstanceBlock);
 
         Builder.SetInsertPoint(NotInstanceBlock);
+        //Builder.PrintF({Builder.CreateGlobalCachedString("instance = %p = "), Builder.AsObj(instance)});
+        //Builder.Print(instance);
         Builder.RuntimeError(line, message, {}, Compiler.getEnclosing() == nullptr ? nullptr : Builder.getFunction());
         Builder.CreateUnreachable();
 
@@ -307,6 +309,7 @@ namespace lox {
         CheckInstance(*this, Builder, "Only instances have properties.\n"sv, getExpr->name.getLine(), object);
 
         const auto instance = Builder.AsObj(object);
+        //Builder.PrintF({Builder.CreateGlobalCachedString("instance = %p \n"), instance});
         const auto fields = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
 
         const auto key = Builder.AllocateString(getExpr->name.getLexeme(), "s");

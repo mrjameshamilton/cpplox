@@ -106,7 +106,7 @@ namespace lox {
             const auto upvaluePtr = B.AllocateUpvalue(local);
 
             B.CreateStore(
-                openUpvalues,
+                B.CreateLoad(B.getPtrTy(), openUpvalues),
                 B.CreateObjStructGEP(ObjType::UPVALUE, upvaluePtr, 2, "next")
             );
 
