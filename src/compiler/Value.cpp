@@ -186,7 +186,7 @@ namespace lox {
             B.CreateBr(EndBlock);
             B.SetInsertPoint(EndNilBlock);
 
-            B.CreateCondBr(B.IsNumber(value), NumBlock, ObjBlock);
+            B.CreateCondBr(B.IsNumber(value), NumBlock, EndObjBlock);
             B.SetInsertPoint(NumBlock);
             B.PrintNumber(value);
             B.CreateBr(EndBlock);
