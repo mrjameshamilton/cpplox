@@ -74,6 +74,7 @@ namespace lox {
         explicit FunctionCompiler(LLVMContext &Context, LoxModule &Module, Function &F, LoxFunctionType type = LoxFunctionType::FUNCTION, FunctionCompiler *enclosing = nullptr)
             : Builder{Context, Module, F}, enclosing(enclosing), type{type} {
             Builder.SetInsertPoint(EntryBasicBlock);
+            returnVal = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), "$returnVal");
         }
 
         // Statement code generation.
@@ -223,13 +224,13 @@ namespace lox {
         static Value *addUpvalue(FunctionCompiler *compiler, Value *value, const bool isLocal) {
             auto &Builder = compiler->Builder;
 
-            auto result = std::find_if(compiler->upvalues.begin(), compiler->upvalues.end(), [&value,&isLocal](auto& entry) {
+            auto result = std::find_if(compiler->upvalues.begin(), compiler->upvalues.end(), [&value, &isLocal](auto &entry) {
                 return entry->value == value && entry->isLocal == isLocal;
             });
 
             unsigned long upvalueArrayIndex;
             if (result != compiler->upvalues.end()) {
-               upvalueArrayIndex = (*result)->index;
+                upvalueArrayIndex = (*result)->index;
             } else {
                 upvalueArrayIndex = compiler->upvalues.size();
                 compiler->upvalues.emplace_back(std::make_unique<Upvalue>(upvalueArrayIndex, value, isLocal));

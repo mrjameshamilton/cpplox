@@ -8,7 +8,6 @@ namespace lox {
         Builder.SetInsertPoint(EntryBasicBlock);
 
         // The default return value is nil.
-        returnVal = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), "$returnVal");
         Builder.CreateStore(Builder.getNilVal(), returnVal);
 
         beginScope();
