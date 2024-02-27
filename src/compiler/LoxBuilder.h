@@ -63,7 +63,7 @@ namespace lox {
         Value *AllocateArray(Type *type, Value *size, const std::string_view &name);
         Value *AllocateClass(const std::string_view name);
         Value *AllocateInstance(Value *klass);
-        Value *BindMethod(Value *receiver, Value *closure);
+        Value *BindMethod(Value *klass, Value *receiver, Value *key);
         Value *AllocateTable();
         Value *TableSet(Value *Table, Value *Key, Value *V);
         Value *TableGet(Value *Table, Value *Key);
@@ -103,13 +103,17 @@ namespace lox {
             return ptr;
         }
 
-        void RuntimeError(const unsigned line, StringRef message, const std::vector<Value *> &values, const llvm::Function *function);
+        void RuntimeError(Value *line, StringRef message, const std::vector<Value *> &values, const llvm::Function *function);
+        void RuntimeError(const unsigned line, StringRef message, const std::vector<Value *> &values, const llvm::Function *function) {
+            RuntimeError(getInt32(line), message, values, function);
+        }
 
         [[nodiscard]] LoxModule &getModule() const { return M; }
         [[nodiscard]] llvm::Function *getFunction() const { return &Function; }
         [[nodiscard]] BasicBlock *CreateBasicBlock(const std::string_view &name) const {
             return BasicBlock::Create(getContext(), name, getFunction());
         }
+        Value *BindMethod(Value *klass, Value *receiver, Value *key, unsigned int line);
     };
 }// namespace lox
 

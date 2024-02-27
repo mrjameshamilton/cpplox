@@ -315,35 +315,19 @@ namespace lox {
         const auto key = Builder.AllocateString(getExpr->name.getLexeme(), "s");
         const auto result = Builder.TableGet(fields, key);
 
-        const auto CheckMethodBlock = Builder.CreateBasicBlock("property.ismethod?");
         const auto IsMethodBlock = Builder.CreateBasicBlock("property.ismethod");
-        const auto IsUndefinedBlock = Builder.CreateBasicBlock("property.undefined");
         const auto IsDefinedBlock = Builder.CreateBasicBlock("property.defined");
 
         const auto BeforeBlock = Builder.GetInsertBlock();
 
-        Builder.CreateCondBr(Builder.IsUninitialized(result), CheckMethodBlock, IsDefinedBlock);
-        Builder.SetInsertPoint(CheckMethodBlock);
-        const auto klass = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
-        const auto methods = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2));
-        const auto method = Builder.TableGet(methods, key);
-
-        Builder.CreateCondBr(Builder.IsUninitialized(method), IsUndefinedBlock, IsMethodBlock);
+        Builder.CreateCondBr(Builder.IsUninitialized(result), IsMethodBlock, IsDefinedBlock);
 
         Builder.SetInsertPoint(IsMethodBlock);
 
-        const auto bound = Builder.ObjVal(Builder.BindMethod(object, Builder.AsObj(method)));
+        const auto klass = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
+        const auto bound = Builder.ObjVal(Builder.BindMethod(klass, instance, key, getExpr->name.getLine()));
 
         Builder.CreateBr(IsDefinedBlock);
-
-        Builder.SetInsertPoint(IsUndefinedBlock);
-        Builder.RuntimeError(
-            getExpr->name.getLine(),
-            "Undefined property '%s'.\n"sv,
-            {Builder.CreateGlobalCachedString(getExpr->name.getLexeme())},
-            getEnclosing() == nullptr ? nullptr : Builder.getFunction()
-        );
-        Builder.CreateUnreachable();
 
         Builder.SetInsertPoint(IsDefinedBlock);
         const auto R = Builder.CreatePHI(Builder.getInt64Ty(), 2);

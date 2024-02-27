@@ -315,7 +315,7 @@ namespace lox {
         PrintF({CreateGlobalCachedString("%s\n"), CreateSelect(AsBool(value), CreateGlobalCachedString("true"), CreateGlobalCachedString("false"))});
     }
 
-    void LoxBuilder::RuntimeError(const unsigned line, StringRef message, const std::vector<Value *> &values, const llvm::Function *function) {
+    void LoxBuilder::RuntimeError(Value *line, StringRef message, const std::vector<Value *> &values, const llvm::Function *function) {
         static const auto StdErr = getModule().getOrInsertGlobal("stderr", getPtrTy());
         static const auto FPrintF = getModule().getOrInsertFunction(
             "fprintf",
@@ -337,7 +337,7 @@ namespace lox {
                 {
                     CreateLoad(getPtrTy(), StdErr),
                     CreateGlobalCachedString("[line %d] in script\n"),
-                    getInt32(line),
+                    line,
                 }
             );
         } else {
@@ -345,7 +345,7 @@ namespace lox {
                 FPrintF,
                 {CreateLoad(getPtrTy(), StdErr),
                  CreateGlobalCachedString("[line %d] in %s()\n"),
-                 getInt32(line),
+                 line,
                  CreateGlobalCachedString(function->getName())
                 }
             );
