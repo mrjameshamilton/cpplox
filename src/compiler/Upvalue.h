@@ -11,6 +11,8 @@
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 #include <stack>
 
+constexpr bool DEBUG_UPVALUES = false;
+
 namespace lox {
     struct Upvalue {
         unsigned long index;

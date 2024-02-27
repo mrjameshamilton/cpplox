@@ -38,6 +38,8 @@ namespace lox {
         // since parameters go out of scope at the end of a function.
         endScope();
 
+        assert(scopes.empty());
+
         const auto ReturnBlock = Builder.CreateBasicBlock("exit");
         Builder.CreateBr(ReturnBlock);
         Builder.SetInsertPoint(ReturnBlock);

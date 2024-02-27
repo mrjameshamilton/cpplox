@@ -1,4 +1,20 @@
 
+{
+    var a = "AAA";
+    var b = "BBB";
+    var c= "CCC";
+    fun foo() {
+        print a;
+        print a;
+        print "foo() end";
+    }
+    fun bar() {
+        print a;
+    }
+    foo();
+    bar();
+}
+
 class Foo {
   getClosure() {
    var y = "test";

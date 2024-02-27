@@ -47,9 +47,13 @@ namespace lox {
             Value *value;
             bool isCaptured = false;
             ~Local() {
-                // TODO: this is not called in the correct place??
                 if (isCaptured) {
-                    //compiler.Builder.PrintF({compiler.Builder.CreateGlobalCachedString(("closing upvalues for " + name + " (%p)\n").str()), value});
+                    // When a captured local goes out of scope,
+                    // the upvalues must be closed, since the local
+                    // will not be available any longer.
+                    if constexpr (DEBUG_UPVALUES) {
+                        compiler.Builder.PrintF({compiler.Builder.CreateGlobalCachedString(("closing upvalues for " + name + " (%p)\n").str()), value});
+                    }
                     closeUpvalues(compiler.Builder, value);
                 }
             }
@@ -63,7 +67,7 @@ namespace lox {
         std::vector<std::unique_ptr<Upvalue>> upvalues;
         LoxFunctionType type;
         BasicBlock *EntryBasicBlock = Builder.CreateBasicBlock("entry");
-        BasicBlock *ExitBasicBlock = Builder.CreateBasicBlock("prologue");
+        BasicBlock *ExitBasicBlock = Builder.CreateBasicBlock("epilogue");
         AllocaInst *returnVal;
 
     public:
@@ -125,23 +129,12 @@ namespace lox {
                 // upvalue is a pointer to an upvalue object.
                 // We need to load the value at the pointer location in the upvalue struct,
                 // which points to the closed over value.
-                LoadInst *pInst = Builder.CreateLoad(
+
+                return Builder.CreateLoad(
                     Builder.getPtrTy(),
                     Builder.CreateObjStructGEP(ObjType::UPVALUE, upvalue, 1, "upvalue.locationptr"),
                     "upvalue.valueptr"
                 );
-                /*
-                Builder.PrintF({Builder.CreateGlobalCachedString("resolvedUpvalue = ")});
-                Builder.Print(Builder.ObjVal(upvalue));
-                Builder.PrintF({Builder.CreateGlobalCachedString("value = ")});
-                Builder.Print(Builder.ObjVal(Builder.CreateLoad(Builder.getPtrTy(), pInst)));
-                Builder.PrintF({Builder.CreateGlobalCachedString("second = ")});
-                Builder.Print(Builder.ObjVal(Builder.CreateLoad(Builder.getPtrTy(), pInst)));
-                Builder.PrintF({Builder.CreateGlobalCachedString("third = ")});
-                Builder.Print(Builder.ObjVal(Builder.CreateLoad(Builder.getPtrTy(), pInst)));
-                Builder.PrintString(Twine("ENDX"));
-                 */
-                return pInst;
             }
 
             // Lookup global.
@@ -205,7 +198,6 @@ namespace lox {
             } else {
                 const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), key);
                 Builder.CreateStore(value, alloca);
-                //Builder.PrintF({Builder.CreateGlobalCachedString("insert(%s) = %p\n"), Builder.CreateGlobalCachedString(key), alloca});
                 variables.insert(key, std::make_shared<Local>(*this, key, alloca));
             }
         }
@@ -230,8 +222,18 @@ namespace lox {
 
         static Value *addUpvalue(FunctionCompiler *compiler, Value *value, const bool isLocal) {
             auto &Builder = compiler->Builder;
-            const auto upvalueArrayIndex = compiler->upvalues.size();
-            compiler->upvalues.emplace_back(std::make_unique<Upvalue>(upvalueArrayIndex, value, isLocal));
+
+            auto result = std::find_if(compiler->upvalues.begin(), compiler->upvalues.end(), [&value,&isLocal](auto& entry) {
+                return entry->value == value && entry->isLocal == isLocal;
+            });
+
+            unsigned long upvalueArrayIndex;
+            if (result != compiler->upvalues.end()) {
+               upvalueArrayIndex = (*result)->index;
+            } else {
+                upvalueArrayIndex = compiler->upvalues.size();
+                compiler->upvalues.emplace_back(std::make_unique<Upvalue>(upvalueArrayIndex, value, isLocal));
+            }
 
             // Construct instruction sequence to load an upvalue from
             // the upvalue array which is the function's first argument,
@@ -240,7 +242,9 @@ namespace lox {
             const auto upvalueIndex = Builder.CreateGEP(Builder.getPtrTy(), upvalues, {Builder.getInt32(upvalueArrayIndex)}, "arrayindex");
             const auto upvaluePtr = Builder.CreateLoad(Builder.getPtrTy(), upvalueIndex, "upvaluePtr");
 
-            //Builder.PrintF({Builder.CreateGlobalCachedString("addUpValue(%d, %p, %p)\n"), Builder.getInt32(upvalueArrayIndex), upvalueIndex, upvaluePtr});
+            if constexpr (DEBUG_UPVALUES) {
+                Builder.PrintF({Builder.CreateGlobalCachedString("addUpValue(%d, %p, %p)\n"), Builder.getInt32(upvalueArrayIndex), upvalueIndex, upvaluePtr});
+            }
 
             // The pointer from the upvalues array for new upvalue index.
             return upvaluePtr;
@@ -249,11 +253,14 @@ namespace lox {
         static std::shared_ptr<Local> resolveLocal(FunctionCompiler *compiler, const Assignable &assignable) {
             const std::string_view &name = assignable.name.getLexeme();
             if (const auto local = compiler->variables.lookup(name)) {
-                const auto pLocal = local;
-                auto &Builder = compiler->Builder;
-                //Builder.PrintF({Builder.CreateGlobalCachedString("resolveLocal(%s) = %p = "), Builder.CreateGlobalCachedString(name), pLocal->value});
-                //Builder.Print(Builder.ObjVal(Builder.CreateLoad(Builder.getPtrTy(), pLocal->value)));
-                return pLocal;
+
+                if constexpr (DEBUG_UPVALUES) {
+                    auto &Builder = compiler->Builder;
+                    Builder.PrintF({Builder.CreateGlobalCachedString("resolveLocal(%s) = %p = "), Builder.CreateGlobalCachedString(name), local->value});
+                    Builder.Print(Builder.ObjVal(Builder.CreateLoad(Builder.getPtrTy(), local->value)));
+                }
+
+                return local;
             }
             return nullptr;
         }

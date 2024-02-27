@@ -128,103 +128,160 @@ namespace lox {
     }
 
     void closeUpvalues(LoxBuilder &Builder, Value *local) {
-        const auto UpValueStructType = Builder.getModule().getStructType(ObjType::UPVALUE);
+        static auto CloseUpvalueFunction([&Builder] {
+            const auto F = Function::Create(
+                FunctionType::get(
+                    Builder.getVoidTy(),
+                    {Builder.getPtrTy()},
+                    false
+                ),
+                Function::InternalLinkage,
+                "$closeUpvalue",
+                Builder.getModule()
+            );
 
-        const auto openUpvalues = Builder.getModule().getOpenUpvalues();
-        const auto upvalue = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getPtrTy(), "upvalue");
-        const auto next = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getPtrTy(), "next");
-        Builder.CreateStore(
-            Builder.CreateLoad(Builder.getPtrTy(), openUpvalues),
-            upvalue
-        );
+            LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
-        const auto WhileCond = Builder.CreateBasicBlock("while.cond");
-        const auto WhileBody = Builder.CreateBasicBlock("while.body");
-        const auto WhileEnd = Builder.CreateBasicBlock("while.end");
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
 
-        // Find the upvalue that points to the local.
-        Builder.CreateBr(WhileCond);
-        Builder.SetInsertPoint(WhileCond);
-        Builder.CreateCondBr(Builder.CreateIsNotNull(Builder.CreateLoad(Builder.getPtrTy(), upvalue)), WhileBody, WhileEnd);
-        Builder.SetInsertPoint(WhileBody);
+            const auto arguments = F->args().begin();
+            const auto local = arguments;
 
-        Builder.CreateStore(
-            Builder.CreateLoad(
-                Builder.getPtrTy(),
-                Builder.CreateStructGEP(UpValueStructType, Builder.CreateLoad(Builder.getPtrTy(), upvalue), 2, "next")
-            ),
-            next
-        );
+            const auto openUpvalues = B.getModule().getOpenUpvalues();
+            const auto upvalue = CreateEntryBlockAlloca(B.getFunction(), B.getPtrTy(), "upvalue");
+            const auto previous = CreateEntryBlockAlloca(B.getFunction(), B.getPtrTy(), "previous");
 
-        const auto IsSameBlock = Builder.CreateBasicBlock("IsSame");
-        const auto IsDifferentBlock = Builder.CreateBasicBlock("IsDifferent");
-        const auto EndBlock = Builder.CreateBasicBlock("End");
+            if constexpr (DEBUG_UPVALUES) {
+                B.PrintF({B.CreateGlobalCachedString("closing upvalue(%p)\n"), local});
+                B.PrintF({B.CreateGlobalCachedString("openUpvalues = %p\n"), B.CreateLoad(B.getPtrTy(), openUpvalues)});
+            }
 
-        const auto upvalueLocation = Builder.CreateLoad(
-            Builder.getPtrTy(),
-            Builder.CreateStructGEP(UpValueStructType, Builder.CreateLoad(Builder.getPtrTy(), upvalue), 1, "location")
-        );
+            B.CreateStore(B.CreateLoad(B.getPtrTy(), openUpvalues), upvalue);
+            B.CreateStore(B.getNullPtr(), previous);
 
-        Builder.CreateCondBr(
-            Builder.CreateICmpEQ(
-                Builder.getInt64(0), Builder.CreatePtrDiff(Builder.getPtrTy(), upvalueLocation, local)
-            ),
-            IsSameBlock,
-            IsDifferentBlock
-        );
+            const auto WhileCond = B.CreateBasicBlock("while.cond");
+            const auto WhileBody = B.CreateBasicBlock("while.body");
+            const auto WhileEnd = B.CreateBasicBlock("while.end");
 
-        Builder.SetInsertPoint(IsDifferentBlock);
-        // Continue to next...
-        Builder.CreateStore(
-            Builder.CreateLoad(Builder.getPtrTy(), next),
-            upvalue
-        );
 
-        Builder.CreateBr(WhileCond);
+            B.CreateBr(WhileCond);
+            B.SetInsertPoint(WhileCond);
+            B.CreateCondBr(B.CreateIsNotNull(B.CreateLoad(B.getPtrTy(), upvalue)), WhileBody, WhileEnd);
+            B.SetInsertPoint(WhileBody);
 
-        Builder.SetInsertPoint(WhileEnd);
+            const auto FoundBlock = B.CreateBasicBlock("IsSame1");
+            const auto ContinueBlock = B.CreateBasicBlock("NotIsSame1");
 
-        Builder.CreateBr(EndBlock);
+            const auto upvalueLocation = B.CreateLoad(
+                B.getPtrTy(),
+                B.CreateObjStructGEP(ObjType::UPVALUE, B.CreateLoad(B.getPtrTy(), upvalue), 1, "location")
+            );
 
-        Builder.SetInsertPoint(IsSameBlock);
-        const auto foundUpvalue = Builder.CreateLoad(Builder.getPtrTy(), upvalue);
-        const auto closed = Builder.CreateStructGEP(UpValueStructType, foundUpvalue, 3, "closed");
-        const auto loc = Builder.CreateStructGEP(UpValueStructType, foundUpvalue, 1, "loc");
+            if constexpr (DEBUG_UPVALUES) {
+                B.PrintF({B.CreateGlobalCachedString("current = ")});
+                B.Print(B.ObjVal(B.CreateLoad(B.getPtrTy(), upvalue)));
+                B.PrintF({B.CreateGlobalCachedString("%p == %p?\n"), upvalueLocation, local});
+            }
 
-#if DEBUG
-        Builder.PrintString("Before");
-        Builder.Print(Builder.ObjVal(
-            Builder.CreatePtrToInt(
-                Builder.CreateLoad(Builder.getPtrTy(), upvalue),
-                Builder.getInt64Ty()
-            )
-        ));
-#endif
+            B.CreateCondBr(
+                B.CreateICmpEQ(
+                    B.getInt64(0), B.CreatePtrDiff(B.getPtrTy(), upvalueLocation, local)
+                ),
+                FoundBlock,
+                ContinueBlock
+            );
 
-        // Close the upvalue by copying the value from the current location.
-        Builder.CreateStore(
-            Builder.CreateLoad(Builder.getInt64Ty(), Builder.CreateLoad(Builder.getPtrTy(), loc)),
-            closed
-        );
+            B.SetInsertPoint(FoundBlock);
 
-        // And then setting the new location to the "closed" field.
-        Builder.CreateStore(
-            closed,
-            Builder.CreateStructGEP(UpValueStructType, Builder.CreateLoad(Builder.getPtrTy(), upvalue), 1, "loc")
-        );
+            const auto foundUpvalue = B.CreateLoad(B.getPtrTy(), upvalue);
+            const auto closed = B.CreateObjStructGEP(ObjType::UPVALUE, foundUpvalue, 3, "closed");
+            const auto loc = B.CreateObjStructGEP(ObjType::UPVALUE, foundUpvalue, 1, "loc");
 
-#if DEBUG
-        Builder.PrintString("After");
-        Builder.Print(Builder.ObjVal(
-            Builder.CreatePtrToInt(
-                Builder.CreateLoad(Builder.getPtrTy(), upvalue),
-                Builder.getInt64Ty()
-            )
-        ));
-#endif
+            if constexpr (DEBUG_UPVALUES) {
+                B.PrintF({B.CreateGlobalCachedString("before = ")});
+                B.Print(B.ObjVal(B.CreateLoad(B.getPtrTy(), upvalue)));
+            }
 
-        Builder.CreateBr(EndBlock);
-        Builder.SetInsertPoint(EndBlock);
+            // Close the upvalue by copying the value from the current location.
+            B.CreateStore(
+                B.CreateLoad(Builder.getInt64Ty(), B.CreateLoad(Builder.getPtrTy(), loc)),
+                closed
+            );
+
+            // And then setting the new location to the "closed" field.
+            B.CreateStore(
+                closed,
+                B.CreateObjStructGEP(ObjType::UPVALUE, B.CreateLoad(Builder.getPtrTy(), upvalue), 1, "loc")
+            );
+
+            if constexpr (DEBUG_UPVALUES) {
+                // The upvalue should now be closed: the location value
+                // should point to the value inside its own struct.
+                B.PrintF({B.CreateGlobalCachedString("after = ")});
+                B.Print(B.ObjVal(B.CreateLoad(B.getPtrTy(), upvalue)));
+            }
+
+            // Remove the closed upvalue from the open upvalues list.
+            const auto IsFirstBlock = B.CreateBasicBlock("first");
+            const auto IsFirstElseBlock = B.CreateBasicBlock("first.else");
+            const auto EndIsFirstBlock = B.CreateBasicBlock("first.end");
+            B.CreateCondBr(B.CreateIsNull(B.CreateLoad(B.getPtrTy(), previous)), IsFirstBlock, IsFirstElseBlock);
+            B.SetInsertPoint(IsFirstBlock);
+
+            // openupvalues = upvalue->next
+            B.CreateStore(B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::UPVALUE, B.CreateLoad(B.getPtrTy(), upvalue), 2, "next")), openUpvalues);
+
+            B.CreateBr(EndIsFirstBlock);
+            B.SetInsertPoint(IsFirstElseBlock);
+
+            // previous->next = upvalue->next;
+            B.CreateStore(
+                B.CreateLoad(
+                    B.getPtrTy(),
+                    B.CreateObjStructGEP(ObjType::UPVALUE, B.CreateLoad(B.getPtrTy(), upvalue), 2, "next")
+                ),
+                B.CreateObjStructGEP(ObjType::UPVALUE, previous, 2, "next")
+            );
+
+            B.CreateBr(EndIsFirstBlock);
+            B.SetInsertPoint(EndIsFirstBlock);
+
+            B.CreateStore(
+                B.CreateLoad(
+                    B.getPtrTy(),
+                    B.CreateObjStructGEP(ObjType::UPVALUE, B.CreateLoad(B.getPtrTy(), upvalue), 2, "next")
+                ),
+                upvalue
+            );
+
+            B.CreateBr(WhileCond);
+
+            B.SetInsertPoint(ContinueBlock);
+
+            B.CreateStore(B.CreateLoad(B.getPtrTy(), upvalue), previous);
+            B.CreateStore(
+                B.CreateLoad(
+                    B.getPtrTy(),
+                    B.CreateObjStructGEP(ObjType::UPVALUE, B.CreateLoad(B.getPtrTy(), upvalue), 2, "next")
+                ),
+                upvalue
+            );
+
+            B.CreateBr(WhileCond);
+
+            B.SetInsertPoint(WhileEnd);
+
+            if constexpr (DEBUG_UPVALUES) {
+                B.PrintF({B.CreateGlobalCachedString("openUpvalues end = %p\n"), B.CreateLoad(B.getPtrTy(), openUpvalues)});
+            }
+
+            B.CreateRetVoid();
+
+            return F;
+        }());
+
+        Builder.CreateCall(CloseUpvalueFunction, {local});
     }
 
 }// namespace lox
