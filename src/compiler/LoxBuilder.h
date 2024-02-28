@@ -1,5 +1,6 @@
 #ifndef LOXBUILDER_H
 #define LOXBUILDER_H
+#include "../AST.h"
 #include "LoxModule.h"
 #include "Value.h"
 #include <llvm/IR/IRBuilder.h>

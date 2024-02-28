@@ -158,6 +158,11 @@ namespace lox {
 
             Builder.CreateCondBr(Builder.IsClass(value), IsClassBlock, IsNotClassBlock);
             Builder.SetInsertPoint(IsClassBlock);
+
+            beginScope();// Create a new scope since the "super" variable
+                         // could be declared multiple times, for different classes.
+            insertVariable("super", value);
+
             const auto superklass = Builder.AsObj(value);
             const auto supermethods = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, superklass, 2));
             Builder.TableAddAll(supermethods, methods);
@@ -183,6 +188,10 @@ namespace lox {
                     (classStmt->name.getLexeme() + "_" + method->name.getLexeme()).str()
                 );
             Builder.TableSet(methods, Builder.AllocateString(method->name.getLexeme()), Builder.ObjVal(methodPtr));
+        }
+
+        if (classStmt->super_class.has_value()) {
+            endScope();
         }
     }
 }// namespace lox

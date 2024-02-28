@@ -309,10 +309,9 @@ namespace lox {
         CheckInstance(*this, Builder, "Only instances have properties.\n"sv, getExpr->name.getLine(), object);
 
         const auto instance = Builder.AsObj(object);
-        //Builder.PrintF({Builder.CreateGlobalCachedString("instance = %p \n"), instance});
         const auto fields = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
 
-        const auto key = Builder.AllocateString(getExpr->name.getLexeme(), "s");
+        const auto key = Builder.AllocateString(getExpr->name.getLexeme(), getExpr->name.getLexeme());
         const auto result = Builder.TableGet(fields, key);
 
         const auto IsMethodBlock = Builder.CreateBasicBlock("property.ismethod");
@@ -355,7 +354,16 @@ namespace lox {
     }
 
     Value *FunctionCompiler::operator()(const SuperExprPtr &superExpr) {
-        throw std::runtime_error("not implemented");
+        static auto assignable = Assignable{Token(THIS, "this"sv, nullptr, superExpr->name.getLine())};
+        const auto instance = Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(assignable));
+        const auto klass = Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(*superExpr));
+        const auto method = Builder.BindMethod(
+            Builder.AsObj(klass),
+            Builder.AsObj(instance),
+            Builder.AllocateString(superExpr->method.getLexeme()),
+            superExpr->name.getLine()
+        );
+        return Builder.ObjVal(method);
     }
 
     Value *FunctionCompiler::operator()(const VarExprPtr &varExpr) {
