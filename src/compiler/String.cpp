@@ -6,7 +6,7 @@ namespace lox {
 
     // Use a hash table for string interning.
     Value *FindStringEntry(LoxBuilder &Builder, llvm::Value *Table, Value *String, Value *Length, Value *Hash) {
-        static auto FindEntryFunction([&Builder] {
+        static auto FindStringFunction([&Builder] {
             const auto F = Function::Create(
                 FunctionType::get(
                     Builder.getPtrTy(),
@@ -110,7 +110,7 @@ namespace lox {
             return F;
         }());
 
-        return Builder.CreateCall(FindEntryFunction, {Table, String, Length, Hash});
+        return Builder.CreateCall(FindStringFunction, {Table, String, Length, Hash});
     }
 
     static Value *StringHash(LoxBuilder &Builder, Value *String, Value *Length) {
@@ -203,7 +203,7 @@ namespace lox {
             B.CreateStore(Length, B.CreateObjStructGEP(ObjType::STRING, ptr, 2));
             B.CreateStore(StringHash(B, String, Length), B.CreateObjStructGEP(ObjType::STRING, ptr, 3));
 
-            B.TableSet(B.getModule().getRuntimeStrings(), ptr, B.getNilVal());
+            B.TableSet(B.CreateLoad(B.getPtrTy(), B.getModule().getRuntimeStrings()), ptr, B.getNilVal());
 
             B.CreateRet(ptr);
 
@@ -237,7 +237,7 @@ namespace lox {
             const auto Length = arguments + 1;
             const auto hash = arguments + 2;
 
-            const auto interned = FindStringEntry(B, B.getModule().getRuntimeStrings(), String, Length, hash);
+            const auto interned = FindStringEntry(B, B.CreateLoad(B.getPtrTy(), B.getModule().getRuntimeStrings()), String, Length, hash);
 
             const auto IsInternedBlock = B.CreateBasicBlock("is.interned");
             const auto NotInternedBlock = B.CreateBasicBlock("end");
@@ -255,7 +255,7 @@ namespace lox {
             B.CreateStore(Length, B.CreateObjStructGEP(ObjType::STRING, ptr, 2));
             B.CreateStore(hash, B.CreateObjStructGEP(ObjType::STRING, ptr, 3));
 
-            B.TableSet(B.getModule().getRuntimeStrings(), ptr, B.getNilVal());
+            B.TableSet(B.CreateLoad(B.getPtrTy(), B.getModule().getRuntimeStrings()), ptr, B.getNilVal());
 
             B.CreateRet(ptr);
 
@@ -339,7 +339,7 @@ namespace lox {
                 )
             );
 
-            const auto interned = FindStringEntry(B, B.getModule().getRuntimeStrings(), StringMalloc, NewLength, StringHash(B, StringMalloc, NewLength));
+            const auto interned = FindStringEntry(B, B.CreateLoad(B.getPtrTy(), B.getModule().getRuntimeStrings()), StringMalloc, NewLength, StringHash(B, StringMalloc, NewLength));
 
             const auto IsInternedBlock = B.CreateBasicBlock("is.interned");
             const auto NotInternedBlock = B.CreateBasicBlock("end");
