@@ -132,7 +132,6 @@ namespace lox {
             B.PrintFErr("[line %d] in %s()\n", {line, name});
             B.CreateBr(ForInc);
 
-            B.CreateBr(ForInc);
             B.SetInsertPoint(ForInc);
             B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
             B.CreateBr(ForCond);
