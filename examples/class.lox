@@ -1,36 +1,10 @@
-
-{
-    var a = "AAA";
-    var b = "BBB";
-    var c= "CCC";
-    fun foo() {
-        print a;
-        print a;
-        print "foo() end";
-    }
+fun foo() {
+    print "foo()";
     fun bar() {
-        print a;
+        print "bar()";
+        x;
     }
-    foo();
+
     bar();
 }
-
-class Foo {
-  getClosure() {
-   var y = "test";
-   print this;
-    fun closure() {
-    print "closure()";
-    print this;
-    print y;
-      return this.toString();
-    }
-    return closure;
-  }
-
-  toString() { return "Foo"; }
-}
-
-var closure = Foo().getClosure();
-print closure(); // expect: Foo
-
+foo();

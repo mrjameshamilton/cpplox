@@ -64,7 +64,6 @@ namespace lox {
         Value *AllocateArray(Type *type, Value *size, const std::string_view &name);
         Value *AllocateClass(const std::string_view name);
         Value *AllocateInstance(Value *klass);
-        Value *BindMethod(Value *klass, Value *receiver, Value *key);
         Value *AllocateTable();
         Value *TableSet(Value *Table, Value *Key, Value *V);
         Value *TableGet(Value *Table, Value *Key);
@@ -73,12 +72,10 @@ namespace lox {
         Value *Concat(Value *a, Value *b);
 
         void Print(Value *value);
-        void PrintF(const std::string &stringFormat, Value *value);
-        void PrintF(const std::initializer_list<Value *> value);
-        void PrintString(const std::string &string);
-        void PrintString(const Twine &string) {
-            PrintString(string.str());
-        }
+        void PrintF(std::initializer_list<Value *> value);
+        void PrintFErr(StringRef message, const std::vector<Value *> &value);
+        void PrintString(StringRef string);
+
         void PrintNumber(Value *value);
         void PrintNil();
         void PrintObject(Value *value);

@@ -6,6 +6,8 @@
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Module.h>
 
+constexpr unsigned int MAX_STACK_SIZE = 512;
+
 namespace lox {
     using namespace llvm;
 
@@ -116,7 +118,22 @@ namespace lox {
             "openUpvalues",
             PointerType::get(getContext(), 0)
         ));
-
+        StructType *const CallEntry = StructType::create(
+            getContext(),
+            {
+                IntegerType::getInt32Ty(getContext()),// line
+                PointerType::getUnqual(getContext()), // name
+            },
+            "callentry"
+        );
+        GlobalVariable *const callstack = cast<GlobalVariable>(getOrInsertGlobal(
+            "callstack",
+            ArrayType::get(CallEntry, MAX_STACK_SIZE)
+        ));
+        GlobalVariable *const callstackpointer = cast<GlobalVariable>(getOrInsertGlobal(
+            "callsp",
+            IntegerType::getInt32Ty(getContext())
+        ));
         llvm::StringMap<Constant *> strings;
 
     public:
@@ -135,6 +152,16 @@ namespace lox {
             openUpvalues->setAlignment(Align(8));
             openUpvalues->setConstant(false);
             openUpvalues->setInitializer(ConstantPointerNull::get(PointerType::get(Context, 0)));
+
+            callstack->setLinkage(GlobalVariable::PrivateLinkage);
+            callstack->setAlignment(Align(8));
+            callstack->setConstant(false);
+            callstack->setInitializer(Constant::getNullValue(ArrayType::get(CallEntry, MAX_STACK_SIZE)));
+
+            callstackpointer->setLinkage(GlobalVariable::PrivateLinkage);
+            callstackpointer->setAlignment(Align(8));
+            callstackpointer->setConstant(false);
+            callstackpointer->setInitializer(ConstantInt::get(IntegerType::getInt32Ty(getContext()), 0));
         }
 
         StructType *getObjStructType() const {
@@ -176,6 +203,18 @@ namespace lox {
 
         GlobalVariable *getRuntimeStrings() const {
             return runtimeStrings;
+        }
+
+        GlobalVariable *getCallStack() const {
+            return callstack;
+        }
+
+        Type *getCallStruct() const {
+            return CallEntry;
+        }
+
+        GlobalVariable *getCallStackPointer() const {
+            return callstackpointer;
         }
 
         llvm::StringMap<Constant *> &getStringCache() {

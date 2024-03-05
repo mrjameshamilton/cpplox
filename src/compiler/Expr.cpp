@@ -1,3 +1,4 @@
+#include "Callstack.h"
 #include "FunctionCompiler.h"
 #include "ModuleCompiler.h"
 #include <bit>
@@ -5,7 +6,6 @@
 #include <ranges>
 #include <string_view>
 #include <vector>
-
 
 #define DEBUG false
 
@@ -198,7 +198,11 @@ namespace lox {
         Builder.PrintF({Builder.CreateGlobalCachedString("Calling func at %p with function ptr %p\n"), callee, functionPtr});
 #endif
 
-        return Builder.CreateCall(FT, functionPtr, paramValues);
+        Push(Builder, Builder.getInt32(line), Builder.CreateGlobalCachedString(Builder.getFunction()->getName()));
+        const auto result = Builder.CreateCall(FT, functionPtr, paramValues);
+        Pop(Builder);
+
+        return result;
     }
 
     Value *FunctionCompiler::operator()(const CallExprPtr &callExpr) {

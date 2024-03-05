@@ -45,7 +45,7 @@ namespace lox {
         Function *F = Function::Create(
             llvm::FunctionType::get(IntegerType::getInt64Ty(*Context), {}, false),
             Function::InternalLinkage,
-            "main",
+            "script",
             *M
         );
 

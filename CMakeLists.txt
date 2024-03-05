@@ -41,6 +41,7 @@ add_executable(cpplox src/main.cpp
         src/compiler/Class.h
         src/compiler/Table.cpp
         src/compiler/Table.h
+        src/compiler/Callstack.h
 )
 
 target_compile_options(cpplox PRIVATE

@@ -1,4 +1,5 @@
 #include "Value.h"
+#include "Callstack.h"
 #include "Class.h"
 #include "LoxBuilder.h"
 #include "ModuleCompiler.h"
@@ -211,10 +212,6 @@ namespace lox {
         CreateCall(PrintFunction, value);
     }
 
-    void LoxBuilder::PrintF(const std::string &stringFormat, Value *value) {
-        PrintF({CreateGlobalCachedString(stringFormat), value});
-    }
-
     void LoxBuilder::PrintF(const std::initializer_list<Value *> value) {
         static const auto PrintF = getModule().getOrInsertFunction(
             "printf",
@@ -223,7 +220,21 @@ namespace lox {
         CreateCall(PrintF, value);
     }
 
-    void LoxBuilder::PrintString(const std::string &string) {
+    void LoxBuilder::PrintFErr(const StringRef message, const std::vector<Value *> &values) {
+        static const auto StdErr = getModule().getOrInsertGlobal("stderr", getPtrTy());
+        static const auto FPrintF = getModule().getOrInsertFunction(
+            "fprintf",
+            FunctionType::get(getInt8Ty(), {PointerType::get(Context, 0), PointerType::get(Context, 0)}, true)
+        );
+
+        std::vector values2(values);
+        values2.insert(values2.begin(), CreateGlobalCachedString(message));
+        values2.insert(values2.begin(), CreateLoad(getPtrTy(), StdErr));
+
+        CreateCall(FPrintF, values2);
+    }
+
+    void LoxBuilder::PrintString(const StringRef string) {
         PrintF({CreateGlobalCachedString("%s\n"), CreateGlobalCachedString(string)});
     }
 
@@ -330,26 +341,13 @@ namespace lox {
         values2.insert(values2.begin(), CreateGlobalCachedString(message));
         values2.insert(values2.begin(), CreateLoad(getPtrTy(), StdErr));
 
-        CreateCall(FPrintF, values2);
+        PrintFErr(message, values);
         if (function == nullptr) {
-            CreateCall(
-                FPrintF,
-                {
-                    CreateLoad(getPtrTy(), StdErr),
-                    CreateGlobalCachedString("[line %d] in script\n"),
-                    line,
-                }
-            );
+            PrintFErr("[line %d] in script\n", {line});
         } else {
-            CreateCall(
-                FPrintF,
-                {CreateLoad(getPtrTy(), StdErr),
-                 CreateGlobalCachedString("[line %d] in %s()\n"),
-                 line,
-                 CreateGlobalCachedString(function->getName())
-                }
-            );
+            PrintFErr("[line %d] in %s()\n", {line, CreateGlobalCachedString(function->getName())});
         }
+        PrintStackTrace(*this);
         CreateCall(Exit, getInt32(70));
     }
 }// namespace lox
