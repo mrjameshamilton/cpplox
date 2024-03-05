@@ -111,7 +111,7 @@ namespace lox {
         [[nodiscard]] BasicBlock *CreateBasicBlock(const std::string_view &name) const {
             return BasicBlock::Create(getContext(), name, getFunction());
         }
-        Value *BindMethod(Value *klass, Value *receiver, Value *key, unsigned int line);
+        Value *BindMethod(Value *klass, Value *receiver, Value *key, unsigned int line, llvm::Function *pFunction);
     };
 }// namespace lox
 

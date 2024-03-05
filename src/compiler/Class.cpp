@@ -27,7 +27,7 @@ namespace lox {
         return ptr;
     }
 
-    Value *LoxBuilder::BindMethod(Value *klass, Value *receiver, Value *key, unsigned int line) {
+    Value *LoxBuilder::BindMethod(Value *klass, Value *receiver, Value *key, unsigned int line, llvm::Function *pFunction) {
         assert(klass->getType() == getPtrTy());
         assert(receiver->getType() == getPtrTy());
 
@@ -35,7 +35,7 @@ namespace lox {
             const auto F = Function::Create(
                 FunctionType::get(
                     getPtrTy(),
-                    {getPtrTy(), getPtrTy(), getPtrTy(), getInt32Ty()},
+                    {getPtrTy(), getPtrTy(), getPtrTy(), getInt32Ty(), getPtrTy()},
                     false
                 ),
                 Function::InternalLinkage,
@@ -53,6 +53,7 @@ namespace lox {
             const auto receiver = arguments + 1;
             const auto key = arguments + 2;
             const auto line = arguments + 3;
+            const auto function = arguments + 4;
 
             const auto methods = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::CLASS, klass, 2));
             const auto method = B.TableGet(methods, key);
@@ -72,7 +73,7 @@ namespace lox {
                 line,
                 "Undefined property '%s'.\n"sv,
                 {B.AsCString(B.ObjVal(key))},
-                getFunction()
+                function
             );
             B.CreateUnreachable();
 
@@ -88,6 +89,9 @@ namespace lox {
             return F;
         }());
 
-        return CreateCall(BindMethodFunction, {klass, receiver, key, getInt32(line)});
+        return CreateCall(
+            BindMethodFunction,
+            {klass, receiver, key, getInt32(line), CreateGlobalCachedString(pFunction == nullptr ? "script" : pFunction->getName())}
+        );
     }
 }// namespace lox

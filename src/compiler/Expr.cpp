@@ -326,7 +326,7 @@ namespace lox {
         Builder.SetInsertPoint(IsMethodBlock);
 
         const auto klass = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
-        const auto bound = Builder.ObjVal(Builder.BindMethod(klass, instance, key, getExpr->name.getLine()));
+        const auto bound = Builder.ObjVal(Builder.BindMethod(klass, instance, key, getExpr->name.getLine(), enclosing == nullptr ? nullptr : Builder.getFunction()));
 
         Builder.CreateBr(IsDefinedBlock);
 
@@ -363,7 +363,8 @@ namespace lox {
             Builder.AsObj(klass),
             Builder.AsObj(instance),
             Builder.AllocateString(superExpr->method.getLexeme()),
-            superExpr->name.getLine()
+            superExpr->name.getLine(),
+            enclosing == nullptr ? nullptr : Builder.getFunction()
         );
         return Builder.ObjVal(method);
     }

@@ -2,6 +2,7 @@
 #include "Callstack.h"
 #include "LoxBuilder.h"
 
+#include <iostream>
 #include <llvm/ADT/StringExtras.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/DerivedTypes.h>
