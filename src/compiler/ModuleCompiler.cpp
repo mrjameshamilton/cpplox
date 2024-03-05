@@ -1,9 +1,6 @@
 #include "ModuleCompiler.h"
-
-#include "../AST.h"
 #include "FunctionCompiler.h"
 
-#include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Value.h>
 #include <llvm/Passes/PassBuilder.h>
