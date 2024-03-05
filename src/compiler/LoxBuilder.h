@@ -101,9 +101,9 @@ namespace lox {
             return ptr;
         }
 
-        void RuntimeError(Value *line, StringRef message, const std::vector<Value *> &values, const llvm::Function *function);
+        void RuntimeError(Value *line, StringRef message, const std::vector<Value *> &values, Value *name);
         void RuntimeError(const unsigned line, StringRef message, const std::vector<Value *> &values, const llvm::Function *function) {
-            RuntimeError(getInt32(line), message, values, function);
+            RuntimeError(getInt32(line), message, values, CreateGlobalCachedString(function == nullptr ? "script" : function->getName()));
         }
 
         [[nodiscard]] LoxModule &getModule() const { return M; }

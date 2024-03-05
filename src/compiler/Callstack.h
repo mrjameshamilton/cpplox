@@ -32,8 +32,19 @@ namespace lox {
             const auto $cs = B.getModule().getCallStack();
 
             const auto sp = B.CreateLoad(B.getInt32Ty(), $sp);
-            const auto addr = B.CreateGEP($cs->getValueType(), $cs, {B.getInt32(0), sp});
 
+            const auto IsStackOverFlow = B.CreateBasicBlock("is.stackoverflow");
+            const auto IsNotStackOverFlow = B.CreateBasicBlock("isnot.stackoverflow");
+
+            B.CreateCondBr(B.CreateICmpSGE(sp, B.getInt32(MAX_STACK_SIZE)), IsStackOverFlow, IsNotStackOverFlow);
+
+            B.SetInsertPoint(IsStackOverFlow);
+            B.RuntimeError(line, "Stack overflow.\n", {}, name);
+            B.CreateUnreachable();
+
+            B.SetInsertPoint(IsNotStackOverFlow);
+
+            const auto addr = B.CreateGEP($cs->getValueType(), $cs, {B.getInt32(0), sp});
             B.CreateStore(line, B.CreateGEP(B.getModule().getCallStruct(), addr, {B.getInt32(0), B.getInt32(0)}));
             B.CreateStore(name, B.CreateGEP(B.getModule().getCallStruct(), addr, {B.getInt32(0), B.getInt32(1)}));
 
@@ -126,7 +137,7 @@ namespace lox {
             B.CreateCondBr(B.CreateICmpEQ(sp, B.CreateLoad(B.getInt32Ty(), i)), IsScriptBlock, IsNotScriptBlock);
 
             B.SetInsertPoint(IsScriptBlock);
-            B.PrintFErr("[line %d] in script\n", {line, name});
+            B.PrintFErr("[line %d] in script\n", {line});
             B.CreateBr(ForInc);
             B.SetInsertPoint(IsNotScriptBlock);
             B.PrintFErr("[line %d] in %s()\n", {line, name});

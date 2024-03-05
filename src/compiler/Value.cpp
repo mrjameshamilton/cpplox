@@ -322,28 +322,22 @@ namespace lox {
         PrintF({CreateGlobalCachedString("%s\n"), CreateSelect(AsBool(value), CreateGlobalCachedString("true"), CreateGlobalCachedString("false"))});
     }
 
-    void LoxBuilder::RuntimeError(Value *line, StringRef message, const std::vector<Value *> &values, const llvm::Function *function) {
-        static const auto StdErr = getModule().getOrInsertGlobal("stderr", getPtrTy());
-        static const auto FPrintF = getModule().getOrInsertFunction(
-            "fprintf",
-            FunctionType::get(getInt8Ty(), {PointerType::get(Context, 0), PointerType::get(Context, 0)}, true)
-        );
+    void LoxBuilder::RuntimeError(Value *line, StringRef message, const std::vector<Value *> &values, Value *name) {
         static const auto Exit = getModule().getOrInsertFunction(
             "exit",
             FunctionType::get(getVoidTy(), {getInt32Ty()}, true)
         );
 
-        std::vector values2(values);
-        values2.insert(values2.begin(), CreateGlobalCachedString(message));
-        values2.insert(values2.begin(), CreateLoad(getPtrTy(), StdErr));
-
         PrintFErr(message, values);
-        if (function == nullptr) {
+
+        if (name == CreateGlobalCachedString("script")) {
             PrintFErr("[line %d] in script\n", {line});
         } else {
-            PrintFErr("[line %d] in %s()\n", {line, CreateGlobalCachedString(function->getName())});
+            PrintFErr("[line %d] in %s()\n", {line, name});
         }
+
         PrintStackTrace(*this);
+
         CreateCall(Exit, getInt32(70));
     }
 }// namespace lox

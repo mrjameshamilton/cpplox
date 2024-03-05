@@ -300,8 +300,6 @@ namespace lox {
         Builder.CreateCondBr(Builder.IsInstance(instance), EndBlock, NotInstanceBlock);
 
         Builder.SetInsertPoint(NotInstanceBlock);
-        //Builder.PrintF({Builder.CreateGlobalCachedString("instance = %p = "), Builder.AsObj(instance)});
-        //Builder.Print(instance);
         Builder.RuntimeError(line, message, {}, Compiler.getEnclosing() == nullptr ? nullptr : Builder.getFunction());
         Builder.CreateUnreachable();
 
