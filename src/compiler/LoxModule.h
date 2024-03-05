@@ -118,17 +118,17 @@ namespace lox {
             "openUpvalues",
             PointerType::get(getContext(), 0)
         ));
-        StructType *const CallEntry = StructType::create(
+        StructType *const Call = StructType::create(
             getContext(),
             {
                 IntegerType::getInt32Ty(getContext()),// line
                 PointerType::getUnqual(getContext()), // name
             },
-            "callentry"
+            "Call"
         );
         GlobalVariable *const callstack = cast<GlobalVariable>(getOrInsertGlobal(
             "callstack",
-            ArrayType::get(CallEntry, MAX_STACK_SIZE)
+            ArrayType::get(Call, MAX_STACK_SIZE)
         ));
         GlobalVariable *const callstackpointer = cast<GlobalVariable>(getOrInsertGlobal(
             "callsp",
@@ -156,7 +156,7 @@ namespace lox {
             callstack->setLinkage(GlobalVariable::PrivateLinkage);
             callstack->setAlignment(Align(8));
             callstack->setConstant(false);
-            callstack->setInitializer(Constant::getNullValue(ArrayType::get(CallEntry, MAX_STACK_SIZE)));
+            callstack->setInitializer(Constant::getNullValue(ArrayType::get(Call, MAX_STACK_SIZE)));
 
             callstackpointer->setLinkage(GlobalVariable::PrivateLinkage);
             callstackpointer->setAlignment(Align(8));
@@ -210,7 +210,7 @@ namespace lox {
         }
 
         Type *getCallStruct() const {
-            return CallEntry;
+            return Call;
         }
 
         GlobalVariable *getCallStackPointer() const {
