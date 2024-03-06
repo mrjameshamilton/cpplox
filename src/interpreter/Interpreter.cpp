@@ -1,8 +1,8 @@
 #pragma once
 
-#include "AST.h"
-#include "Error.h"
-#include "Util.h"
+#include "../Util.h"
+#include "../frontend/AST.h"
+#include "../frontend/Error.h"
 
 #include <chrono>
 #include <cstring>

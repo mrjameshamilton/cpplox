@@ -1,5 +1,5 @@
 #include "AST.h"
-#include "Interpreter.cpp"
+#include "Error.h"
 #include <unordered_map>
 
 using namespace std::literals;

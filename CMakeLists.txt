@@ -13,14 +13,14 @@ include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
 add_executable(cpplox src/main.cpp
-        src/Token.h
-        src/Scanner.cpp
-        src/Error.h
-        src/AST.h
-        src/Parser.cpp
-        src/Interpreter.cpp
+        src/frontend/Token.h
+        src/frontend/Scanner.cpp
+        src/frontend/Error.h
+        src/frontend/AST.h
+        src/frontend/Parser.cpp
+        src/interpreter/Interpreter.cpp
         src/Util.h
-        src/Resolver.cpp
+        src/frontend/Resolver.cpp
         src/compiler/Expr.cpp
         src/compiler/ModuleCompiler.cpp
         src/compiler/Value.h

@@ -1,7 +1,7 @@
 #ifndef COMPILER_H
 #define COMPILER_H
 
-#include "../AST.h"
+#include "../frontend/AST.h"
 #include "LoxBuilder.h"
 #include "LoxModule.h"
 

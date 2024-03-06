@@ -2,7 +2,7 @@
 #define LOX_LLVM_AST_H
 
 #include "Token.h"
-#include "Util.h"
+#include "../Util.h"
 
 #include <memory>
 #include <optional>

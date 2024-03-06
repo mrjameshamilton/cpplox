@@ -1,6 +1,6 @@
 #ifndef LOXFUNCTIONCOMPILER_H
 #define LOXFUNCTIONCOMPILER_H
-#include "../AST.h"
+#include "../frontend/AST.h"
 #include "LoxBuilder.h"
 #include "ModuleCompiler.h"
 #include "Upvalue.h"

@@ -1,8 +1,8 @@
-#include "Interpreter.cpp"
-#include "Parser.cpp"
-#include "Resolver.cpp"
-#include "Scanner.cpp"
+#include "interpreter/Interpreter.cpp"
 #include "compiler/ModuleCompiler.h"
+#include "frontend/Parser.cpp"
+#include "frontend/Resolver.cpp"
+#include "frontend/Scanner.cpp"
 #include "llvm/Support/CommandLine.h"
 #include <fstream>
 #include <iostream>
