@@ -1,8 +1,5 @@
-#include "Class.h"
 #include "FunctionCompiler.h"
-#include "Upvalue.h"
 
-#include <llvm/Transforms/Utils/BasicBlockUtils.h>
 #include <ranges>
 #include <vector>
 
