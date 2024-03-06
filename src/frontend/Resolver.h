@@ -1,3 +1,5 @@
+#ifndef  RESOLVER_H
+#define RESOLVER_H
 #include "AST.h"
 #include "Error.h"
 #include <unordered_map>
@@ -6,7 +8,7 @@ using namespace std::literals;
 
 namespace lox {
 
-    struct Resolver {
+    class Resolver {
         enum class ClassType {
             NONE,
             CLASS,
@@ -51,12 +53,6 @@ namespace lox {
             }
         }
 
-        void operator()(const BlockStmtPtr &blockStmt) {
-            beginScope();
-            resolve(blockStmt->statements);
-            endScope();
-        }
-
         void resolveFunction(const FunctionStmtPtr &function, const LoxFunctionType functionType) {
             const LoxFunctionType enclosingFunction = currentFunction;
             currentFunction = functionType;
@@ -69,6 +65,13 @@ namespace lox {
             resolve(function->body);
             endScope();
             currentFunction = enclosingFunction;
+        }
+
+    public:
+        void operator()(const BlockStmtPtr &blockStmt) {
+            beginScope();
+            resolve(blockStmt->statements);
+            endScope();
         }
 
         void operator()(const FunctionStmtPtr &functionStmt) {
@@ -220,6 +223,7 @@ namespace lox {
             resolve(unaryExpr->expression);
         }
 
+    private:
         void resolve(const std::optional<Expr> &opt) {
             if (opt.has_value()) resolve(opt.value());
         }
@@ -232,6 +236,7 @@ namespace lox {
             std::visit(*this, stmt);
         }
 
+    public:
         void resolve(const Program &program) {
             for (auto &item: program) {
                 resolve(item);
@@ -239,3 +244,4 @@ namespace lox {
         }
     };
 }// namespace lox
+#endif// RESOLVER_H

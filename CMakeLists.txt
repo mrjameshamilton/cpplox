@@ -14,13 +14,12 @@ add_definitions(${LLVM_DEFINITIONS})
 
 add_executable(cpplox src/main.cpp
         src/frontend/Token.h
-        src/frontend/Scanner.cpp
+        src/frontend/Scanner.h
         src/frontend/Error.h
         src/frontend/AST.h
-        src/frontend/Parser.cpp
-        src/interpreter/Interpreter.cpp
+        src/interpreter/Interpreter.h
         src/Util.h
-        src/frontend/Resolver.cpp
+        src/frontend/Resolver.h
         src/compiler/Expr.cpp
         src/compiler/ModuleCompiler.cpp
         src/compiler/Value.h
@@ -39,6 +38,7 @@ add_executable(cpplox src/main.cpp
         src/compiler/Class.cpp
         src/compiler/Table.cpp
         src/compiler/Callstack.h
+        src/frontend/Parser.h
 )
 
 target_compile_options(cpplox PRIVATE

@@ -1,4 +1,16 @@
+class Base {
+  init(a, b) {
+    print "Base.init(" + a + ", " + b + ")";
+  }
+}
 
-class Foo {}
+class Derived < Base {
+  init() {
+    print "Derived.init()";
+    super.init("a", "b");
+  }
+}
 
-Foo().unknown(); // expect runtime error: Undefined property 'unknown'.
+Derived();
+// expect: Derived.init()
+// expect: Base.init(a, b)

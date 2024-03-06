@@ -1,3 +1,6 @@
+#ifndef PARSER_H
+#define PARSER_H
+
 #include "../frontend/AST.h"
 #include "Error.h"
 #include "Token.h"
@@ -445,4 +448,6 @@ namespace lox {
 
         Token previous() { return tokens.at(current - 1); }
     };
-}// namespace lox
+}
+
+#endif //PARSER_H

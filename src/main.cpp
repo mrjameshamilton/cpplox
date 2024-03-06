@@ -1,9 +1,11 @@
-#include "interpreter/Interpreter.cpp"
 #include "compiler/ModuleCompiler.h"
-#include "frontend/Parser.cpp"
-#include "frontend/Resolver.cpp"
-#include "frontend/Scanner.cpp"
+#include "frontend/Parser.h"
+#include "frontend/Resolver.h"
+#include "frontend/Scanner.h"
+#include "interpreter/Interpreter.h"
+
 #include "llvm/Support/CommandLine.h"
+
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -47,17 +49,16 @@ int main(const int argc, char **argv) {
     resolver.resolve(ast);
     if (hadError) return 65;
 
-
     const ModuleCompiler ModuleCompiler;
     ModuleCompiler.evaluate(ast);
     if (!OutputFilename.empty()) {
         ModuleCompiler.writeIR(OutputFilename.getValue());
+    } else {
+        Interpreter Interpreter;
+        Interpreter.evaluate(ast);
+
+        if (hadRuntimeError) return 70;
     }
-
-    Interpreter Interpreter;
-    //Interpreter.evaluate(ast);
-
-    if (hadRuntimeError) return 70;
 
     return 0;
 }
