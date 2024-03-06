@@ -5,7 +5,7 @@
 namespace lox {
 
     // Use a hash table for string interning.
-    Value *FindStringEntry(LoxBuilder &Builder, llvm::Value *Table, Value *String, Value *Length, Value *Hash) {
+    Value *FindStringEntry(LoxBuilder &Builder, Value *Table, Value *String, Value *Length, Value *Hash) {
         static auto FindStringFunction([&Builder] {
             const auto F = Function::Create(
                 FunctionType::get(
@@ -264,7 +264,7 @@ namespace lox {
 
         // FNV-1a hash function.
         unsigned int hash = -2128831035;
-        for (char i: String) {
+        for (const char i: String) {
             hash ^= i;
             hash *= 16777619;
         }

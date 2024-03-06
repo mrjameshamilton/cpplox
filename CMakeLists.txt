@@ -26,7 +26,6 @@ add_executable(cpplox src/main.cpp
         src/compiler/Value.h
         src/compiler/Value.cpp
         src/compiler/String.cpp
-        src/compiler/Truthy.cpp
         src/compiler/Memory.cpp
         src/compiler/Stmt.cpp
         src/compiler/ModuleCompiler.h
@@ -39,7 +38,6 @@ add_executable(cpplox src/main.cpp
         src/compiler/Upvalue.h
         src/compiler/Class.cpp
         src/compiler/Table.cpp
-        src/compiler/Table.h
         src/compiler/Callstack.h
 )
 

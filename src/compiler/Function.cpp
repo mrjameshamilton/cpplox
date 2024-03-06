@@ -2,7 +2,7 @@
 
 namespace lox {
 
-    Value *LoxBuilder::AllocateFunction(llvm::Function *Function, std::string_view name, const bool isNative) {
+    Value *LoxBuilder::AllocateFunction(llvm::Function *Function, const std::string_view name, const bool isNative) {
         static auto AllocateFunctionFunction([this] {
             const auto F = Function::Create(
                 FunctionType::get(
@@ -49,7 +49,7 @@ namespace lox {
         );
     }
 
-    Value *LoxBuilder::AllocateClosure(llvm::Function *Function, std::string_view name, bool isNative) {
+    Value *LoxBuilder::AllocateClosure(llvm::Function *function, const std::string_view name, const bool isNative) {
         static auto AllocationClosureFunction([this] {
             const auto F = Function::Create(
                 FunctionType::get(
@@ -81,6 +81,6 @@ namespace lox {
             return F;
         }());
 
-        return CreateCall(AllocationClosureFunction, {AllocateFunction(Function, name, isNative)});
+        return CreateCall(AllocationClosureFunction, {AllocateFunction(function, name, isNative)});
     }
 }// namespace lox

@@ -6,10 +6,10 @@
 
 #include <memory>
 #include <optional>
-#include <sstream>
 #include <utility>
 #include <variant>
 #include <vector>
+
 namespace lox {
 
     enum class UnaryOp {

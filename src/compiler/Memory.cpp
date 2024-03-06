@@ -7,7 +7,7 @@
 
 namespace lox {
 
-    AllocaInst *CreateEntryBlockAlloca(Function *TheFunction, Type *type, const std::string_view &VarName) {
+    AllocaInst *CreateEntryBlockAlloca(Function *TheFunction, Type *type, const std::string_view VarName) {
         IRBuilder TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
         return TmpB.CreateAlloca(type, nullptr, VarName);
     }
@@ -140,11 +140,11 @@ namespace lox {
         return CreateCall(AllocateObjectFunction, {ObjTypeInt(objType)}, name);
     }
 
-    Value *LoxBuilder::AllocateArray(llvm::Type *type, int size, const std::string_view &name) {
+    Value *LoxBuilder::AllocateArray(Type *type, const int size, const std::string_view &name) {
         return AllocateArray(type, getInt32(size), name);
     }
 
-    Value *LoxBuilder::AllocateArray(llvm::Type *type, Value *arraySize, const std::string_view &name) {
+    Value *LoxBuilder::AllocateArray(Type *type, Value *arraySize, const std::string_view &name) {
         Type *IntPtrTy = IntegerType::getInt32Ty(getContext());
         // The malloc size IR that is generated with getSizeOf uses a hack described here:
         // https://mukulrathi.com/create-your-own-programming-language/concurrency-runtime-language-tutorial/#malloc

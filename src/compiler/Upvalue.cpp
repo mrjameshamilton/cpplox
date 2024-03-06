@@ -7,18 +7,10 @@ namespace lox {
     Value *LoxBuilder::AllocateUpvalue(Value *value) {
         const auto ptr = AllocateObj(ObjType::UPVALUE);
 
-        CreateStore(
-            value,
-            CreateObjStructGEP(ObjType::UPVALUE, ptr, 1)
-        );
-        CreateStore(
-            getNullPtr(),
-            CreateObjStructGEP(ObjType::UPVALUE, ptr, 2)
-        );
-        CreateStore(
-            getNilVal(),
-            CreateObjStructGEP(ObjType::UPVALUE, ptr, 3)
-        );
+        CreateStore(value,CreateObjStructGEP(ObjType::UPVALUE, ptr, 1));
+        CreateStore(getNullPtr(),CreateObjStructGEP(ObjType::UPVALUE, ptr, 2));
+        CreateStore(getNilVal(),CreateObjStructGEP(ObjType::UPVALUE, ptr, 3));
+
         return ptr;
     }
 
@@ -45,22 +37,17 @@ namespace lox {
             const auto local = arguments;
 
             const auto openUpvalues = B.getModule().getOpenUpvalues();
-            //B.PrintF({B.CreateGlobalCachedString("captureLocal(%p), openupvalues = %p\n"), local, openUpvalues});
             const auto upvalue = CreateEntryBlockAlloca(B.getFunction(), B.getPtrTy(), "upvalue");
-            //const auto next = CreateEntryBlockAlloca(B.getFunction(), B.getPtrTy(), "next");
             B.CreateStore(B.CreateLoad(B.getPtrTy(), openUpvalues), upvalue);
 
             const auto WhileCond = B.CreateBasicBlock("while.cond");
             const auto WhileBody = B.CreateBasicBlock("while.body");
             const auto WhileEnd = B.CreateBasicBlock("while.end");
 
-            //B.PrintF({B.CreateGlobalCachedString("%p?\n"), B.CreateLoad(B.getPtrTy(), upvalue)});
-
             B.CreateBr(WhileCond);
             B.SetInsertPoint(WhileCond);
             B.CreateCondBr(B.CreateIsNotNull(B.CreateLoad(B.getPtrTy(), upvalue)), WhileBody, WhileEnd);
             B.SetInsertPoint(WhileBody);
-            //B.PrintString(Twine("WhileBody"));
 
             const auto IsSameBlock1 = B.CreateBasicBlock("IsSame1");
             const auto INotsSameBlock1 = B.CreateBasicBlock("NotIsSame1");
@@ -70,7 +57,6 @@ namespace lox {
                 B.CreateObjStructGEP(ObjType::UPVALUE, B.CreateLoad(B.getPtrTy(), upvalue), 1, "location")
             );
 
-            //B.PrintF({B.CreateGlobalCachedString("%p == %p?\n"), upvalueLocation, local});
             B.CreateCondBr(
                 B.CreateICmpEQ(
                     B.getInt64(0), B.CreatePtrDiff(B.getPtrTy(), upvalueLocation, local)
@@ -80,16 +66,12 @@ namespace lox {
             );
 
             B.SetInsertPoint(IsSameBlock1);
-            //B.PrintF({B.CreateGlobalCachedString("Returning same: %p = "), B.CreateLoad(B.getPtrTy(), upvalue)});
-            //B.Print(B.ObjVal(B.CreateLoad(B.getPtrTy(), upvalue)));
 
             B.CreateRet(B.CreateLoad(B.getPtrTy(), upvalue));
 
             B.SetInsertPoint(INotsSameBlock1);
 
             LoadInst *ptr = B.CreateLoad(B.getPtrTy(), upvalue);
-            //B.PrintString(Twine("WhileBody2"));
-            //B.Print(B.ObjVal(ptr));
 
             B.CreateStore(
                 B.CreateLoad(
@@ -102,7 +84,6 @@ namespace lox {
 
             B.SetInsertPoint(WhileEnd);
 
-            //B.PrintString(Twine("WhileEnd"));
             const auto upvaluePtr = B.AllocateUpvalue(local);
 
             B.CreateStore(
@@ -114,10 +95,6 @@ namespace lox {
                 upvaluePtr,
                 openUpvalues
             );
-
-            //B.PrintString(Twine("returning:"));
-            //B.Print(B.ObjVal(upvaluePtr));
-            // B.SetInsertPoint(EndBlock);
 
             B.CreateRet(upvaluePtr);
 

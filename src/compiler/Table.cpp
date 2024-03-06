@@ -37,7 +37,7 @@ namespace lox {
         return CreateCall(AllocateTableFunction);
     }
 
-    Value *FindEntry(LoxBuilder &Builder, llvm::Value *Entries, llvm::Value *Capacity, llvm::Value *Key) {
+    Value *FindEntry(LoxBuilder &Builder, Value *Entries, Value *Capacity, Value *Key) {
         static auto FindEntryFunction([&Builder] {
             const auto F = Function::Create(
                 FunctionType::get(
@@ -142,7 +142,7 @@ namespace lox {
         B.Print(entryValue);
     }
 
-    Value *LoxBuilder::TableSet(llvm::Value *Table, llvm::Value *Key, llvm::Value *V) {
+    Value *LoxBuilder::TableSet(Value *Table, Value *Key, Value *V) {
         assert(V->getType() == IntegerType::get(getContext(), 64));
         static auto AdjustCapacityFunction([this] {
             const auto F = Function::Create(
@@ -426,7 +426,7 @@ namespace lox {
         return CreateCall(TableGetFunction, {Table, Key});
     }
 
-    Value *LoxBuilder::TableAddAll(llvm::Value *FromTable, llvm::Value *ToTable) {
+    Value *LoxBuilder::TableAddAll(Value *FromTable, Value *ToTable) {
         assert(FromTable->getType() == getPtrTy());
         assert(ToTable->getType() == getPtrTy());
 

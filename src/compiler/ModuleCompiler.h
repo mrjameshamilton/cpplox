@@ -14,7 +14,7 @@ using namespace llvm::sys;
 
 namespace lox {
 
-    AllocaInst *CreateEntryBlockAlloca(Function *TheFunction, Type *type, const std::string_view &VarName);
+    AllocaInst *CreateEntryBlockAlloca(Function *TheFunction, Type *type, std::string_view VarName);
 
     struct ModuleCompiler {
         std::shared_ptr<LLVMContext> Context = std::make_shared<LLVMContext>();

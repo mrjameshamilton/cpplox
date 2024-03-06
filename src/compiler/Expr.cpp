@@ -209,7 +209,7 @@ namespace lox {
         const auto value = evaluate(callExpr->callee);
         const auto valuePtr = Builder.AsObj(value);
 
-        auto paramValues = to<std::vector<Value *>>(
+        const auto paramValues = to<std::vector<Value *>>(
             callExpr->arguments | std::views::transform([&](const auto &p) -> Value * {
                 return evaluate(p);
             })
@@ -274,10 +274,10 @@ namespace lox {
         Builder.SetInsertPoint(ExecuteBlock);
 
         // The function is wrapped in a closure.
-        auto closure = Builder.CreatePHI(Builder.getPtrTy(), 2);
+        const auto closure = Builder.CreatePHI(Builder.getPtrTy(), 2);
         closure->addIncoming(closurePtr, IsClosureBlock);
         closure->addIncoming(methodPtr, IsMethodBlock);
-        auto receiver = Builder.CreatePHI(Builder.getInt64Ty(), 2);
+        const auto receiver = Builder.CreatePHI(Builder.getInt64Ty(), 2);
         receiver->addIncoming(receiverObjVal, IsMethodBlock);
         receiver->addIncoming(Builder.getNilVal(), IsClosureBlock);
 
@@ -293,7 +293,7 @@ namespace lox {
         return result;
     }
 
-    void CheckInstance(FunctionCompiler &Compiler, LoxBuilder &Builder, std::string_view message, unsigned int line, Value *instance) {
+    void CheckInstance(FunctionCompiler &Compiler, LoxBuilder &Builder, const std::string_view message, const unsigned int line, Value *instance) {
         const auto NotInstanceBlock = Builder.CreateBasicBlock("not.instance");
         const auto EndBlock = Builder.CreateBasicBlock("end");
 

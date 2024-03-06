@@ -2,7 +2,6 @@
 #include "Callstack.h"
 #include "LoxBuilder.h"
 
-#include <iostream>
 #include <llvm/ADT/StringExtras.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -141,6 +140,46 @@ namespace lox {
         return CreateBitCast(value, getInt64Ty());
     }
 
+    Value *LoxBuilder::IsTruthy(Value *value) {
+        static auto IsTruthyFunction([this] {
+            const auto F = Function::Create(
+                FunctionType::get(
+                    getInt1Ty(),
+                    getInt64Ty(),
+                    false
+                ),
+                Function::InternalLinkage,
+                "$isTruthy",
+                this->getModule()
+            );
+
+            LoxBuilder B(getContext(), getModule(), *F);
+
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            const auto IsNullBlock = B.CreateBasicBlock("if.null");
+            const auto IsNotNullBlock = B.CreateBasicBlock("if.not.bool");
+            const auto IsBoolBlock = B.CreateBasicBlock("if.bool");
+            const auto EndBlock = B.CreateBasicBlock("if.end");
+
+            B.SetInsertPoint(EntryBasicBlock);
+
+            const auto p0 = F->args().begin();
+            B.CreateCondBr(B.IsNil(p0), IsNullBlock, IsNotNullBlock);
+            B.SetInsertPoint(IsNullBlock);
+            B.CreateRet(B.getFalse());
+            B.SetInsertPoint(IsNotNullBlock);
+            B.CreateCondBr(B.IsBool(p0), IsBoolBlock, EndBlock);
+            B.SetInsertPoint(IsBoolBlock);
+            B.CreateRet(B.AsBool(p0));
+            B.SetInsertPoint(EndBlock);
+            B.CreateRet(B.getTrue());
+
+            return F;
+        }());
+
+        return CreateCall(IsTruthyFunction, value);
+    }
+
     void LoxBuilder::Print(Value *value) {
         assert(value->getType() == getInt64Ty());
         static auto PrintFunction([this] {
@@ -151,7 +190,7 @@ namespace lox {
                     false
                 ),
                 Function::InternalLinkage,
-                "Print",
+                "$print",
                 this->getModule()
             );
 
@@ -282,11 +321,12 @@ namespace lox {
         CreateBr(EndBlock);
 
         SetInsertPoint(IsUpvalueBlock);
+        // Not usually printable, but useful for debugging.
         const auto upvalue = AsObj(value);
         const auto object = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 1));
         const auto next = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 2));
         PrintF({CreateGlobalCachedString("Upvalue(%p, %p, next = %p) = "), upvalue, object, next});
-        CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("Print"), CreateLoad(getInt64Ty(), object));
+        CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("$print"), CreateLoad(getInt64Ty(), object));
         CreateBr(EndBlock);
 
         SetInsertPoint(IsClassBlock);
@@ -305,7 +345,7 @@ namespace lox {
         SetInsertPoint(IsBoundMethod);
         const auto bound = AsObj(value);
         const auto methodClosure = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::BOUND_METHOD, bound, 2));
-        CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("Print"), ObjVal(methodClosure));
+        CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("$print"), ObjVal(methodClosure));
 
         CreateBr(EndBlock);
 
@@ -323,7 +363,7 @@ namespace lox {
         PrintF({CreateGlobalCachedString("%s\n"), CreateSelect(AsBool(value), CreateGlobalCachedString("true"), CreateGlobalCachedString("false"))});
     }
 
-    void LoxBuilder::RuntimeError(Value *line, StringRef message, const std::vector<Value *> &values, Value *name) {
+    void LoxBuilder::RuntimeError(Value *line, const StringRef message, const std::vector<Value *> &values, Value *name) {
         static const auto Exit = getModule().getOrInsertFunction(
             "exit",
             FunctionType::get(getVoidTy(), {getInt32Ty()}, true)

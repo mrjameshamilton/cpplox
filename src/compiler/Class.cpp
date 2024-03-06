@@ -17,7 +17,7 @@ namespace lox {
         return ptr;
     }
 
-    Value *LoxBuilder::AllocateInstance(llvm::Value *klass) {
+    Value *LoxBuilder::AllocateInstance(Value *klass) {
         const auto ptr = AllocateObj(ObjType::INSTANCE, "instance");
 
         Value *fields = AllocateTable();
@@ -28,7 +28,7 @@ namespace lox {
         return ptr;
     }
 
-    Value *LoxBuilder::BindMethod(Value *klass, Value *receiver, Value *key, unsigned int line, llvm::Function *pFunction) {
+    Value *LoxBuilder::BindMethod(Value *klass, Value *receiver, Value *key, const unsigned int line, const llvm::Function *pFunction) {
         assert(klass->getType() == getPtrTy());
         assert(receiver->getType() == getPtrTy());
 

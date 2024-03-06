@@ -1,8 +1,8 @@
 #ifndef LOX_LLVM_TOKEN_H
 #define LOX_LLVM_TOKEN_H
 #include <string>
-#include <utility>
 #include <variant>
+
 namespace lox {
     enum TokenType {
         // Single-character tokens.

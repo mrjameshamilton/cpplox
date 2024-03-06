@@ -217,7 +217,7 @@ namespace lox {
             return callstackpointer;
         }
 
-        llvm::StringMap<Constant *> &getStringCache() {
+        StringMap<Constant *> &getStringCache() {
             return strings;
         }
     };

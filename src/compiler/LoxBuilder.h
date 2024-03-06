@@ -1,6 +1,5 @@
 #ifndef LOXBUILDER_H
 #define LOXBUILDER_H
-#include "../AST.h"
 #include "LoxModule.h"
 #include "Value.h"
 #include <llvm/IR/IRBuilder.h>
@@ -22,7 +21,6 @@ namespace lox {
 
         // Code generation for internal Lox functions.
         Value *IsTruthy(Value *value);
-        Value *IsNotTruthy(Value *value);
 
         // Code generation for checking types of values.
         Value *IsBool(Value *);
@@ -54,15 +52,15 @@ namespace lox {
         Value *ObjType(Value *value);
         ConstantInt *ObjTypeInt(enum ObjType);
 
-        Value *AllocateObj(lox::ObjType objType, const std::string_view name = "");
-        Value *AllocateString(Value *String, Value *Length, const std::string_view name = "");
-        Value *AllocateString(StringRef String, const std::string_view name = "");
-        Value *AllocateFunction(llvm::Function *Function, std::string_view name, const bool isNative);
+        Value *AllocateObj(lox::ObjType objType, std::string_view name = "");
+        Value *AllocateString(Value *String, Value *Length, std::string_view name = "");
+        Value *AllocateString(StringRef String, std::string_view name = "");
+        Value *AllocateFunction(llvm::Function *Function, std::string_view name, bool isNative);
         Value *AllocateClosure(llvm::Function *function, std::string_view name, bool isNative);
         Value *AllocateUpvalue(Value *value);
         Value *AllocateArray(Type *type, int size, const std::string_view &name);
-        Value *AllocateArray(Type *type, Value *size, const std::string_view &name);
-        Value *AllocateClass(const std::string_view name);
+        Value *AllocateArray(Type *type, Value *arraySize, const std::string_view &name);
+        Value *AllocateClass(std::string_view className);
         Value *AllocateInstance(Value *klass);
         Value *AllocateTable();
         Value *TableSet(Value *Table, Value *Key, Value *V);
@@ -73,7 +71,7 @@ namespace lox {
 
         void Print(Value *value);
         void PrintF(std::initializer_list<Value *> value);
-        void PrintFErr(StringRef message, const std::vector<Value *> &value);
+        void PrintFErr(StringRef message, const std::vector<Value *> &values);
         void PrintString(StringRef string);
 
         void PrintNumber(Value *value);
@@ -82,11 +80,11 @@ namespace lox {
         void PrintString(Value *value);
         void PrintBool(Value *value);
 
-        Value *CreateObjStructGEP(const enum ObjType objType, Value *Ptr, unsigned Idx, const Twine &Name = "") {
-            return IRBuilder::CreateStructGEP(getModule().getStructType(objType), Ptr, Idx, Name);
+        Value *CreateObjStructGEP(const enum ObjType objType, Value *Ptr, const unsigned Idx, const Twine &Name = "") {
+            return CreateStructGEP(getModule().getStructType(objType), Ptr, Idx, Name);
         }
 
-        Constant *getNullPtr() {
+        [[nodiscard]] Constant *getNullPtr() const {
             return Constant::getNullValue(PointerType::getUnqual(getContext()));
         }
 
@@ -96,7 +94,7 @@ namespace lox {
                 return strings.at(string);
             }
 
-            auto ptr = CreateGlobalStringPtr(string);
+            const auto ptr = CreateGlobalStringPtr(string);
             strings[string] = ptr;
             return ptr;
         }
@@ -111,7 +109,7 @@ namespace lox {
         [[nodiscard]] BasicBlock *CreateBasicBlock(const std::string_view &name) const {
             return BasicBlock::Create(getContext(), name, getFunction());
         }
-        Value *BindMethod(Value *klass, Value *receiver, Value *key, unsigned int line, llvm::Function *pFunction);
+        Value *BindMethod(Value *klass, Value *receiver, Value *key, unsigned int line, const llvm::Function *pFunction);
     };
 }// namespace lox
 
