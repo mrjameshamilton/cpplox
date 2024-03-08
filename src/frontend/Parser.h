@@ -9,6 +9,8 @@
 #include <optional>
 #include <vector>
 
+using namespace std::literals::string_literals;
+
 namespace lox {
     class ParseError final : public std::runtime_error {
     public:
@@ -44,7 +46,7 @@ namespace lox {
             try {
                 if (match(CLASS)) return classDeclaration();
                 if (match(VAR)) return varDeclaration();
-                if (match(FUN)) return function("function");
+                if (match(FUN)) return function(LoxFunctionType::FUNCTION);
 
                 return std::make_optional<Stmt>(statement());
             } catch (ParseError &) {
@@ -66,7 +68,7 @@ namespace lox {
 
             std::vector<FunctionStmtPtr> methods;
             while (!check(RIGHT_BRACE) && !isAtEnd()) {
-                methods.push_back(function("method"));
+                methods.push_back(function(LoxFunctionType::METHOD));
             }
 
             consume(RIGHT_BRACE, "Expect '}' after class body.");
@@ -176,7 +178,8 @@ namespace lox {
             return std::make_unique<ExpressionStmt>(std::move(expr));
         }
 
-        FunctionStmtPtr function(const std::string &kind) {
+        FunctionStmtPtr function(const LoxFunctionType type) {
+            const auto kind = type == LoxFunctionType::FUNCTION ? "function"s : "method"s;
             Token name = consume(IDENTIFIER, "Expect " + kind + " name.");
             consume(LEFT_PAREN, "Expect '(' after " + kind + " name.");
             std::vector<Token> parameters;
@@ -193,7 +196,12 @@ namespace lox {
             consume(LEFT_BRACE, "Expect '{' before " + kind + " body.");
             StmtList body = block();
 
-            return std::make_shared<FunctionStmt>(name, parameters, std::move(body));
+            return std::make_shared<FunctionStmt>(
+                name,
+                type == LoxFunctionType::METHOD && name.getLexeme() == "init" ? LoxFunctionType::INITIALIZER : type,
+                parameters,
+                std::move(body)
+            );
         }
 
         ReturnStmtPtr returnStatement() {
@@ -222,9 +230,10 @@ namespace lox {
 
 
         Expr parseBinaryExpr(
-                const std::initializer_list<TokenType> &types,
-                Expr expr,
-                const parserFn &f) {
+            const std::initializer_list<TokenType> &types,
+            Expr expr,
+            const parserFn &f
+        ) {
 
             while (match(types)) {
                 auto token = previous();
@@ -283,27 +292,19 @@ namespace lox {
         }
 
         Expr equality() {
-            return parseBinaryExpr({BANG_EQUAL, EQUAL_EQUAL},
-                                   comparison(),
-                                   &Parser::comparison);
+            return parseBinaryExpr({BANG_EQUAL, EQUAL_EQUAL}, comparison(), &Parser::comparison);
         }
 
         Expr comparison() {
-            return parseBinaryExpr({GREATER, GREATER_EQUAL, LESS, LESS_EQUAL},
-                                   term(),
-                                   &Parser::term);
+            return parseBinaryExpr({GREATER, GREATER_EQUAL, LESS, LESS_EQUAL}, term(), &Parser::term);
         }
 
         Expr term() {
-            return parseBinaryExpr({MINUS, PLUS},
-                                   factor(),
-                                   &Parser::factor);
+            return parseBinaryExpr({MINUS, PLUS}, factor(), &Parser::factor);
         }
 
         Expr factor() {
-            return parseBinaryExpr({SLASH, STAR},
-                                   unary(),
-                                   &Parser::unary);
+            return parseBinaryExpr({SLASH, STAR}, unary(), &Parser::unary);
         }
 
         Expr unary() {
@@ -323,8 +324,7 @@ namespace lox {
                 if (match(LEFT_PAREN)) {
                     expr = finishCall(expr);
                 } else if (match(DOT)) {
-                    Token name = consume(IDENTIFIER,
-                                         "Expect property name after '.'.");
+                    Token name = consume(IDENTIFIER, "Expect property name after '.'.");
                     expr = std::make_unique<GetExpr>(std::move(expr), name);
                 } else {
                     break;
@@ -365,8 +365,7 @@ namespace lox {
             if (match(SUPER)) {
                 Token keyword = previous();
                 consume(DOT, "Expect '.' after 'super'.");
-                Token method = consume(IDENTIFIER,
-                                       "Expect superclass method name.");
+                Token method = consume(IDENTIFIER, "Expect superclass method name.");
                 return std::make_unique<SuperExpr>(keyword, method);
             }
 
@@ -448,6 +447,6 @@ namespace lox {
 
         Token previous() { return tokens.at(current - 1); }
     };
-}
+}// namespace lox
 
-#endif //PARSER_H
+#endif//PARSER_H

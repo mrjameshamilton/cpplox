@@ -411,7 +411,7 @@ namespace lox {
 
             for (auto &method: classStmt->methods) {
                 methods[method->name.getLexeme()] =
-                    std::make_shared<LoxFunction>(method, environment, method->name.getLexeme() == "init");
+                    std::make_shared<LoxFunction>(method, environment, method->type == LoxFunctionType::INITIALIZER);
             }
 
             if (super_class.has_value()) {

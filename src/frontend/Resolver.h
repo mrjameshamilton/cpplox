@@ -1,4 +1,4 @@
-#ifndef  RESOLVER_H
+#ifndef RESOLVER_H
 #define RESOLVER_H
 #include "AST.h"
 #include "Error.h"
@@ -140,8 +140,7 @@ namespace lox {
             scopes.back()["this"] = true;
 
             for (auto &method: classStmt->methods) {
-                const auto functionType = method->name.getLexeme() == "init" ? LoxFunctionType::INITIALIZER : LoxFunctionType::METHOD;
-                resolveFunction(method, functionType);
+                resolveFunction(method, method->type);
             }
 
             endScope();

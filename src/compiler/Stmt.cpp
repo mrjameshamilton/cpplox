@@ -17,7 +17,7 @@ namespace lox {
         endScope();
     }
 
-    Value *FunctionCompiler::CreateFunction(LoxFunctionType type, const FunctionStmtPtr &functionStmt, const std::string_view name) {
+    Value *FunctionCompiler::CreateFunction(const LoxFunctionType type, const FunctionStmtPtr &functionStmt, const std::string_view name) {
         std::vector<Type *> paramTypes(functionStmt->parameters.size(), Builder.getInt64Ty());
         // The second parameter is for the receiver instance.
         paramTypes.insert(paramTypes.begin(), Builder.getInt64Ty());
@@ -180,7 +180,7 @@ namespace lox {
         for (auto &method: classStmt->methods) {
             const auto methodPtr =
                 CreateFunction(
-                    method->name.getLexeme() == "init" ? LoxFunctionType::INITIALIZER : LoxFunctionType::METHOD,
+                    method->type,
                     method,
                     (classStmt->name.getLexeme() + "_" + method->name.getLexeme()).str()
                 );

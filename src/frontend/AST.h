@@ -1,8 +1,8 @@
 #ifndef LOX_LLVM_AST_H
 #define LOX_LLVM_AST_H
 
-#include "Token.h"
 #include "../Util.h"
+#include "Token.h"
 
 #include <memory>
 #include <optional>
@@ -215,10 +215,11 @@ namespace lox {
 
     struct FunctionStmt : Uncopyable {
         Token name;
+        LoxFunctionType type;
         std::vector<Token> parameters;
         StmtList body;
-        explicit FunctionStmt(const Token &name, std::vector<Token> parameters, StmtList body)
-            : name{name}, parameters{std::move(parameters)}, body{std::move(body)} {}
+        explicit FunctionStmt(const Token &name, const LoxFunctionType type, std::vector<Token> parameters, StmtList body)
+            : name{name}, type{type}, parameters{std::move(parameters)}, body{std::move(body)} {}
     };
 
     struct ReturnStmt : Uncopyable {
