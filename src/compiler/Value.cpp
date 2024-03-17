@@ -370,16 +370,8 @@ namespace lox {
         );
 
         PrintFErr(CreateGlobalCachedString(message), values);
-
-        PrintFErr(
-            CreateSelect(
-                CreateICmpEQ(getInt32(0), CreateLoad(getInt32Ty(), getModule().getCallStackPointer())),
-                CreateGlobalCachedString("[line %d] in script\n"),
-                CreateGlobalCachedString("[line %d] in %s()\n")
-            ),
-            {line, location}
-        );
-
+        // Push the current location onto the call stack, so that it's printed as part of the stacktrace.
+        Push(*this, line, location);
         PrintStackTrace(*this);
 
         CreateCall(Exit, getInt32(70));
