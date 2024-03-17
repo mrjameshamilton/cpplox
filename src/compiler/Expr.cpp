@@ -161,6 +161,8 @@ namespace lox {
         assert(receiver->getType() == Builder.getInt64Ty());
         assert(closure->getType() == Builder.getPtrTy());
 
+        CheckStackOverflow(Builder, Builder.getInt32(line), Builder.CreateGlobalCachedString(Builder.getFunction()->getName()));
+
         const auto function = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 1));
         const auto upvalues = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 2));
 
