@@ -169,7 +169,7 @@ namespace lox {
             const auto IsStackOverFlow = B.CreateBasicBlock("is.stackoverflow");
             const auto IsNotStackOverFlow = B.CreateBasicBlock("isnot.stackoverflow");
 
-            B.CreateCondBr(B.CreateICmpSGE(sp, B.getInt32(MAX_STACK_SIZE)), IsStackOverFlow, IsNotStackOverFlow);
+            B.CreateCondBr(B.CreateICmpSGE(sp, B.getInt32(MAX_CALL_STACK_SIZE - 1)), IsStackOverFlow, IsNotStackOverFlow);
 
             B.SetInsertPoint(IsStackOverFlow);
             B.RuntimeError(line, "Stack overflow.\n", {}, name);

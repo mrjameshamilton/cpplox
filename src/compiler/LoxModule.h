@@ -6,7 +6,7 @@
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Module.h>
 
-constexpr unsigned int MAX_STACK_SIZE = 512;
+constexpr unsigned int MAX_CALL_STACK_SIZE = 512;
 
 namespace lox {
     using namespace llvm;
@@ -128,7 +128,7 @@ namespace lox {
         );
         GlobalVariable *const callstack = cast<GlobalVariable>(getOrInsertGlobal(
             "callstack",
-            ArrayType::get(Call, MAX_STACK_SIZE)
+            ArrayType::get(Call, MAX_CALL_STACK_SIZE)
         ));
         GlobalVariable *const callstackpointer = cast<GlobalVariable>(getOrInsertGlobal(
             "callsp",
@@ -156,7 +156,7 @@ namespace lox {
             callstack->setLinkage(GlobalVariable::PrivateLinkage);
             callstack->setAlignment(Align(8));
             callstack->setConstant(false);
-            callstack->setInitializer(Constant::getNullValue(ArrayType::get(Call, MAX_STACK_SIZE)));
+            callstack->setInitializer(Constant::getNullValue(ArrayType::get(Call, MAX_CALL_STACK_SIZE)));
 
             callstackpointer->setLinkage(GlobalVariable::PrivateLinkage);
             callstackpointer->setAlignment(Align(8));
