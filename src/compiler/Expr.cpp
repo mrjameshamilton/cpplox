@@ -47,7 +47,7 @@ namespace lox {
                     binaryExpr->token.getLine(),
                     "Operands must be numbers.\n",
                     {},
-                    enclosing == nullptr ? nullptr : Builder.getFunction()
+                    Builder.getFunction()
                 );
                 Builder.CreateBr(EndBlock);
 
@@ -82,7 +82,7 @@ namespace lox {
                     binaryExpr->token.getLine(),
                     "Operands must be two numbers or two strings.\n",
                     {},
-                    enclosing == nullptr ? nullptr : Builder.getFunction()
+                    Builder.getFunction()
                 );
 
                 const auto Z = Builder.getNilVal();
@@ -152,7 +152,7 @@ namespace lox {
             line,
             "Expected %d arguments but got %d.\n",
             {arity, Builder.getInt32(actual)},
-            Compiler.getEnclosing() == nullptr ? nullptr : Builder.getFunction()
+            Builder.getFunction()
         );
         Builder.CreateUnreachable();
     }
@@ -263,7 +263,7 @@ namespace lox {
             callExpr->keyword.getLine(),
             "Can only call functions and classes.\n",
             {},
-            enclosing == nullptr ? nullptr : Builder.getFunction()
+            Builder.getFunction()
         );
         Builder.CreateUnreachable();
 
@@ -293,14 +293,14 @@ namespace lox {
         return result;
     }
 
-    void CheckInstance(FunctionCompiler &Compiler, LoxBuilder &Builder, const std::string_view message, const unsigned int line, Value *instance) {
+    void CheckInstance(LoxBuilder &Builder, const std::string_view message, const unsigned int line, Value *instance) {
         const auto NotInstanceBlock = Builder.CreateBasicBlock("not.instance");
         const auto EndBlock = Builder.CreateBasicBlock("end");
 
         Builder.CreateCondBr(Builder.IsInstance(instance), EndBlock, NotInstanceBlock);
 
         Builder.SetInsertPoint(NotInstanceBlock);
-        Builder.RuntimeError(line, message, {}, Compiler.getEnclosing() == nullptr ? nullptr : Builder.getFunction());
+        Builder.RuntimeError(line, message, {}, Builder.getFunction());
         Builder.CreateUnreachable();
 
         Builder.SetInsertPoint(EndBlock);
@@ -308,7 +308,7 @@ namespace lox {
 
     Value *FunctionCompiler::operator()(const GetExprPtr &getExpr) {
         Value *object = evaluate(getExpr->object);
-        CheckInstance(*this, Builder, "Only instances have properties.\n"sv, getExpr->name.getLine(), object);
+        CheckInstance(Builder, "Only instances have properties.\n"sv, getExpr->name.getLine(), object);
 
         const auto instance = Builder.AsObj(object);
         const auto fields = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
@@ -340,7 +340,7 @@ namespace lox {
 
     Value *FunctionCompiler::operator()(const SetExprPtr &setExpr) {
         const auto object = evaluate(setExpr->object);
-        CheckInstance(*this, Builder, "Only instances have fields.\n"sv, setExpr->name.getLine(), object);
+        CheckInstance(Builder, "Only instances have fields.\n"sv, setExpr->name.getLine(), object);
 
         const auto instance = Builder.AsObj(object);
         const auto value = evaluate(setExpr->value);
@@ -470,7 +470,7 @@ namespace lox {
                     unaryExpr->token.getLine(),
                     "Operand must be a number.\n",
                     {},
-                    enclosing == nullptr ? nullptr : Builder.getFunction()
+                    Builder.getFunction()
                 );
                 Builder.CreateBr(EndBlock);
                 Builder.SetInsertPoint(EndBlock);

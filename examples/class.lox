@@ -1,5 +1,6 @@
 class Base {
   init(a, b) {
+print 1+"Test";
     print "Base.init(" + a + ", " + b + ")";
   }
 }
@@ -14,3 +15,5 @@ class Derived < Base {
 Derived();
 // expect: Derived.init()
 // expect: Base.init(a, b)
+
+print x;

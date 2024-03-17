@@ -71,7 +71,7 @@ namespace lox {
 
         void Print(Value *value);
         void PrintF(std::initializer_list<Value *> value);
-        void PrintFErr(StringRef message, const std::vector<Value *> &values);
+        void PrintFErr(Value *message, const std::vector<Value *> &values);
         void PrintString(StringRef string);
 
         void PrintNumber(Value *value);
@@ -88,7 +88,7 @@ namespace lox {
             return Constant::getNullValue(PointerType::getUnqual(getContext()));
         }
 
-        Constant *CreateGlobalCachedString(std::string_view string) {
+        Constant *CreateGlobalCachedString(const std::string_view string) {
             auto &strings = getModule().getStringCache();
             if (strings.contains(string)) {
                 return strings.at(string);
@@ -99,9 +99,9 @@ namespace lox {
             return ptr;
         }
 
-        void RuntimeError(Value *line, StringRef message, const std::vector<Value *> &values, Value *name);
-        void RuntimeError(const unsigned line, StringRef message, const std::vector<Value *> &values, const llvm::Function *function) {
-            RuntimeError(getInt32(line), message, values, CreateGlobalCachedString(function == nullptr ? "script" : function->getName()));
+        void RuntimeError(Value *line, StringRef message, const std::vector<Value *> &values, Value *location);
+        void RuntimeError(const unsigned line, const StringRef message, const std::vector<Value *> &values, const llvm::Function *function) {
+            RuntimeError(getInt32(line), message, values, CreateGlobalCachedString(function->getName()));
         }
 
         [[nodiscard]] LoxModule &getModule() const { return M; }

@@ -256,7 +256,7 @@ namespace lox {
         CreateCall(PrintF, value);
     }
 
-    void LoxBuilder::PrintFErr(const StringRef message, const std::vector<Value *> &values) {
+    void LoxBuilder::PrintFErr(Value *message, const std::vector<Value *> &values) {
         static const auto StdErr = getModule().getOrInsertGlobal("stderr", getPtrTy());
         static const auto FPrintF = getModule().getOrInsertFunction(
             "fprintf",
@@ -264,7 +264,7 @@ namespace lox {
         );
 
         std::vector values2(values);
-        values2.insert(values2.begin(), CreateGlobalCachedString(message));
+        values2.insert(values2.begin(), message);
         values2.insert(values2.begin(), CreateLoad(getPtrTy(), StdErr));
 
         CreateCall(FPrintF, values2);
@@ -363,19 +363,22 @@ namespace lox {
         PrintF({CreateGlobalCachedString("%s\n"), CreateSelect(AsBool(value), CreateGlobalCachedString("true"), CreateGlobalCachedString("false"))});
     }
 
-    void LoxBuilder::RuntimeError(Value *line, const StringRef message, const std::vector<Value *> &values, Value *name) {
+    void LoxBuilder::RuntimeError(Value *line, const StringRef message, const std::vector<Value *> &values, Value *location) {
         static const auto Exit = getModule().getOrInsertFunction(
             "exit",
             FunctionType::get(getVoidTy(), {getInt32Ty()}, true)
         );
 
-        PrintFErr(message, values);
+        PrintFErr(CreateGlobalCachedString(message), values);
 
-        if (name == CreateGlobalCachedString("script")) {
-            PrintFErr("[line %d] in script\n", {line});
-        } else {
-            PrintFErr("[line %d] in %s()\n", {line, name});
-        }
+        PrintFErr(
+            CreateSelect(
+                CreateICmpEQ(getInt32(0), CreateLoad(getInt32Ty(), getModule().getCallStackPointer())),
+                CreateGlobalCachedString("[line %d] in script\n"),
+                CreateGlobalCachedString("[line %d] in %s()\n")
+            ),
+            {line, location}
+        );
 
         PrintStackTrace(*this);
 

@@ -170,7 +170,7 @@ namespace lox {
                 classStmt->super_class->get()->name.getLine(),
                 "Superclass must be a class.\n",
                 {},
-                enclosing == nullptr ? nullptr : Builder.getFunction()
+                Builder.getFunction()
             );
             Builder.CreateUnreachable();
 
@@ -182,7 +182,7 @@ namespace lox {
                 CreateFunction(
                     method->type,
                     method,
-                    (classStmt->name.getLexeme() + "_" + method->name.getLexeme()).str()
+                    (classStmt->name.getLexeme() + "." + method->name.getLexeme()).str()
                 );
             Builder.TableSet(methods, Builder.AllocateString(method->name.getLexeme()), Builder.ObjVal(methodPtr));
         }

@@ -137,10 +137,10 @@ namespace lox {
             B.CreateCondBr(B.CreateICmpEQ(sp, B.CreateLoad(B.getInt32Ty(), i)), IsScriptBlock, IsNotScriptBlock);
 
             B.SetInsertPoint(IsScriptBlock);
-            B.PrintFErr("[line %d] in script\n", {line});
+            B.PrintFErr(B.CreateGlobalCachedString("[line %d] in script\n"), {line});
             B.CreateBr(ForInc);
             B.SetInsertPoint(IsNotScriptBlock);
-            B.PrintFErr("[line %d] in %s()\n", {line, name});
+            B.PrintFErr(B.CreateGlobalCachedString("[line %d] in %s()\n"), {line, name});
             B.CreateBr(ForInc);
 
             B.SetInsertPoint(ForInc);

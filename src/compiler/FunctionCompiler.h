@@ -152,7 +152,7 @@ namespace lox {
                 assignable.name.getLine(),
                 "Undefined variable '%s'.\n",
                 {Builder.CreateGlobalCachedString(assignable.name.getLexeme())},
-                enclosing == nullptr ? nullptr : Builder.getFunction()
+                Builder.getFunction()
             );
             Builder.CreateBr(EndBlock);
             Builder.SetInsertPoint(EndBlock);
