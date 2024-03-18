@@ -23,7 +23,7 @@ namespace lox {
             const auto EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
-            const auto ptr = B.AllocateObj(ObjType::STRING);
+            const auto ptr = B.AllocateObj(ObjType::TABLE);
 
             B.CreateStore(B.getInt32(0), B.CreateObjStructGEP(ObjType::TABLE, ptr, 1));
             B.CreateStore(B.getInt32(0), B.CreateObjStructGEP(ObjType::TABLE, ptr, 2));

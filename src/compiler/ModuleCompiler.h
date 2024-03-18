@@ -26,7 +26,6 @@ namespace lox {
         ModuleCompiler() = default;
 
         void FreeObjects() const;
-        void FreeObject(Value *value) const;
 
         void evaluate(const Program &program) const;
 

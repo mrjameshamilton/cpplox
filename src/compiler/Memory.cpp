@@ -47,6 +47,7 @@ namespace lox {
                 ObjType::UPVALUE,
                 ObjType::CLASS,
                 ObjType::INSTANCE,
+                ObjType::TABLE,
                 ObjType::BOUND_METHOD
             };
 
@@ -118,19 +119,22 @@ namespace lox {
 #if DEBUG_LOG_GC
         switch (objType) {
             case ObjType::STRING:
-                PrintString(Twine("Allocate string"));
+                PrintString(("Allocate string"));
                 break;
             case ObjType::FUNCTION:
-                PrintString(Twine("Allocate function"));
+                PrintString(("Allocate function"));
                 break;
             case ObjType::CLOSURE:
-                PrintString(Twine("Allocate closure"));
+                PrintString(("Allocate closure"));
                 break;
             case ObjType::UPVALUE:
-                PrintString(Twine("Allocate upvalue"));
+                PrintString(("Allocate upvalue"));
+                break;
+            case ObjType::TABLE:
+                PrintString("Allocate table");
                 break;
             default:
-                PrintString(Twine("Allocate object"));
+                PrintString(("Allocate object"));
         }
         static const auto fmt0 = CreateGlobalCachedString("\tobjects: %p => ");
         const auto objects = getModule().getObjects();
@@ -160,104 +164,129 @@ namespace lox {
         );
     }
 
-    void ModuleCompiler::FreeObjects() const {
-        const auto object = CreateEntryBlockAlloca(Builder->getFunction(), Builder->getPtrTy(), "object");
-        const auto next = CreateEntryBlockAlloca(Builder->getFunction(), Builder->getPtrTy(), "next");
-        Builder->CreateStore(
-            Builder->CreateLoad(Builder->getPtrTy(), M->getObjects()),
-            object
-        );
-
-        const auto WhileCond = Builder->CreateBasicBlock("while.cond");
-        const auto WhileBody = Builder->CreateBasicBlock("while.body");
-        const auto WhileEnd = Builder->CreateBasicBlock("while.end");
-
-        Builder->CreateBr(WhileCond);
-        Builder->SetInsertPoint(WhileCond);
-        Builder->CreateCondBr(Builder->CreateIsNotNull(Builder->CreateLoad(Builder->getPtrTy(), object)), WhileBody, WhileEnd);
-        Builder->SetInsertPoint(WhileBody);
-
-        Builder->CreateStore(
-            Builder->CreateLoad(
-                Builder->getPtrTy(),
-                Builder->CreateStructGEP(M->getObjStructType(), Builder->CreateLoad(Builder->getPtrTy(), object), 2, "next")
-            ),
-            next
-        );
-
-        FreeObject(Builder->CreateLoad(Builder->getInt64Ty(), object));
-
-        Builder->CreateStore(
-            Builder->CreateLoad(Builder->getPtrTy(), next),
-            object
-        );
-
-        Builder->CreateBr(WhileCond);
-
-        Builder->SetInsertPoint(WhileEnd);
-    }
-
-    void ModuleCompiler::FreeObject(Value *value) const {
-        const auto IsStringBlock = Builder->CreateBasicBlock("string");
-        const auto IsFunctionBlock = Builder->CreateBasicBlock("function");
-        const auto IsClosureBlock = Builder->CreateBasicBlock("closure");
-        const auto IsUpvalueBlock = Builder->CreateBasicBlock("upvalue");
-        const auto IsClassBlock = Builder->CreateBasicBlock("class");
-        const auto IsInstanceBlock = Builder->CreateBasicBlock("instance");
-        const auto DefaultBlock = Builder->CreateBasicBlock("default");
+    static void FreeObject(LoxBuilder &Builder, Value *value) {
+        const auto IsStringBlock = Builder.CreateBasicBlock("string");
+        const auto IsFunctionBlock = Builder.CreateBasicBlock("function");
+        const auto IsClosureBlock = Builder.CreateBasicBlock("closure");
+        const auto IsUpvalueBlock = Builder.CreateBasicBlock("upvalue");
+        const auto IsClassBlock = Builder.CreateBasicBlock("class");
+        const auto IsInstanceBlock = Builder.CreateBasicBlock("instance");
+        const auto DefaultBlock = Builder.CreateBasicBlock("default");
 
 #if DEBUG_LOG_GC
-        static const auto fmt = Builder->CreateGlobalCachedString("free %p: ");
-        Builder->PrintF({fmt, value});
-        Builder->PrintObject(value);
+        static const auto fmt = Builder.CreateGlobalCachedString("free %p: ");
+        Builder.PrintF({fmt, value});
+        Builder.PrintObject(value);
 #endif
 
-        const auto Switch = Builder->CreateSwitch(Builder->ObjType(value), DefaultBlock);
-        Switch->addCase(Builder->ObjTypeInt(ObjType::STRING), IsStringBlock);
-        Switch->addCase(Builder->ObjTypeInt(ObjType::FUNCTION), IsFunctionBlock);
-        Switch->addCase(Builder->ObjTypeInt(ObjType::CLOSURE), IsClosureBlock);
-        Switch->addCase(Builder->ObjTypeInt(ObjType::UPVALUE), IsUpvalueBlock);
-        Switch->addCase(Builder->ObjTypeInt(ObjType::CLASS), IsClassBlock);
-        Switch->addCase(Builder->ObjTypeInt(ObjType::INSTANCE), IsInstanceBlock);
+        const auto Switch = Builder.CreateSwitch(Builder.ObjType(value), DefaultBlock);
+        Switch->addCase(Builder.ObjTypeInt(ObjType::STRING), IsStringBlock);
+        Switch->addCase(Builder.ObjTypeInt(ObjType::FUNCTION), IsFunctionBlock);
+        Switch->addCase(Builder.ObjTypeInt(ObjType::CLOSURE), IsClosureBlock);
+        Switch->addCase(Builder.ObjTypeInt(ObjType::UPVALUE), IsUpvalueBlock);
+        Switch->addCase(Builder.ObjTypeInt(ObjType::CLASS), IsClassBlock);
+        Switch->addCase(Builder.ObjTypeInt(ObjType::INSTANCE), IsInstanceBlock);
 
-        Builder->SetInsertPoint(IsStringBlock);
-        Builder->CreateFree(value);
+        Builder.SetInsertPoint(IsStringBlock);
+        Builder.CreateFree(value);
         //Builder->CreateFree(); TODO: free string chars? but they're not allocated by malloc.
 
-        Builder->CreateBr(DefaultBlock);
+        Builder.CreateBr(DefaultBlock);
 
-        Builder->SetInsertPoint(IsFunctionBlock);
-        Builder->CreateFree(Builder->AsObj(value));
+        Builder.SetInsertPoint(IsFunctionBlock);
+        Builder.CreateFree(Builder.AsObj(value));
         // Don't need to free the name, because it will be freed as a String obj anyway.
-        Builder->CreateBr(DefaultBlock);
+        Builder.CreateBr(DefaultBlock);
 
-        Builder->SetInsertPoint(IsClosureBlock);
-        const auto closure = Builder->AsObj(value);
-        const auto size = Builder->CreateLoad(Builder->getInt32Ty(), Builder->CreateStructGEP(Builder->getModule().getStructType(ObjType::CLOSURE), closure, 3));
-        const auto IsNotNull = Builder->CreateBasicBlock("NotNullArray");
-        const auto NullArray = Builder->CreateBasicBlock("NullArray");
-        Builder->CreateCondBr(Builder->CreateICmpEQ(size, Builder->getInt32(0)), NullArray, IsNotNull);
-        Builder->SetInsertPoint(IsNotNull);
-        const auto array = Builder->CreateLoad(Builder->getPtrTy(), Builder->CreateStructGEP(Builder->getModule().getStructType(ObjType::CLOSURE), closure, 2));
-        Builder->CreateFree(array);
-        Builder->CreateBr(NullArray);
-        Builder->SetInsertPoint(NullArray);
-        Builder->CreateFree(closure);
-        Builder->CreateBr(DefaultBlock);
+        Builder.SetInsertPoint(IsClosureBlock);
 
-        Builder->SetInsertPoint(IsUpvalueBlock);
-        Builder->CreateFree(Builder->AsObj(value));
-        Builder->CreateBr(DefaultBlock);
+        const auto closure = Builder.AsObj(value);
+        const auto size = Builder.CreateLoad(Builder.getInt32Ty(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 3));
+        const auto IsNotNull = Builder.CreateBasicBlock("NotNullArray");
+        const auto NullArray = Builder.CreateBasicBlock("NullArray");
+        Builder.CreateCondBr(Builder.CreateICmpEQ(size, Builder.getInt32(0)), NullArray, IsNotNull);
+        Builder.SetInsertPoint(IsNotNull);
+        const auto array = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 2));
+        Builder.CreateFree(array);
+        Builder.CreateBr(NullArray);
+        Builder.SetInsertPoint(NullArray);
+        Builder.CreateFree(closure);
+        Builder.CreateBr(DefaultBlock);
 
-        Builder->SetInsertPoint(IsClassBlock);
-        Builder->CreateFree(Builder->AsObj(value));
+        Builder.SetInsertPoint(IsUpvalueBlock);
+        Builder.CreateFree(Builder.AsObj(value));
+        Builder.CreateBr(DefaultBlock);
 
-        Builder->CreateBr(DefaultBlock);
+        Builder.SetInsertPoint(IsClassBlock);
+        Builder.CreateFree(Builder.AsObj(value));
 
-        Builder->SetInsertPoint(IsInstanceBlock);
-        Builder->CreateFree(Builder->AsObj(value));
+        Builder.CreateBr(DefaultBlock);
 
-        Builder->CreateBr(DefaultBlock);
-        Builder->SetInsertPoint(DefaultBlock);
+        Builder.SetInsertPoint(IsInstanceBlock);
+        Builder.CreateFree(Builder.AsObj(value));
+
+        Builder.CreateBr(DefaultBlock);
+        Builder.SetInsertPoint(DefaultBlock);
+    }
+
+    void ModuleCompiler::FreeObjects() const {
+        static auto FreeObjectsFunction([this] {
+            const auto F = Function::Create(
+                FunctionType::get(
+                    this->Builder->getVoidTy(),
+                    {},
+                    false
+                ),
+                Function::InternalLinkage,
+                "$freeObjects",
+                this->Builder->getModule()
+            );
+
+            LoxBuilder B(this->Builder->getContext(), this->Builder->getModule(), *F);
+
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
+
+            const auto object = CreateEntryBlockAlloca(F, B.getPtrTy(), "object");
+            const auto next = CreateEntryBlockAlloca(F, B.getPtrTy(), "next");
+            B.CreateStore(
+                B.CreateLoad(B.getPtrTy(), M->getObjects()),
+                object
+            );
+
+            const auto WhileCond = B.CreateBasicBlock("while.cond");
+            const auto WhileBody = B.CreateBasicBlock("while.body");
+            const auto WhileEnd = B.CreateBasicBlock("while.end");
+
+            B.CreateBr(WhileCond);
+            B.SetInsertPoint(WhileCond);
+            B.CreateCondBr(B.CreateIsNotNull(B.CreateLoad(B.getPtrTy(), object)), WhileBody, WhileEnd);
+            B.SetInsertPoint(WhileBody);
+
+            B.CreateStore(
+                B.CreateLoad(
+                    B.getPtrTy(),
+                    B.CreateStructGEP(M->getObjStructType(), B.CreateLoad(B.getPtrTy(), object), 2, "next")
+                ),
+                next
+            );
+
+            FreeObject(B, B.CreateLoad(B.getInt64Ty(), object));
+
+            B.CreateStore(
+                B.CreateLoad(B.getPtrTy(), next),
+                object
+            );
+
+            B.CreateBr(WhileCond);
+
+            B.SetInsertPoint(WhileEnd);
+
+            B.CreateRetVoid();
+
+            return F;
+        }());
+
+        Builder->CreateCall(FreeObjectsFunction);
     }
 }// namespace lox
