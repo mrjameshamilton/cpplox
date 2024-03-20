@@ -40,6 +40,7 @@ add_executable(cpplox src/main.cpp
         src/compiler/Callstack.h
         src/frontend/Parser.h
         src/compiler/Callstack.cpp
+        src/Debug.h
 )
 
 target_compile_options(cpplox PRIVATE

@@ -291,6 +291,7 @@ namespace lox {
         const auto IsNativeFunctionBlock = CreateBasicBlock("print.native.function");
         const auto IsNotNativeFunctionBlock = CreateBasicBlock("print.not.native.function");
         const auto IsBoundMethod = CreateBasicBlock("print.boundmethod");
+        const auto IsTableBlock = CreateBasicBlock("print.table");
         const auto DefaultBlock = CreateBasicBlock("print.default");
         const auto EndBlock = CreateBasicBlock("print.end");
 
@@ -301,6 +302,7 @@ namespace lox {
         Switch->addCase(ObjTypeInt(ObjType::CLASS), IsClassBlock);
         Switch->addCase(ObjTypeInt(ObjType::INSTANCE), IsInstanceBlock);
         Switch->addCase(ObjTypeInt(ObjType::BOUND_METHOD), IsBoundMethod);
+        Switch->addCase(ObjTypeInt(ObjType::TABLE), IsTableBlock);
 
         SetInsertPoint(IsStringBlock);
         PrintString(value);
@@ -349,7 +351,12 @@ namespace lox {
 
         CreateBr(EndBlock);
 
+        SetInsertPoint(IsTableBlock);
+        PrintString("{{table}}");
+        CreateBr(EndBlock);
+
         SetInsertPoint(DefaultBlock);
+        PrintF({CreateGlobalCachedString("{{object %d}}\n"), ObjType(value)});
 
         CreateBr(EndBlock);
         SetInsertPoint(EndBlock);

@@ -1,9 +1,9 @@
 #include "ModuleCompiler.h"
 #include "Value.h"
 
+#include "../Debug.h"
 #include <llvm/IR/Value.h>
 
-#define DEBUG_LOG_GC false
 
 namespace lox {
 
@@ -102,44 +102,44 @@ namespace lox {
 
             B.CreateStore(NewObjMalloc, objects);
 
-#if DEBUG_LOG_GC
-            static const auto fmt = B.CreateGlobalCachedString("%p\n");
-            B.PrintF({fmt, B.CreateLoad(B.getPtrTy(), objects)});
-            static const auto fmt2 = B.CreateGlobalCachedString("\t%p allocate %zu.\n");
-            B.PrintF({fmt2, NewObjMalloc, allocsize});
-            static const auto fmt3 = B.CreateGlobalCachedString("\tobject.next = %p\n");
-            B.PrintF({fmt3, B.CreateLoad(getPtrTy(), B.CreateStructGEP(B.getModule().getObjStructType(), NewObjMalloc, 2, "next"))});
-#endif
+            if constexpr (DEBUG_LOG_GC) {
+                static const auto fmt = B.CreateGlobalCachedString("%p\n");
+                B.PrintF({fmt, B.CreateLoad(B.getPtrTy(), objects)});
+                static const auto fmt2 = B.CreateGlobalCachedString("\t%p allocate %zu.\n");
+                B.PrintF({fmt2, NewObjMalloc, allocsize});
+                static const auto fmt3 = B.CreateGlobalCachedString("\tobject.next = %p\n");
+                B.PrintF({fmt3, B.CreateLoad(getPtrTy(), B.CreateStructGEP(B.getModule().getObjStructType(), NewObjMalloc, 2, "next"))});
+            }
 
             B.CreateRet(NewObjMalloc);
 
             return F;
         }());
 
-#if DEBUG_LOG_GC
-        switch (objType) {
-            case ObjType::STRING:
-                PrintString(("Allocate string"));
-                break;
-            case ObjType::FUNCTION:
-                PrintString(("Allocate function"));
-                break;
-            case ObjType::CLOSURE:
-                PrintString(("Allocate closure"));
-                break;
-            case ObjType::UPVALUE:
-                PrintString(("Allocate upvalue"));
-                break;
-            case ObjType::TABLE:
-                PrintString("Allocate table");
-                break;
-            default:
-                PrintString(("Allocate object"));
+        if constexpr (DEBUG_LOG_GC) {
+            switch (objType) {
+                case ObjType::STRING:
+                    PrintString(("Allocate string"));
+                    break;
+                case ObjType::FUNCTION:
+                    PrintString(("Allocate function"));
+                    break;
+                case ObjType::CLOSURE:
+                    PrintString(("Allocate closure"));
+                    break;
+                case ObjType::UPVALUE:
+                    PrintString(("Allocate upvalue"));
+                    break;
+                case ObjType::TABLE:
+                    PrintString("Allocate table");
+                    break;
+                default:
+                    PrintString(("Allocate object"));
+            }
+            static const auto fmt0 = CreateGlobalCachedString("\tobjects: %p => ");
+            const auto objects = getModule().getObjects();
+            PrintF({fmt0, CreateLoad(getPtrTy(), objects)});
         }
-        static const auto fmt0 = CreateGlobalCachedString("\tobjects: %p => ");
-        const auto objects = getModule().getObjects();
-        PrintF({fmt0, CreateLoad(getPtrTy(), objects)});
-#endif
 
         return CreateCall(AllocateObjectFunction, {ObjTypeInt(objType)}, name);
     }
@@ -173,11 +173,11 @@ namespace lox {
         const auto IsInstanceBlock = Builder.CreateBasicBlock("instance");
         const auto DefaultBlock = Builder.CreateBasicBlock("default");
 
-#if DEBUG_LOG_GC
-        static const auto fmt = Builder.CreateGlobalCachedString("free %p: ");
-        Builder.PrintF({fmt, value});
-        Builder.PrintObject(value);
-#endif
+        if constexpr (DEBUG_LOG_GC) {
+            static const auto fmt = Builder.CreateGlobalCachedString("free %p: ");
+            Builder.PrintF({fmt, value});
+            Builder.PrintObject(value);
+        }
 
         const auto Switch = Builder.CreateSwitch(Builder.ObjType(value), DefaultBlock);
         Switch->addCase(Builder.ObjTypeInt(ObjType::STRING), IsStringBlock);
