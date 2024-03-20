@@ -114,7 +114,7 @@ namespace lox {
             scopes.pop();
         }
 
-        FunctionCompiler *getEnclosing() {
+        [[nodiscard]] FunctionCompiler *getEnclosing() const {
             return enclosing;
         }
 
@@ -126,7 +126,7 @@ namespace lox {
             //Builder.PrintF({Builder.CreateGlobalCachedString("lookupVariable(%s)\n"), Builder.CreateGlobalCachedString(assignable.name.getLexeme())});
             if (const auto local = resolveLocal(this, assignable)) return local->value;
 
-            if (auto upvalue = resolveUpvalue(this, assignable)) {
+            if (const auto upvalue = resolveUpvalue(this, assignable)) {
                 // upvalue is a pointer to an upvalue object.
                 // We need to load the value at the pointer location in the upvalue struct,
                 // which points to the closed over value.
@@ -266,7 +266,7 @@ namespace lox {
             return nullptr;
         }
 
-        Value *CreateFunction(LoxFunctionType type, const FunctionStmtPtr &functionStmt, const std::string_view name);
+        Value *CreateFunction(LoxFunctionType type, const FunctionStmtPtr &functionStmt, std::string_view name);
     };
 
 }// namespace lox
