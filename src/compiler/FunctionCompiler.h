@@ -224,7 +224,7 @@ namespace lox {
         static Value *addUpvalue(FunctionCompiler *compiler, Value *value, const bool isLocal) {
             auto &Builder = compiler->Builder;
 
-            auto result = std::find_if(compiler->upvalues.begin(), compiler->upvalues.end(), [&value, &isLocal](auto &entry) {
+            const auto result = std::ranges::find_if(compiler->upvalues, [&value, &isLocal](auto &entry) {
                 return entry->value == value && entry->isLocal == isLocal;
             });
 
