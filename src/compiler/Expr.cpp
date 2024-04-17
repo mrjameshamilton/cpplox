@@ -1,13 +1,14 @@
+#include "../Debug.h"
 #include "Callstack.h"
 #include "FunctionCompiler.h"
 #include "ModuleCompiler.h"
+#include "Table.h"
+
 #include <bit>
 #include <iostream>
 #include <ranges>
 #include <string_view>
 #include <vector>
-
-#define DEBUG false
 
 using namespace llvm;
 using namespace llvm::sys;
@@ -196,26 +197,22 @@ namespace lox {
         CheckArity(*this, CallBlock, arity, paramValues.size() - 2, line);
 
         Builder.SetInsertPoint(CallBlock);
-#if DEBUG
-        Builder.PrintF({Builder.CreateGlobalCachedString("Calling func at %p with function ptr %p\n"), callee, functionPtr});
-#endif
 
-        Push(Builder, Builder.getInt32(line), Builder.CreateGlobalCachedString(Builder.getFunction()->getName()));
+        PushCall(Builder, Builder.getInt32(line), Builder.CreateGlobalCachedString(Builder.getFunction()->getName()));
         const auto result = Builder.CreateCall(FT, functionPtr, paramValues);
-        Pop(Builder);
+        PopCall(Builder);
 
         return result;
     }
 
     Value *FunctionCompiler::operator()(const CallExprPtr &callExpr) {
-        const auto value = evaluate(callExpr->callee);
-        const auto valuePtr = Builder.AsObj(value);
-
         const auto paramValues = to<std::vector<Value *>>(
             callExpr->arguments | std::views::transform([&](const auto &p) -> Value * {
                 return evaluate(p);
             })
         );
+        const auto value = evaluate(callExpr->callee);
+        const auto valuePtr = Builder.AsObj(value);
 
         const auto IsClosureBlock = Builder.CreateBasicBlock("is.closure");
         const auto CheckMethodBlock = Builder.CreateBasicBlock("check.method");
@@ -232,10 +229,11 @@ namespace lox {
         Builder.CreateCondBr(Builder.IsClass(value), IsClassBlock, CheckMethodBlock);
         Builder.SetInsertPoint(IsClassBlock);
         const auto klass = valuePtr;
-        const auto initializer = Builder.TableGet(Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2)), Builder.AllocateString("init"));
+        const auto initString = Builder.AsObj(Builder.CreateLoad(Builder.getInt64Ty(), lookupGlobal("$initString")));
+        const auto initializer = Builder.TableGet(Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2)), initString);
 
         const auto instance = Builder.AllocateInstance(klass);
-        const auto instanceVal = Builder.ObjVal(instance);
+        const auto instanceVal = Builder.ObjVal(PushTemp(Builder, instance, "instance"));
 
         const auto EndClassBlock = Builder.CreateBasicBlock("class.end");
         const auto HasInitializerBlock = Builder.CreateBasicBlock("call.init");
@@ -361,10 +359,11 @@ namespace lox {
         static auto assignable = Assignable{Token(THIS, "this"sv, nullptr, superExpr->name.getLine())};
         const auto instance = Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(assignable));
         const auto klass = Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(*superExpr));
+        const auto key = PushTemp(Builder, Builder.AllocateString(superExpr->method.getLexeme()), "super method name");
         const auto method = Builder.BindMethod(
             Builder.AsObj(klass),
             Builder.AsObj(instance),
-            Builder.AllocateString(superExpr->method.getLexeme()),
+            key,
             superExpr->name.getLine(),
             enclosing == nullptr ? nullptr : Builder.getFunction()
         );
@@ -390,7 +389,10 @@ namespace lox {
                     return Builder.getInt64(std::bit_cast<int64_t>(double_value));
                 },
                 [this](const std::string_view string_value) -> Value * {
-                    return Builder.ObjVal(Builder.AllocateString(string_value));
+                    return Builder.ObjVal(
+                        // Push onto the locals stack so that the string is reachable as a GC root, before it's assigned to a variable.
+                        PushTemp(Builder, Builder.AllocateString(string_value), ("string {" + string_value + "}").str())
+                    );
                 },
                 [this](const std::nullptr_t) -> Value * { return Builder.getNilVal(); },
             },

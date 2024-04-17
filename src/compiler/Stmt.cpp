@@ -1,4 +1,5 @@
 #include "FunctionCompiler.h"
+#include "GC.h"
 
 #include <ranges>
 #include <vector>
@@ -37,10 +38,12 @@ namespace lox {
         if (type == LoxFunctionType::FUNCTION) {
             // Methods aren't stored as variables.
             insertVariable(functionStmt->name.getLexeme(), Builder.ObjVal(closurePtr));
+        } else if (type == LoxFunctionType::METHOD || type == LoxFunctionType::INITIALIZER) {
+            PushTemp(Builder, closurePtr, "method closure");
         }
 
         FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, type, this);
-        C.compile(functionStmt->body, functionStmt->parameters, [&C](const LoxBuilder &B) {
+        C.compile(functionStmt->body, functionStmt->parameters, [&, &C](const LoxBuilder &B) {
             if (C.type == LoxFunctionType::METHOD || C.type == LoxFunctionType::INITIALIZER) {
                 C.insertVariable("this", B.getFunction()->arg_begin() + 1);
             }
@@ -48,7 +51,17 @@ namespace lox {
 
         // Store captured variables in the closure's upvalue array.
         if (!C.upvalues.empty()) {
-            const auto upvaluesArrayPtr = Builder.AllocateArray(Builder.getModule().getStructType(ObjType::UPVALUE), C.upvalues.size(), "upvaluesArrayPtr");
+            const auto upvaluesArrayPtr = Builder.CreateReallocate(
+                Builder.getNullPtr(),
+                Builder.getInt32(0),
+                Builder.getSizeOf(Builder.getModule().getStructType(ObjType::UPVALUE), Builder.getInt32(C.upvalues.size()))
+            );
+
+            // Initalize upvalues to nullptr.
+            for (const auto &upvalue: C.upvalues) {
+                const auto upvalueIndex = Builder.CreateGEP(Builder.getPtrTy(), upvaluesArrayPtr, Builder.getInt32(upvalue->index), "upvalueIndex");
+                Builder.CreateStore(Builder.getNullPtr(), upvalueIndex);
+            }
 
             Builder.CreateStore(
                 upvaluesArrayPtr,
@@ -58,8 +71,7 @@ namespace lox {
                 Builder.getInt32(C.upvalues.size()),
                 Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closurePtr, 3, "closure.upvaluesCount")
             );
-
-            for (auto &upvalue: C.upvalues) {
+            for (const auto &upvalue: C.upvalues) {
                 const auto upvalueIndex = Builder.CreateGEP(Builder.getPtrTy(), upvaluesArrayPtr, Builder.getInt32(upvalue->index), "upvalueIndex");
                 Builder.CreateStore(upvalue->isLocal ? captureLocal(upvalue->value) : upvalue->value, upvalueIndex);
             }
@@ -96,7 +108,7 @@ namespace lox {
     }
 
     void FunctionCompiler::operator()(const VarStmtPtr &varStmt) {
-        if (!enclosing && scopes.size() == 1) {
+        if (isGlobalScope()) {
             // Global variables can be re-declared.
             if (const auto variable = lookupGlobal(varStmt->name.getLexeme())) {
                 Builder.CreateStore(evaluate(varStmt->initializer), variable);
@@ -178,13 +190,14 @@ namespace lox {
         }
 
         for (auto &method: classStmt->methods) {
+            const auto name = PushTemp(Builder, Builder.AllocateString(method->name.getLexeme()), "method name");
             const auto methodPtr =
                 CreateFunction(
                     method->type,
                     method,
                     (classStmt->name.getLexeme() + "." + method->name.getLexeme()).str()
                 );
-            Builder.TableSet(methods, Builder.AllocateString(method->name.getLexeme()), Builder.ObjVal(methodPtr));
+            Builder.TableSet(methods, name, Builder.ObjVal(methodPtr));
         }
 
         if (classStmt->super_class.has_value()) {

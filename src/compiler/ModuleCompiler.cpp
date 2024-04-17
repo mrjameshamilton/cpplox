@@ -1,5 +1,6 @@
 #include "ModuleCompiler.h"
 #include "FunctionCompiler.h"
+#include "GC.h"
 
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Value.h>
@@ -48,7 +49,10 @@ namespace lox {
 
         FunctionCompiler MainCompiler(*Context, *M, *F, LoxFunctionType::NONE);
 
+        CreateGcFunction(*Builder);
+
         MainCompiler.compile(program, {}, [&MainCompiler, &Clock](LoxBuilder &B) {
+            MainCompiler.insertVariable("$initString", B.ObjVal(B.AllocateString("init")));
             MainCompiler.insertVariable("clock", B.ObjVal(B.AllocateClosure(Clock, "clock", true)));
         });
 
@@ -56,7 +60,7 @@ namespace lox {
         Builder->CreateStore(Builder->AllocateTable(), M->getRuntimeStrings());
         Builder->CreateCall(F);
 
-        FreeObjects();
+        FreeObjects(*Builder);
 
         Builder->CreateRet(Builder->getInt32(0));
     }

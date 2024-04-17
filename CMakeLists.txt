@@ -13,6 +13,8 @@ include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
 add_executable(cpplox src/main.cpp
+        src/compiler/Localstack.cpp
+        src/compiler/Globalstack.h
         src/frontend/Token.h
         src/frontend/Scanner.h
         src/frontend/Error.h
@@ -41,6 +43,14 @@ add_executable(cpplox src/main.cpp
         src/frontend/Parser.h
         src/compiler/Callstack.cpp
         src/Debug.h
+        src/compiler/Localstack.h
+        src/compiler/GC.cpp
+        src/compiler/GC.h
+        src/compiler/Globalstack.cpp
+        src/compiler/Greystack.cpp
+        src/compiler/Greystack.h
+        src/compiler/Table.h
+        src/compiler/Memory.h
 )
 
 target_compile_options(cpplox PRIVATE

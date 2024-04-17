@@ -1,15 +1,111 @@
+
+#include "Memory.h"
 #include "ModuleCompiler.h"
 #include "Value.h"
+#include <llvm/IR/Value.h>
 
 #include "../Debug.h"
-#include <llvm/IR/Value.h>
+#include "GC.h"
 
 
 namespace lox {
 
-    AllocaInst *CreateEntryBlockAlloca(Function *TheFunction, Type *type, const std::string_view VarName) {
+    AllocaInst *CreateEntryBlockAlloca(Function *TheFunction, Type *type, const std::string_view VarName, Value *initialValue) {
         IRBuilder TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
-        return TmpB.CreateAlloca(type, nullptr, VarName);
+        const auto alloca = TmpB.CreateAlloca(type, nullptr, VarName);
+        if (initialValue) {
+            TmpB.CreateStore(initialValue, alloca);
+        }
+        return alloca;
+    }
+
+    Value *LoxBuilder::getSizeOf(Type *type, Value *arraySize) {
+        Type *IntPtrTy = IntegerType::getInt32Ty(getContext());
+        // The IR that is generated with getSizeOf uses a hack described here:
+        // https://mukulrathi.com/create-your-own-programming-language/concurrency-runtime-language-tutorial/#malloc
+        Constant *allocsize = ConstantExpr::getSizeOf(type);
+        allocsize = ConstantExpr::getTruncOrBitCast(allocsize, IntPtrTy);
+        return arraySize ? CreateMul(allocsize, arraySize) : allocsize;
+    }
+
+    Value *LoxBuilder::CreateRealloc(Value *ptr, Value *newSize) {
+        static const auto realloc = getModule().getOrInsertFunction(
+            "realloc",
+            FunctionType::get(getPtrTy(), {getPtrTy(), getInt64Ty()}, false)
+        );
+        return CreateCall(realloc, {ptr, newSize});
+    }
+
+    Value *LoxBuilder::CreateReallocate(Value *ptr, Value *oldSize, Value *newSize) {
+        static auto ReallocFunction([this] {
+            const auto F = Function::Create(
+                FunctionType::get(
+                    getPtrTy(),
+                    {getPtrTy(), getInt32Ty(), getInt32Ty()},
+                    false
+                ),
+                Function::InternalLinkage,
+                "$realloc",
+                getModule()
+            );
+
+            LoxBuilder B(getContext(), getModule(), *F);
+
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
+
+            const auto arguments = F->args().begin();
+            const auto ptr = arguments;
+            const auto oldSize = arguments + 1;
+            const auto newSize = arguments + 2;
+
+            B.CreateStore(
+                B.CreateAdd(B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes()), B.CreateSub(newSize, oldSize)),
+                B.getModule().getAllocatedBytes()
+            );
+
+            const auto GcBlock = B.CreateBasicBlock("gc");
+            const auto NoGcBlock = B.CreateBasicBlock("no.gc");
+
+            B.CreateCondBr(
+                B.CreateAnd(B.CreateICmpSGT(newSize, oldSize), B.CreateICmpSGT(B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes()), B.CreateLoad(B.getInt32Ty(), B.getModule().getNextGC()))),
+                GcBlock,
+                NoGcBlock
+            );
+
+            B.SetInsertPoint(GcBlock);
+            {
+                B.CollectGarbage();
+                B.CreateBr(NoGcBlock);
+            }
+            B.SetInsertPoint(NoGcBlock);
+            {
+                const auto IsFreeBlock = B.CreateBasicBlock("is.free");
+                const auto IsAllocBlock = B.CreateBasicBlock("is.alloc");
+
+                B.CreateCondBr(B.CreateICmpEQ(B.getInt32(0), newSize), IsFreeBlock, IsAllocBlock);
+                B.SetInsertPoint(IsFreeBlock);
+                {
+                    B.IRBuilder::CreateFree(ptr);
+                    B.CreateRet(B.getNullPtr());
+                }
+                B.SetInsertPoint(IsAllocBlock);
+                {
+                    B.CreateRet(B.CreateRealloc(ptr, B.getSizeOf(PointerType::getUnqual(getContext()), newSize)));
+                }
+            }
+            return F;
+        }());
+
+        return CreateCall(ReallocFunction, {ptr, oldSize, newSize});
+    }
+
+    void LoxBuilder::CreateFree(Value *ptr, Type *type, Value *arraySize = nullptr) {
+        CreateReallocate(ptr, getSizeOf(type, arraySize ? arraySize : getInt32(1)), getInt32(0));
+    }
+
+    void LoxBuilder::CreateFree(Value *ptr, const lox::ObjType type, Value *arraySize = nullptr) {
+        CreateFree(ptr, getModule().getStructType(type), arraySize);
     }
 
     Value *LoxBuilder::AllocateObj(const enum ObjType objType, const std::string_view name) {
@@ -47,7 +143,6 @@ namespace lox {
                 ObjType::UPVALUE,
                 ObjType::CLASS,
                 ObjType::INSTANCE,
-                ObjType::TABLE,
                 ObjType::BOUND_METHOD
             };
 
@@ -78,11 +173,10 @@ namespace lox {
 
             B.SetInsertPoint(EndBlock);
 
-            const auto NewObjMalloc = B.CreateMalloc(
-                IntPtrTy,
-                B.getPtrTy(),
-                allocsize,
-                nullptr
+            const auto NewObjMalloc = B.CreateReallocate(
+                B.getNullPtr(),
+                B.getInt32(0),
+                allocsize
             );
 
             B.CreateStore(
@@ -116,143 +210,193 @@ namespace lox {
             return F;
         }());
 
+        if constexpr (STRESS_GC) {
+            this->CollectGarbage();
+        }
+
         if constexpr (DEBUG_LOG_GC) {
             switch (objType) {
                 case ObjType::STRING:
-                    PrintString(("Allocate string"));
+                    PrintString("Allocate string");
                     break;
                 case ObjType::FUNCTION:
-                    PrintString(("Allocate function"));
+                    PrintString("Allocate function");
                     break;
                 case ObjType::CLOSURE:
-                    PrintString(("Allocate closure"));
+                    PrintString("Allocate closure");
                     break;
                 case ObjType::UPVALUE:
-                    PrintString(("Allocate upvalue"));
+                    PrintString("Allocate upvalue");
                     break;
-                case ObjType::TABLE:
-                    PrintString("Allocate table");
+                case ObjType::CLASS:
+                    PrintString("Allocate class");
+                    break;
+                case ObjType::INSTANCE:
+                    PrintString("Allocate instance");
+                    break;
+                case ObjType::BOUND_METHOD:
+                    PrintString("Allocate bound method");
                     break;
                 default:
-                    PrintString(("Allocate object"));
+                    std::unreachable();
             }
-            static const auto fmt0 = CreateGlobalCachedString("\tobjects: %p => ");
-            const auto objects = getModule().getObjects();
-            PrintF({fmt0, CreateLoad(getPtrTy(), objects)});
+            PrintF({CreateGlobalCachedString("\tobjects: %p => "), CreateLoad(getPtrTy(), getModule().getObjects())});
         }
 
         return CreateCall(AllocateObjectFunction, {ObjTypeInt(objType)}, name);
     }
 
-    Value *LoxBuilder::AllocateArray(Type *type, const int size, const std::string_view &name) {
-        return AllocateArray(type, getInt32(size), name);
+    Value *LoxBuilder::AllocateArray(Type *type, Value *arraySize) {
+        return CreateRealloc(getNullPtr(), getSizeOf(type, arraySize));
     }
 
-    Value *LoxBuilder::AllocateArray(Type *type, Value *arraySize, const std::string_view &name) {
-        Type *IntPtrTy = IntegerType::getInt32Ty(getContext());
-        // The malloc size IR that is generated with getSizeOf uses a hack described here:
-        // https://mukulrathi.com/create-your-own-programming-language/concurrency-runtime-language-tutorial/#malloc
-        Constant *allocsize = ConstantExpr::getSizeOf(type);
-        allocsize = ConstantExpr::getTruncOrBitCast(allocsize, IntPtrTy);
-        return CreateMalloc(
-            IntPtrTy,
-            getPtrTy(),
-            allocsize,
-            arraySize,
-            nullptr,
-            name
-        );
-    }
+    void FreeObject(LoxBuilder &Builder, Value *value) {
+        assert(value->getType() == Builder.getInt64Ty());
 
-    static void FreeObject(LoxBuilder &Builder, Value *value) {
-        const auto IsStringBlock = Builder.CreateBasicBlock("string");
-        const auto IsFunctionBlock = Builder.CreateBasicBlock("function");
-        const auto IsClosureBlock = Builder.CreateBasicBlock("closure");
-        const auto IsUpvalueBlock = Builder.CreateBasicBlock("upvalue");
-        const auto IsClassBlock = Builder.CreateBasicBlock("class");
-        const auto IsInstanceBlock = Builder.CreateBasicBlock("instance");
-        const auto DefaultBlock = Builder.CreateBasicBlock("default");
-
-        if constexpr (DEBUG_LOG_GC) {
-            static const auto fmt = Builder.CreateGlobalCachedString("free %p: ");
-            Builder.PrintF({fmt, value});
-            Builder.PrintObject(value);
-        }
-
-        const auto Switch = Builder.CreateSwitch(Builder.ObjType(value), DefaultBlock);
-        Switch->addCase(Builder.ObjTypeInt(ObjType::STRING), IsStringBlock);
-        Switch->addCase(Builder.ObjTypeInt(ObjType::FUNCTION), IsFunctionBlock);
-        Switch->addCase(Builder.ObjTypeInt(ObjType::CLOSURE), IsClosureBlock);
-        Switch->addCase(Builder.ObjTypeInt(ObjType::UPVALUE), IsUpvalueBlock);
-        Switch->addCase(Builder.ObjTypeInt(ObjType::CLASS), IsClassBlock);
-        Switch->addCase(Builder.ObjTypeInt(ObjType::INSTANCE), IsInstanceBlock);
-
-        Builder.SetInsertPoint(IsStringBlock);
-        Builder.CreateFree(value);
-        //Builder->CreateFree(); TODO: free string chars? but they're not allocated by malloc.
-
-        Builder.CreateBr(DefaultBlock);
-
-        Builder.SetInsertPoint(IsFunctionBlock);
-        Builder.CreateFree(Builder.AsObj(value));
-        // Don't need to free the name, because it will be freed as a String obj anyway.
-        Builder.CreateBr(DefaultBlock);
-
-        Builder.SetInsertPoint(IsClosureBlock);
-
-        const auto closure = Builder.AsObj(value);
-        const auto size = Builder.CreateLoad(Builder.getInt32Ty(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 3));
-        const auto IsNotNull = Builder.CreateBasicBlock("NotNullArray");
-        const auto NullArray = Builder.CreateBasicBlock("NullArray");
-        Builder.CreateCondBr(Builder.CreateICmpEQ(size, Builder.getInt32(0)), NullArray, IsNotNull);
-        Builder.SetInsertPoint(IsNotNull);
-        const auto array = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 2));
-        Builder.CreateFree(array);
-        Builder.CreateBr(NullArray);
-        Builder.SetInsertPoint(NullArray);
-        Builder.CreateFree(closure);
-        Builder.CreateBr(DefaultBlock);
-
-        Builder.SetInsertPoint(IsUpvalueBlock);
-        Builder.CreateFree(Builder.AsObj(value));
-        Builder.CreateBr(DefaultBlock);
-
-        Builder.SetInsertPoint(IsClassBlock);
-        Builder.CreateFree(Builder.AsObj(value));
-
-        Builder.CreateBr(DefaultBlock);
-
-        Builder.SetInsertPoint(IsInstanceBlock);
-        Builder.CreateFree(Builder.AsObj(value));
-
-        Builder.CreateBr(DefaultBlock);
-        Builder.SetInsertPoint(DefaultBlock);
-    }
-
-    void ModuleCompiler::FreeObjects() const {
-        static auto FreeObjectsFunction([this] {
+        static auto FreeObjectFunction([&Builder] {
             const auto F = Function::Create(
                 FunctionType::get(
-                    this->Builder->getVoidTy(),
+                    Builder.getVoidTy(),
+                    {Builder.getInt64Ty()},
+                    false
+                ),
+                Function::InternalLinkage,
+                "$freeObject",
+                Builder.getModule()
+            );
+
+            LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
+
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
+
+            const auto value = F->arg_begin();
+
+            const auto IsStringBlock = B.CreateBasicBlock("string");
+            const auto IsFunctionBlock = B.CreateBasicBlock("function");
+            const auto IsClosureBlock = B.CreateBasicBlock("closure");
+            const auto IsUpvalueBlock = B.CreateBasicBlock("upvalue");
+            const auto IsClassBlock = B.CreateBasicBlock("class");
+            const auto IsBoundMethodBlock = B.CreateBasicBlock("boundmethod");
+            const auto IsInstanceBlock = B.CreateBasicBlock("instance");
+            const auto DefaultBlock = B.CreateBasicBlock("default");
+            const auto EndBlock = B.CreateBasicBlock("end");
+
+            if constexpr (DEBUG_LOG_GC) {
+                B.PrintF({B.CreateGlobalCachedString("free %p (objtype: %d): "), value, B.ObjType(value)});
+                B.PrintObject(value);
+            }
+
+            const auto Switch = B.CreateSwitch(B.ObjType(value), DefaultBlock);
+            Switch->addCase(B.ObjTypeInt(ObjType::STRING), IsStringBlock);
+            Switch->addCase(B.ObjTypeInt(ObjType::FUNCTION), IsFunctionBlock);
+            Switch->addCase(B.ObjTypeInt(ObjType::CLOSURE), IsClosureBlock);
+            Switch->addCase(B.ObjTypeInt(ObjType::UPVALUE), IsUpvalueBlock);
+            Switch->addCase(B.ObjTypeInt(ObjType::CLASS), IsClassBlock);
+            Switch->addCase(B.ObjTypeInt(ObjType::BOUND_METHOD), IsBoundMethodBlock);
+            Switch->addCase(B.ObjTypeInt(ObjType::INSTANCE), IsInstanceBlock);
+
+            B.SetInsertPoint(IsStringBlock);
+            {
+                B.CreateFree(B.AsObj(value), ObjType::STRING);
+                B.CreateBr(EndBlock);
+            }
+            B.SetInsertPoint(IsFunctionBlock);
+            {
+                B.CreateFree(B.AsObj(value), ObjType::FUNCTION);
+                // Don't need to free the name, because it will be freed as a String obj anyway.
+                B.CreateBr(EndBlock);
+            }
+            B.SetInsertPoint(IsClosureBlock);
+            {
+                const auto closure = B.AsObj(value);
+                const auto size = B.CreateLoad(B.getInt32Ty(), B.CreateStructGEP(B.getModule().getStructType(ObjType::CLOSURE), closure, 3));
+                const auto IsNotNull = B.CreateBasicBlock("NotNullArray");
+                const auto NullArray = B.CreateBasicBlock("NullArray");
+                B.CreateCondBr(B.CreateICmpEQ(size, B.getInt32(0)), NullArray, IsNotNull);
+                B.SetInsertPoint(IsNotNull);
+                {
+                    const auto array = B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getStructType(ObjType::CLOSURE), closure, 2));
+                    B.CreateFree(array, ObjType::UPVALUE, size);
+                    B.CreateBr(NullArray);
+                }
+                B.SetInsertPoint(NullArray);
+                {
+                    B.CreateFree(closure, ObjType::CLOSURE);
+                    B.CreateBr(EndBlock);
+                }
+            }
+            B.SetInsertPoint(IsUpvalueBlock);
+            {
+                B.CreateFree(B.AsObj(value), ObjType::UPVALUE);
+                B.CreateBr(EndBlock);
+            }
+            B.SetInsertPoint(IsClassBlock);
+            {
+                B.CreateFree(B.AsObj(value), ObjType::CLASS);
+                B.CreateBr(EndBlock);
+            }
+            B.SetInsertPoint(IsInstanceBlock);
+            {
+                B.CreateFree(B.AsObj(value), ObjType::INSTANCE);
+                B.CreateBr(EndBlock);
+            }
+            B.SetInsertPoint(IsBoundMethodBlock);
+            {
+                B.CreateFree(B.AsObj(value), ObjType::BOUND_METHOD);
+                B.CreateBr(EndBlock);
+            }
+            B.SetInsertPoint(DefaultBlock);
+            {
+                if constexpr (DEBUG_LOG_GC) {
+                    B.PrintF({B.CreateGlobalCachedString("not freeing {{object %d}} %p\n"), B.ObjType(value), B.AsObj(value)});
+                    B.CreateBr(EndBlock);
+                } else {
+                    B.CreateUnreachable();
+                }
+            }
+
+            B.SetInsertPoint(EndBlock);
+            B.CreateRetVoid();
+            return F;
+        }());
+
+        Builder.CreateCall(FreeObjectFunction, {value});
+    }
+
+    void FreeObjects(LoxBuilder &Builder) {
+        static auto FreeObjectsFunction([&Builder] {
+            const auto F = Function::Create(
+                FunctionType::get(
+                    Builder.getVoidTy(),
                     {},
                     false
                 ),
                 Function::InternalLinkage,
                 "$freeObjects",
-                this->Builder->getModule()
+                Builder.getModule()
             );
 
-            LoxBuilder B(this->Builder->getContext(), this->Builder->getModule(), *F);
+            LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
+
+            const auto objects = B.getModule().getObjects();
 
             const auto EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
+            const auto before = B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes());
+
+            if constexpr (DEBUG_LOG_GC) {
+                B.PrintF({B.CreateGlobalCachedString("--free objects (%p)--\n"), B.CreateLoad(B.getPtrTy(), objects)});
+            }
+
             const auto object = CreateEntryBlockAlloca(F, B.getPtrTy(), "object");
             const auto next = CreateEntryBlockAlloca(F, B.getPtrTy(), "next");
             B.CreateStore(
-                B.CreateLoad(B.getPtrTy(), M->getObjects()),
+                B.CreateLoad(B.getPtrTy(), objects),
                 object
             );
+            B.CreateStore(B.getNullPtr(), next);
 
             const auto WhileCond = B.CreateBasicBlock("while.cond");
             const auto WhileBody = B.CreateBasicBlock("while.body");
@@ -263,30 +407,33 @@ namespace lox {
             B.CreateCondBr(B.CreateIsNotNull(B.CreateLoad(B.getPtrTy(), object)), WhileBody, WhileEnd);
             B.SetInsertPoint(WhileBody);
 
+            const auto ptr = B.CreateLoad(B.getPtrTy(), object);
             B.CreateStore(
-                B.CreateLoad(
-                    B.getPtrTy(),
-                    B.CreateStructGEP(M->getObjStructType(), B.CreateLoad(B.getPtrTy(), object), 2, "next")
-                ),
+                B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(Builder.getModule().getObjStructType(), ptr, 2, "next")),
                 next
             );
 
             FreeObject(B, B.CreateLoad(B.getInt64Ty(), object));
 
-            B.CreateStore(
-                B.CreateLoad(B.getPtrTy(), next),
-                object
-            );
+            B.CreateStore(B.CreateLoad(B.getPtrTy(), next), object);
 
             B.CreateBr(WhileCond);
 
             B.SetInsertPoint(WhileEnd);
 
+            // Free greystack
+            B.CreateRealloc(B.CreateLoad(B.getPtrTy(), B.getModule().getGrayStack()), B.getInt32(0));
+
+            if constexpr (DEBUG_LOG_GC) {
+                B.PrintF({B.CreateGlobalCachedString("--end free objects (%p)--\n"), (B.CreateLoad(B.getPtrTy(), objects))});
+                const auto current = B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes());
+                B.PrintF({B.CreateGlobalCachedString("     collected %zu bytes (from %zu to %zu)\n"), B.CreateSub(before, current), before, current});
+            }
             B.CreateRetVoid();
 
             return F;
         }());
 
-        Builder->CreateCall(FreeObjectsFunction);
+        Builder.CreateCall(FreeObjectsFunction);
     }
 }// namespace lox

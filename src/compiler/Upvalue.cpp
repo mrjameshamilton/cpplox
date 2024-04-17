@@ -1,4 +1,5 @@
 #include "Upvalue.h"
+#include "../Debug.h"
 #include "FunctionCompiler.h"
 
 #define DEBUG false
@@ -7,9 +8,9 @@ namespace lox {
     Value *LoxBuilder::AllocateUpvalue(Value *value) {
         const auto ptr = AllocateObj(ObjType::UPVALUE);
 
-        CreateStore(value,CreateObjStructGEP(ObjType::UPVALUE, ptr, 1));
-        CreateStore(getNullPtr(),CreateObjStructGEP(ObjType::UPVALUE, ptr, 2));
-        CreateStore(getNilVal(),CreateObjStructGEP(ObjType::UPVALUE, ptr, 3));
+        CreateStore(value, CreateObjStructGEP(ObjType::UPVALUE, ptr, 1));
+        CreateStore(getNullPtr(), CreateObjStructGEP(ObjType::UPVALUE, ptr, 2));
+        CreateStore(getNilVal(), CreateObjStructGEP(ObjType::UPVALUE, ptr, 3));
 
         return ptr;
     }
@@ -261,4 +262,64 @@ namespace lox {
         Builder.CreateCall(CloseUpvalueFunction, {local});
     }
 
+    void IterateUpvalues(LoxBuilder &Builder, Function *FunctionPointer) {
+        static auto IterateUpvaluesFunction([&Builder] {
+            const auto F = Function::Create(
+                FunctionType::get(
+                    Builder.getVoidTy(),
+                    {Builder.getPtrTy()},
+                    false
+                ),
+                Function::InternalLinkage,
+                "$iterateUpvalues",
+                Builder.getModule()
+            );
+
+            LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
+
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
+
+            if constexpr (DEBUG_LOG_GC) {
+                B.PrintString("--iterate upvalues--");
+            }
+
+            const auto openUpvalues = B.getModule().getOpenUpvalues();
+            const auto upvalue = CreateEntryBlockAlloca(B.getFunction(), B.getPtrTy(), "upvalue");
+            B.CreateStore(B.CreateLoad(B.getPtrTy(), openUpvalues), upvalue);
+
+            const auto WhileCond = B.CreateBasicBlock("while.cond");
+            const auto WhileBody = B.CreateBasicBlock("while.body");
+            const auto WhileEnd = B.CreateBasicBlock("while.end");
+
+            B.CreateBr(WhileCond);
+            B.SetInsertPoint(WhileCond);
+            B.CreateCondBr(B.CreateIsNotNull(B.CreateLoad(B.getPtrTy(), upvalue)), WhileBody, WhileEnd);
+            B.SetInsertPoint(WhileBody);
+
+            const auto ptr = B.CreateLoad(B.getPtrTy(), upvalue);
+            B.CreateCall(
+                FunctionType::get(B.getVoidTy(), {B.getPtrTy()}, false),
+                F->arg_begin(),
+                {ptr}
+            );
+
+            B.CreateStore(
+                B.CreateLoad(
+                    B.getPtrTy(),
+                    B.CreateObjStructGEP(ObjType::UPVALUE, ptr, 2, "next")
+                ),
+                upvalue
+            );
+            B.CreateBr(WhileCond);
+
+            B.SetInsertPoint(WhileEnd);
+
+            B.CreateRetVoid();
+
+            return F;
+        }());
+
+        Builder.CreateCall(IterateUpvaluesFunction, {FunctionPointer});
+    }
 }// namespace lox

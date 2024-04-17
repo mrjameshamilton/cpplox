@@ -14,5 +14,6 @@ namespace lox {
     };
 
     void closeUpvalues(LoxBuilder &Builder, Value *local);
+    void IterateUpvalues(LoxBuilder& Builder, Function *FunctionPointer);
 }// namespace lox
 #endif//CPPLOX_UPVALUE_H

@@ -1,15 +1,19 @@
 
+#include "Localstack.h"
 #include "LoxBuilder.h"
+#include "Table.h"
+
 #include <string_view>
+
 using namespace std::string_view_literals;
 
 namespace lox {
 
     Value *LoxBuilder::AllocateClass(const std::string_view className) {
+        const auto name = PushTemp(*this, AllocateString(className, ("class_" + className).str()), "class name");
         const auto ptr = AllocateObj(ObjType::CLASS, "class");
 
-        Value *name = AllocateString(className, ("class_" + className).str());
-        Value *methods = AllocateTable();
+        const auto methods = AllocateTable();
 
         CreateStore(name, CreateObjStructGEP(ObjType::CLASS, ptr, 1));
         CreateStore(methods, CreateObjStructGEP(ObjType::CLASS, ptr, 2));
@@ -90,9 +94,11 @@ namespace lox {
             return F;
         }());
 
-        return CreateCall(
+        const auto boundMethodObj = CreateCall(
             BindMethodFunction,
             {klass, receiver, key, getInt32(line), CreateGlobalCachedString(pFunction == nullptr ? "script" : pFunction->getName())}
         );
+
+        return PushTemp(*this, boundMethodObj, "bound method");
     }
 }// namespace lox

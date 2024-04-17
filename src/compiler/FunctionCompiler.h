@@ -1,7 +1,10 @@
 #ifndef LOXFUNCTIONCOMPILER_H
 #define LOXFUNCTIONCOMPILER_H
 #include "../frontend/AST.h"
+#include "Globalstack.h"
+#include "Localstack.h"
 #include "LoxBuilder.h"
+#include "Memory.h"
 #include "ModuleCompiler.h"
 #include "Upvalue.h"
 
@@ -10,8 +13,6 @@
 #include <llvm/IR/Value.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 #include <stack>
-
-#define DEBUG false
 
 template<>
 struct llvm::DenseMapInfo<std::string_view> {
@@ -69,12 +70,14 @@ namespace lox {
         BasicBlock *EntryBasicBlock = Builder.CreateBasicBlock("entry");
         BasicBlock *ExitBasicBlock = Builder.CreateBasicBlock("epilogue");
         AllocaInst *returnVal;
+        AllocaInst *sp;
 
     public:
-        explicit FunctionCompiler(LLVMContext &Context, LoxModule &Module, Function &F, LoxFunctionType type = LoxFunctionType::FUNCTION, FunctionCompiler *enclosing = nullptr)
+        explicit FunctionCompiler(LLVMContext &Context, LoxModule &Module, Function &F, const LoxFunctionType type = LoxFunctionType::FUNCTION, FunctionCompiler *enclosing = nullptr)
             : Builder{Context, Module, F}, enclosing(enclosing), type{type} {
             Builder.SetInsertPoint(EntryBasicBlock);
             returnVal = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), "$returnVal");
+            sp = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt32Ty(), "$sp");
         }
 
         // Statement code generation.
@@ -106,12 +109,18 @@ namespace lox {
         Value *operator()(const LogicalExprPtr &logicalExpr);
         Value *operator()(const UnaryExprPtr &unaryExpr);
 
+
         void beginScope() {
+            // At the beginning of the scope, remember the current local variable stack pointer.
+            Builder.CreateStore(Builder.CreateLoad(Builder.getInt32Ty(), Builder.getModule().getLocalsStackPointer()), sp);
             scopes.emplace(variables);
         }
 
         void endScope() {
             scopes.pop();
+            // At the end of the scope, reset the stack pointer then any variables allocated
+            // in the scope are no longer accessible as GC roots and can be freed.
+            Builder.CreateStore(Builder.CreateLoad(Builder.getInt32Ty(), sp), Builder.getModule().getLocalsStackPointer());
         }
 
         [[nodiscard]] FunctionCompiler *getEnclosing() const {
@@ -123,7 +132,9 @@ namespace lox {
         }
 
         [[nodiscard]] Value *lookupVariable(Assignable &assignable) {
-            //Builder.PrintF({Builder.CreateGlobalCachedString("lookupVariable(%s)\n"), Builder.CreateGlobalCachedString(assignable.name.getLexeme())});
+            if constexpr (DEBUG_UPVALUES) {
+                Builder.PrintF({Builder.CreateGlobalCachedString("lookupVariable(%s)\n"), Builder.CreateGlobalCachedString(assignable.name.getLexeme())});
+            }
             if (const auto local = resolveLocal(this, assignable)) return local->value;
 
             if (const auto upvalue = resolveUpvalue(this, assignable)) {
@@ -173,13 +184,15 @@ namespace lox {
                 global->setAlignment(Align(8));
                 global->setConstant(false);
                 global->setInitializer(cast<ConstantInt>(Builder.getUninitializedVal()));
+
+                PushGlobal(Builder, global);
             }
 
             return global;
         }
 
         void insertVariable(const std::string_view &key, Value *value) {
-            if (enclosing == nullptr && scopes.size() == 1) {
+            if (isGlobalScope()) {
                 const auto name = ("g" + key).str();// TODO: how to not call Twine.+?
                 const auto global = cast<GlobalVariable>(Builder.getModule().getOrInsertGlobal(
                     name,
@@ -196,10 +209,12 @@ namespace lox {
                     global->setInitializer(cast<ConstantInt>(Builder.getNilVal()));
                     Builder.CreateStore(value, global);
                 }
+                PushGlobal(Builder, global);
             } else {
                 const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), key);
                 Builder.CreateStore(value, alloca);
                 variables.insert(key, std::make_shared<Local>(*this, key, alloca));
+                PushLocal(Builder, alloca, ("normal local {" + key + "}").str());
             }
         }
 
@@ -255,8 +270,8 @@ namespace lox {
             const std::string_view &name = assignable.name.getLexeme();
             if (const auto local = compiler->variables.lookup(name)) {
 
+                auto &Builder = compiler->Builder;
                 if constexpr (DEBUG_UPVALUES) {
-                    auto &Builder = compiler->Builder;
                     Builder.PrintF({Builder.CreateGlobalCachedString("resolveLocal(%s) = %p = "), Builder.CreateGlobalCachedString(name), local->value});
                     Builder.Print(Builder.ObjVal(Builder.CreateLoad(Builder.getPtrTy(), local->value)));
                 }
@@ -264,6 +279,14 @@ namespace lox {
                 return local;
             }
             return nullptr;
+        }
+
+        [[nodiscard]] bool isGlobalScope() const {
+            return enclosing == nullptr &&
+                   // 2 scopes are started in FunctionCompiler.cpp for a function:
+                   // * outer scope for the returnVal, this value.
+                   // * second scope for the implementation of the method.
+                   scopes.size() <= 2;
         }
 
         Value *CreateFunction(LoxFunctionType type, const FunctionStmtPtr &functionStmt, std::string_view name);

@@ -1,7 +1,8 @@
 #include "Callstack.h"
+#include "Memory.h"
 
 namespace lox {
-    void Push(LoxBuilder &Builder, Value *line, Value *name) {
+    void PushCall(LoxBuilder &Builder, Value *line, Value *name) {
         static auto PushFunction([&Builder] {
             const auto F = Function::Create(
                 FunctionType::get(
@@ -42,7 +43,7 @@ namespace lox {
         Builder.CreateCall(PushFunction, {line, name});
     }
 
-    void Pop(LoxBuilder &Builder) {
+    void PopCall(LoxBuilder &Builder) {
         static auto PopFunction([&Builder] {
             const auto F = Function::Create(
                 FunctionType::get(

@@ -1,4 +1,6 @@
+#include "Localstack.h"
 #include "LoxBuilder.h"
+#include "ModuleCompiler.h"
 
 namespace lox {
 
@@ -7,7 +9,7 @@ namespace lox {
             const auto F = Function::Create(
                 FunctionType::get(
                     getPtrTy(),
-                    {getPtrTy(), getPtrTy(), getInt32Ty(), getInt32Ty(), getInt1Ty()},
+                    {getPtrTy(), getPtrTy(), getInt32Ty(), getInt1Ty()},
                     false
                 ),
                 Function::InternalLinkage,
@@ -42,7 +44,7 @@ namespace lox {
         return CreateCall(
             AllocateFunctionFunction,
             {Function,
-             AllocateString(name),
+             PushTemp(*this, AllocateString(name), "function name"),
              getInt32(Function->arg_size() - 2),// receiver + upvalues
              isNative ? getTrue() : getFalse()
             }
@@ -74,13 +76,18 @@ namespace lox {
             const auto ptr = B.AllocateObj(ObjType::CLOSURE, "closure");
 
             B.CreateStore(function, B.CreateObjStructGEP(ObjType::CLOSURE, ptr, 1));
-            B.CreateStore(B.getInt8(0), B.CreateObjStructGEP(ObjType::CLOSURE, ptr, 2));
+            // An array will be allocated for the upvalues in lox::FunctionCompiler::CreateFunction.
+            B.CreateStore(B.getNullPtr(), B.CreateObjStructGEP(ObjType::CLOSURE, ptr, 2));
             B.CreateStore(B.getInt32(0), B.CreateObjStructGEP(ObjType::CLOSURE, ptr, 3));
+
             B.CreateRet(ptr);
 
             return F;
         }());
 
-        return CreateCall(AllocationClosureFunction, {AllocateFunction(function, name, isNative)});
+        return CreateCall(
+            AllocationClosureFunction,
+            {PushTemp(*this, AllocateFunction(function, name, isNative), "function")}
+        );
     }
 }// namespace lox

@@ -285,80 +285,95 @@ namespace lox {
     void LoxBuilder::PrintObject(Value *value) {
         const auto IsStringBlock = CreateBasicBlock("print.string");
         const auto IsClosureBlock = CreateBasicBlock("print.closure");
+        const auto IsFunctionBlock = CreateBasicBlock("print.function");
         const auto IsUpvalueBlock = CreateBasicBlock("print.upvalue");
         const auto IsClassBlock = CreateBasicBlock("print.class");
         const auto IsInstanceBlock = CreateBasicBlock("print.instance");
         const auto IsNativeFunctionBlock = CreateBasicBlock("print.native.function");
         const auto IsNotNativeFunctionBlock = CreateBasicBlock("print.not.native.function");
         const auto IsBoundMethod = CreateBasicBlock("print.boundmethod");
-        const auto IsTableBlock = CreateBasicBlock("print.table");
         const auto DefaultBlock = CreateBasicBlock("print.default");
         const auto EndBlock = CreateBasicBlock("print.end");
 
         const auto Switch = CreateSwitch(ObjType(value), DefaultBlock);
         Switch->addCase(ObjTypeInt(ObjType::STRING), IsStringBlock);
         Switch->addCase(ObjTypeInt(ObjType::CLOSURE), IsClosureBlock);
+        Switch->addCase(ObjTypeInt(ObjType::FUNCTION), IsFunctionBlock);
         Switch->addCase(ObjTypeInt(ObjType::UPVALUE), IsUpvalueBlock);
         Switch->addCase(ObjTypeInt(ObjType::CLASS), IsClassBlock);
         Switch->addCase(ObjTypeInt(ObjType::INSTANCE), IsInstanceBlock);
         Switch->addCase(ObjTypeInt(ObjType::BOUND_METHOD), IsBoundMethod);
-        Switch->addCase(ObjTypeInt(ObjType::TABLE), IsTableBlock);
 
         SetInsertPoint(IsStringBlock);
-        PrintString(value);
+        {
+            PrintString(value);
+        }
         CreateBr(EndBlock);
 
         SetInsertPoint(IsClosureBlock);
-        const auto closure = AsObj(value);
-        const auto function = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::CLOSURE, closure, 1));
+        {
+            const auto closure = AsObj(value);
+            const auto function = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::CLOSURE, closure, 1));
 
-        const auto isNative = CreateLoad(getInt1Ty(), CreateObjStructGEP(ObjType::FUNCTION, function, 4));
+            const auto isNative = CreateLoad(getInt1Ty(), CreateObjStructGEP(ObjType::FUNCTION, function, 4));
 
-        CreateCondBr(isNative, IsNativeFunctionBlock, IsNotNativeFunctionBlock);
-        SetInsertPoint(IsNativeFunctionBlock);
-        PrintF({CreateGlobalCachedString("<native fn>\n")});
+            CreateCondBr(isNative, IsNativeFunctionBlock, IsNotNativeFunctionBlock);
+            SetInsertPoint(IsNativeFunctionBlock);
+            PrintF({CreateGlobalCachedString("<native fn>\n")});
+            CreateBr(EndBlock);
+            SetInsertPoint(IsNotNativeFunctionBlock);
+            PrintF({CreateGlobalCachedString("<fn %s>\n"), AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::FUNCTION, function, 3)))});
+        }
         CreateBr(EndBlock);
-        SetInsertPoint(IsNotNativeFunctionBlock);
-        PrintF({CreateGlobalCachedString("<fn %s>\n"), AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::FUNCTION, function, 3)))});
+
+        SetInsertPoint(IsFunctionBlock);
+        {
+            // Not usually printable, but useful for debugging.
+            const auto function = AsObj(value);
+            PrintF({CreateGlobalCachedString("<fn %s>\n"), AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::FUNCTION, function, 3)))});
+        }
         CreateBr(EndBlock);
 
         SetInsertPoint(IsUpvalueBlock);
-        // Not usually printable, but useful for debugging.
-        const auto upvalue = AsObj(value);
-        const auto object = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 1));
-        const auto next = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 2));
-        PrintF({CreateGlobalCachedString("Upvalue(%p, %p, next = %p) = "), upvalue, object, next});
-        CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("$print"), CreateLoad(getInt64Ty(), object));
+        {
+            // Not usually printable, but useful for debugging.
+            const auto upvalue = AsObj(value);
+            const auto object = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 1));
+            const auto next = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 2));
+            const auto closed = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 3));
+            PrintF({CreateGlobalCachedString("Upvalue(%p, %p, next = %p, closed = %d) = "), upvalue, object, next, closed});
+            CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("$print"), CreateLoad(getInt64Ty(), object));
+        }
         CreateBr(EndBlock);
 
         SetInsertPoint(IsClassBlock);
+        {
+            const auto klass = AsObj(value);
+            PrintF({CreateGlobalCachedString("%s\n"), AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::CLASS, klass, 1)))});
+            CreateBr(EndBlock);
 
-        const auto klass = AsObj(value);
-        PrintF({CreateGlobalCachedString("%s\n"), AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::CLASS, klass, 1)))});
-        CreateBr(EndBlock);
+            SetInsertPoint(IsInstanceBlock);
 
-        SetInsertPoint(IsInstanceBlock);
-
-        const auto instance = AsObj(value);
-        const auto instanceKlass = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
-        PrintF({CreateGlobalCachedString("%s instance\n"), AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::CLASS, instanceKlass, 1)))});
+            const auto instance = AsObj(value);
+            const auto instanceKlass = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
+            PrintF({CreateGlobalCachedString("%s instance\n"), AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::CLASS, instanceKlass, 1)))});
+        }
         CreateBr(EndBlock);
 
         SetInsertPoint(IsBoundMethod);
-        const auto bound = AsObj(value);
-        const auto methodClosure = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::BOUND_METHOD, bound, 2));
-        CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("$print"), ObjVal(methodClosure));
-
-        CreateBr(EndBlock);
-
-        SetInsertPoint(IsTableBlock);
-        PrintString("{{table}}");
+        {
+            const auto bound = AsObj(value);
+            const auto methodClosure = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::BOUND_METHOD, bound, 2));
+            CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("$print"), ObjVal(methodClosure));
+        }
         CreateBr(EndBlock);
 
         SetInsertPoint(DefaultBlock);
-        PrintF({CreateGlobalCachedString("{{object %d}}\n"), ObjType(value)});
+        {
+            PrintF({CreateGlobalCachedString("{{object %d}}\n"), ObjType(value)});
+        }
+        CreateUnreachable();
 
-        CreateBr(EndBlock);
         SetInsertPoint(EndBlock);
     }
 
@@ -378,7 +393,7 @@ namespace lox {
 
         PrintFErr(CreateGlobalCachedString(message), values);
         // Push the current location onto the call stack, so that it's printed as part of the stacktrace.
-        Push(*this, line, location);
+        PushCall(*this, line, location);
         PrintStackTrace(*this);
 
         CreateCall(Exit, getInt32(70));

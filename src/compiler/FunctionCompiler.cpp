@@ -7,41 +7,47 @@ namespace lox {
 
         Builder.SetInsertPoint(EntryBasicBlock);
 
-        // The default return value is nil.
-        Builder.CreateStore(Builder.getNilVal(), returnVal);
-
         beginScope();
+        {
+            // The default return value is nil.
+            Builder.CreateStore(Builder.getNilVal(), returnVal);
+            // Push the returnVal so that it's reachable until closing this outermost scope.
+            PushLocal(Builder, returnVal, "$returnVal");
 
-        if (entryBlockBuilder) entryBlockBuilder(Builder);
+            if (entryBlockBuilder) entryBlockBuilder(Builder);
 
-        // Declare parameters and store them in local variables.
-        auto arg = Builder.getFunction()->arg_begin() + 2 /* second arg is receiver, first is upvalues array */;
+            beginScope();
+            {
+                // Declare parameters and store them in local variables.
+                auto arg = Builder.getFunction()->arg_begin() + 2 /* second arg is receiver, first is upvalues array */;
+                for (auto &p: parameters) {
+                    insertVariable(p.getLexeme(), arg++);
+                }
 
-        for (auto &p: parameters) {
-            insertVariable(p.getLexeme(), arg++);
+                for (auto &stmt: statements) {
+                    evaluate(stmt);
+                }
+
+                if (!Builder.GetInsertBlock()->getTerminator()) {
+                    // In the case where there was no return statement in the Lox code,
+                    // then the current block at this point will be unterminated.
+                    Builder.CreateBr(ExitBasicBlock);
+                }
+
+                Builder.SetInsertPoint(ExitBasicBlock);
+
+                // Code can be generated here to close open upvalues,
+                // since parameters go out of scope at the end of a function.
+            }
+            endScope();
+
+            const auto ReturnBlock = Builder.CreateBasicBlock("exit");
+            Builder.CreateBr(ReturnBlock);
+            Builder.SetInsertPoint(ReturnBlock);
         }
-
-        for (auto &stmt: statements) {
-            evaluate(stmt);
-        }
-
-        if (!Builder.GetInsertBlock()->getTerminator()) {
-            // In the case where there was no return statement in the Lox code,
-            // then the current block at this point will be unterminated.
-            Builder.CreateBr(ExitBasicBlock);
-        }
-
-        Builder.SetInsertPoint(ExitBasicBlock);
-
-        // Code can be generated here to close open upvalues,
-        // since parameters go out of scope at the end of a function.
         endScope();
-
         assert(scopes.empty());
 
-        const auto ReturnBlock = Builder.CreateBasicBlock("exit");
-        Builder.CreateBr(ReturnBlock);
-        Builder.SetInsertPoint(ReturnBlock);
         if (type == LoxFunctionType::INITIALIZER) {
             Builder.CreateRet(Builder.getFunction()->arg_begin() + 1);
         } else {

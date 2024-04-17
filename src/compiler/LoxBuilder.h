@@ -52,14 +52,14 @@ namespace lox {
         Value *ObjType(Value *value);
         ConstantInt *ObjTypeInt(enum ObjType);
 
+        Value *getSizeOf(Type *type, Value *arraySize = nullptr);
         Value *AllocateObj(lox::ObjType objType, std::string_view name = "");
         Value *AllocateString(Value *String, Value *Length, std::string_view name = "");
         Value *AllocateString(StringRef String, std::string_view name = "");
         Value *AllocateFunction(llvm::Function *Function, std::string_view name, bool isNative);
         Value *AllocateClosure(llvm::Function *function, std::string_view name, bool isNative);
         Value *AllocateUpvalue(Value *value);
-        Value *AllocateArray(Type *type, int size, const std::string_view &name);
-        Value *AllocateArray(Type *type, Value *arraySize, const std::string_view &name);
+        Value *AllocateArray(Type *type, Value *arraySize);
         Value *AllocateClass(std::string_view className);
         Value *AllocateInstance(Value *klass);
         Value *AllocateTable();
@@ -67,6 +67,11 @@ namespace lox {
         Value *TableGet(Value *Table, Value *Key);
         Value *TableAddAll(Value *FromTable, Value *ToTable);
 
+        Value *CreateReallocate(Value *ptr, Value *oldSize, Value *newSize);
+        Value *CreateRealloc(Value *ptr, Value *newSize);
+        void CreateFree(Value *ptr, Type *type, Value *arraySize);
+        void CreateFree(Value *ptr, enum ObjType type, Value *arraySize);
+        void CollectGarbage();
         Value *Concat(Value *a, Value *b);
 
         void Print(Value *value);
@@ -87,6 +92,7 @@ namespace lox {
         [[nodiscard]] Constant *getNullPtr() const {
             return Constant::getNullValue(PointerType::getUnqual(getContext()));
         }
+
 
         Constant *CreateGlobalCachedString(const std::string_view string) {
             auto &strings = getModule().getStringCache();

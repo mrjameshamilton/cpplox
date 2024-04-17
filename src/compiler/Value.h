@@ -17,16 +17,14 @@ constexpr uint64_t NIL_VAL = QNAN | TAG_NIL;
 constexpr uint64_t UNITIALIZED_VAL = QNAN | TAG_UNINITIALIZED;
 
 namespace lox {
-    enum class ObjType : int8_t {
+    enum class ObjType {
         STRING = 1,
         FUNCTION = 2,
         CLOSURE = 3,
         UPVALUE = 4,
         CLASS = 5,
         INSTANCE = 6,
-        TABLE = 7,
-        ENTRY = 8,
-        BOUND_METHOD = 9,
+        BOUND_METHOD = 7,
     };
 }
 

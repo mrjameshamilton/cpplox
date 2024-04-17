@@ -6,15 +6,12 @@
 #include "LoxModule.h"
 
 #include <llvm/IR/Function.h>
-#include <llvm/IR/NoFolder.h>
 #include <llvm/Passes/PassBuilder.h>
 
 using namespace llvm;
 using namespace llvm::sys;
 
 namespace lox {
-
-    AllocaInst *CreateEntryBlockAlloca(Function *TheFunction, Type *type, std::string_view VarName);
 
     struct ModuleCompiler {
         std::shared_ptr<LLVMContext> Context = std::make_shared<LLVMContext>();
@@ -25,10 +22,7 @@ namespace lox {
 
         ModuleCompiler() = default;
 
-        void FreeObjects() const;
-
         void evaluate(const Program &program) const;
-
         bool writeIR(const std::string &Filename) const;
     };
 

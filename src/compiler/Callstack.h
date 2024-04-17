@@ -5,12 +5,10 @@
 #include "ModuleCompiler.h"
 
 namespace lox {
-
-    void Push(LoxBuilder &Builder, Value *line, Value *name);
-    void Pop(LoxBuilder &Builder);
+    void PushCall(LoxBuilder &Builder, Value *line, Value *name);
+    void PopCall(LoxBuilder &Builder);
     void PrintStackTrace(LoxBuilder &Builder);
     void CheckStackOverflow(LoxBuilder &Builder, Value *line, Value *name);
-
 }// namespace lox
 
 #endif//CPPLOX_CALLSTACK_H

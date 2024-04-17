@@ -1,3 +1,5 @@
+#include "Localstack.h"
+#include "Memory.h"
 #include "ModuleCompiler.h"
 #include "Value.h"
 #include <llvm/IR/Value.h>
@@ -29,7 +31,7 @@ namespace lox {
             const auto length = arguments + 2;
             const auto hash = arguments + 3;
 
-            const auto count = B.CreateLoad(B.getInt32Ty(), B.CreateObjStructGEP(ObjType::TABLE, table, 1));
+            const auto count = B.CreateLoad(B.getInt32Ty(), B.CreateStructGEP(B.getModule().getTableStructType(), table, 0));
 
             const auto IsEmptyBlock = B.CreateBasicBlock("table.empty");
             const auto NotEmptyBlock = B.CreateBasicBlock("table.notempty");
@@ -42,16 +44,16 @@ namespace lox {
             B.SetInsertPoint(NotEmptyBlock);
 
             const auto index = CreateEntryBlockAlloca(F, B.getInt32Ty(), "index");
-            const auto capacity = B.CreateLoad(B.getInt32Ty(), B.CreateObjStructGEP(ObjType::TABLE, table, 2));
+            const auto capacity = B.CreateLoad(B.getInt32Ty(), B.CreateStructGEP(B.getModule().getTableStructType(), table, 1));
             B.CreateStore(B.CreateURem(hash, capacity), index);
 
             const auto ForStartBlock = B.CreateBasicBlock("for.start");
 
             B.CreateBr(ForStartBlock);
             B.SetInsertPoint(ForStartBlock);
-            const auto entries = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::TABLE, table, 3));
-            const auto entry = B.CreateInBoundsGEP(B.getModule().getStructType(ObjType::ENTRY), entries, B.CreateLoad(B.getInt32Ty(), index), "entry");
-            const auto entryKey = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::ENTRY, entry, 0));
+            const auto entries = B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getTableStructType(), table, 2));
+            const auto entry = B.CreateInBoundsGEP(B.getModule().getEntryStructType(), entries, B.CreateLoad(B.getInt32Ty(), index), "entry");
+            const auto entryKey = B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getEntryStructType(), entry, 0));
 
             const auto KeyIsNullBlock = B.CreateBasicBlock("key.null");
             const auto KeyIsNotNullBlock = B.CreateBasicBlock("key.notnull");
@@ -64,7 +66,7 @@ namespace lox {
 
             const auto IsNilBlock = B.CreateBasicBlock("value.isnil");
 
-            const auto entryValue = B.CreateLoad(B.getInt64Ty(), B.CreateObjStructGEP(ObjType::ENTRY, entry, 1));
+            const auto entryValue = B.CreateLoad(B.getInt64Ty(), B.CreateStructGEP(B.getModule().getEntryStructType(), entry, 1));
             B.CreateCondBr(B.IsNil(entryValue), IsNilBlock, EndIfBlock);
 
             B.SetInsertPoint(IsNilBlock);
@@ -95,7 +97,7 @@ namespace lox {
             B.CreateCondBr(B.CreateICmpEQ(B.CreateCall(MemCmp, {string, keyString, length}), B.getInt32(0)), SameStringBlock, EndIfBlock);
 
             B.SetInsertPoint(SameStringBlock);
-            B.CreateRet(B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::ENTRY, entry, 0)));
+            B.CreateRet(B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getEntryStructType(), entry, 0)));
 
             B.SetInsertPoint(EndIfBlock);
 
@@ -276,7 +278,7 @@ namespace lox {
         static auto ConcatFunction([this] {
             const auto F = Function::Create(
                 FunctionType::get(
-                    getInt64Ty(),
+                    getPtrTy(),
                     {getInt64Ty(), getInt64Ty()},
                     false
                 ),
@@ -348,8 +350,8 @@ namespace lox {
 
             B.SetInsertPoint(IsInternedBlock);
             // Temporary string not required anymore.
-            B.CreateFree(StringMalloc);
-            B.CreateRet(B.ObjVal(interned));
+            B.IRBuilder::CreateFree(StringMalloc);
+            B.CreateRet(interned);
 
             B.SetInsertPoint(NotInternedBlock);
 
@@ -359,11 +361,11 @@ namespace lox {
                 "NewString"
             );
 
-            B.CreateRet(B.ObjVal(NewString));
+            B.CreateRet(NewString);
 
             return F;
         }());
 
-        return CreateCall(ConcatFunction, {a, b});
+        return ObjVal(PushTemp(*this, CreateCall(ConcatFunction, {a, b}), "concat string"));
     }
 }// namespace lox
