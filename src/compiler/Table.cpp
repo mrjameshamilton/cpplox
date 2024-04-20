@@ -269,7 +269,7 @@ namespace lox {
 
             B.SetInsertPoint(ForEnd2);
 
-            B.IRBuilder::CreateFree(B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getTableStructType(), table, 2)));
+            B.CreateRealloc(B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getTableStructType(), table, 2)), B.getInt32(0));
             B.CreateStore(capacity, B.CreateStructGEP(B.getModule().getTableStructType(), table, 1));
             B.CreateStore(entries, B.CreateStructGEP(B.getModule().getTableStructType(), table, 2));
 

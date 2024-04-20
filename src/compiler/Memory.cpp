@@ -86,7 +86,7 @@ namespace lox {
                 B.CreateCondBr(B.CreateICmpEQ(B.getInt32(0), newSize), IsFreeBlock, IsAllocBlock);
                 B.SetInsertPoint(IsFreeBlock);
                 {
-                    B.IRBuilder::CreateFree(ptr);
+                    B.CreateRealloc(ptr, B.getInt32(0));
                     B.CreateRet(B.getNullPtr());
                 }
                 B.SetInsertPoint(IsAllocBlock);

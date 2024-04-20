@@ -308,11 +308,9 @@ namespace lox {
                 "NewLength"
             );
 
-            const auto StringMalloc = B.CreateMalloc(
-                B.getInt32Ty(),
-                B.getPtrTy(),
-                B.CreateSExt(B.CreateNSWAdd(B.getInt32(1), NewLength), B.getInt64Ty()),
-                nullptr
+            const auto StringMalloc = B.CreateRealloc(
+                B.getNullPtr(),
+                B.CreateSExt(B.CreateNSWAdd(B.getInt32(1), NewLength), B.getInt64Ty())
             );
 
             B.CreateMemCpy(
@@ -350,7 +348,7 @@ namespace lox {
 
             B.SetInsertPoint(IsInternedBlock);
             // Temporary string not required anymore.
-            B.IRBuilder::CreateFree(StringMalloc);
+            B.CreateRealloc(StringMalloc, B.getInt32(0));
             B.CreateRet(interned);
 
             B.SetInsertPoint(NotInternedBlock);
