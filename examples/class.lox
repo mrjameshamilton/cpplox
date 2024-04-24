@@ -1,60 +1,71 @@
-{
-    fun foo() {
-      var local = "local";
-      fun f() {
-        print local; // expect: local
-      }
-      f();
-    }
-    foo();
-}
-
-
-for (var i = 1; i < 10; i = i + 1) {
-    var x = "aaa";
-    print x;
-}
-
-print "a" + "b";
-{
-    var foo = "test";
-    print foo;
-}
-class Foo {
-  getClosure() {
-    fun f() {
-      fun g() {
-        fun h() {
-        //print "a";
-
-          return this.toString();
-        }
-        return h;
-      }
-      return g;
-    }
-    return f;
+//{
+//    fun foo() {
+//      var local = "local";
+//      fun f() {
+//        print local; // expect: local
+//      }
+//      f();
+//    }
+//    foo();
+//}
+//
+//
+//for (var i = 1; i < 10; i = i + 1) {
+//    var x = "aaa";
+//    print x;
+//}
+//
+//print "a" + "b";
+//{
+//    var foo = "test";
+//    print foo;
+//}
+//class Foo {
+//  getClosure() {
+//    fun f() {
+//      fun g() {
+//        fun h() {
+//        //print "a";
+//
+//          return this.toString();
+//        }
+//        return h;
+//      }
+//      return g;
+//    }
+//    return f;
+//  }
+//
+//  toString() { return "Foo"; }
+//}
+//
+//var closure = Foo().getClosure();
+//print closure()()(); // expect: Foo
+//
+//var a = "1";
+//var a;
+//print a; // expect: nil
+//
+//class AAA {
+//    init() { print "AAA"; }
+//}
+//
+//AAA();
+//
+//print "a";
+//
+//class Foo {}
+//
+//var foo = Foo();
+//print foo; // expect: Foo instance
+fun f() {
+  while (true) {
+    var i = "i";
+    fun g() { print i; }
+    return g;
+    print "DON'T PRINT";
   }
-
-  toString() { return "Foo"; }
 }
 
-var closure = Foo().getClosure();
-print closure()()(); // expect: Foo
-
-var a = "1";
-var a;
-print a; // expect: nil
-
-class AAA {
-    init() { print "AAA"; }
-}
-
-AAA();
-
-print "a";
-
-class Foo {}
-
-var foo = Foo();
-print foo; // expect: Foo instance
+var h = f();
+h(); // expect: i

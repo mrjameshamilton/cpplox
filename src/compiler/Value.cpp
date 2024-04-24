@@ -86,6 +86,14 @@ namespace lox {
         );
     }
 
+    Value *LoxBuilder::IsUpvalue(Value *value) {
+        assert(value->getType() == getInt64Ty());
+        return CreateAnd(
+            IsObj(value),
+            CreateICmpEQ(ObjType(value), ObjTypeInt(ObjType::UPVALUE))
+        );
+    }
+
     Value *LoxBuilder::IsBoundMethod(Value *value) {
         assert(value->getType() == getInt64Ty());
         return CreateAnd(

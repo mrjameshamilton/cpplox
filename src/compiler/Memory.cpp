@@ -404,21 +404,49 @@ namespace lox {
 
             B.CreateBr(WhileCond);
             B.SetInsertPoint(WhileCond);
-            B.CreateCondBr(B.CreateIsNotNull(B.CreateLoad(B.getPtrTy(), object)), WhileBody, WhileEnd);
-            B.SetInsertPoint(WhileBody);
+            {
+                B.CreateCondBr(B.CreateIsNotNull(B.CreateLoad(B.getPtrTy(), object)), WhileBody, WhileEnd);
+                B.SetInsertPoint(WhileBody);
+                {
+                    const auto ptr = B.CreateLoad(B.getPtrTy(), object);
+                    B.CreateStore(
+                        B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(Builder.getModule().getObjStructType(), ptr, 2, "next")),
+                        next
+                    );
 
-            const auto ptr = B.CreateLoad(B.getPtrTy(), object);
-            B.CreateStore(
-                B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(Builder.getModule().getObjStructType(), ptr, 2, "next")),
-                next
-            );
+                    const auto objectPtr = B.AsObj(B.CreateLoad(B.getInt64Ty(), object));
+                    const auto value = B.ObjVal(objectPtr);
 
-            FreeObject(B, B.CreateLoad(B.getInt64Ty(), object));
+                    if constexpr (ENABLE_RUNTIME_ASSERTS) {
+                        // At this point all upvalues should be closed.
+                        const auto IsUpvalueBlock = B.CreateBasicBlock("is.upvalue");
+                        const auto NotUpvalueBlock = B.CreateBasicBlock("not.upvalue");
 
-            B.CreateStore(B.CreateLoad(B.getPtrTy(), next), object);
+                        B.CreateCondBr(B.IsUpvalue(value), IsUpvalueBlock, NotUpvalueBlock);
+                        B.SetInsertPoint(IsUpvalueBlock);
+                        {
+                            const auto upvalue = objectPtr;
+                            const auto closed = B.CreateLoad(B.getInt64Ty(), B.CreateObjStructGEP(ObjType::UPVALUE, upvalue, 3));
 
-            B.CreateBr(WhileCond);
+                            const auto IsNotClosedBlock = B.CreateBasicBlock("notclosed");
 
+                            B.CreateCondBr(B.IsNil(closed), IsNotClosedBlock, NotUpvalueBlock);
+                            B.SetInsertPoint(IsNotClosedBlock);
+                            {
+                                B.RuntimeError(B.getInt32(0), "upvalue not closed %p\n", {upvalue}, B.CreateGlobalCachedString("assert"));
+                                B.CreateUnreachable();
+                            }
+                        }
+                        B.SetInsertPoint(NotUpvalueBlock);
+                    }
+
+                    FreeObject(B, value);
+
+                    B.CreateStore(B.CreateLoad(B.getPtrTy(), next), object);
+
+                    B.CreateBr(WhileCond);
+                }
+            }
             B.SetInsertPoint(WhileEnd);
 
             // Free greystack
@@ -429,6 +457,7 @@ namespace lox {
                 const auto current = B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes());
                 B.PrintF({B.CreateGlobalCachedString("     collected %zu bytes (from %zu to %zu)\n"), B.CreateSub(before, current), before, current});
             }
+
             B.CreateRetVoid();
 
             return F;

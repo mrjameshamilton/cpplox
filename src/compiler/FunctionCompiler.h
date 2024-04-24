@@ -8,6 +8,7 @@
 #include "ModuleCompiler.h"
 #include "Upvalue.h"
 
+#include "llvm/IR/CFG.h"
 #include <iostream>
 #include <llvm/ADT/ScopedHashTable.h>
 #include <llvm/IR/Value.h>
@@ -117,10 +118,42 @@ namespace lox {
         }
 
         void endScope() {
+            const auto CurrentBlock = Builder.GetInsertBlock();
+            const bool isEarlyReturn = predecessors(Builder.GetInsertBlock()).empty();
+            if (isEarlyReturn) {
+                // If the scope is closed when there is an early return,
+                // then the code generated for closing upvalues would otherwise
+                // end up in the "unreachable" block.
+                // See Lox tests `test/while/return_closure.lox` and `test/for/return_closure.lox`.
+                // For debugging: enable runtime asserts, to check that all upvalues are closed at
+                //                at the end of the lox script.
+                /*
+                fun f() {
+                    while (true) {
+                      var i = "i";
+                      fun g() { print i; }
+                      return g;
+                      // exit:
+                      //    need to close upvalues here.
+                      // unreachable:
+                    } //    endscope
+                  }
+
+                  var h = f();
+                  h(); // expect: i
+                */
+
+                Builder.SetInsertPoint(ExitBasicBlock);
+            }
             scopes.pop();
             // At the end of the scope, reset the stack pointer then any variables allocated
             // in the scope are no longer accessible as GC roots and can be freed.
             Builder.CreateStore(Builder.CreateLoad(Builder.getInt32Ty(), sp), Builder.getModule().getLocalsStackPointer());
+
+            if (isEarlyReturn) {
+                // Any further code can go in the unreachable block.
+                Builder.SetInsertPoint(CurrentBlock);
+            }
         }
 
         [[nodiscard]] FunctionCompiler *getEnclosing() const {
@@ -270,8 +303,8 @@ namespace lox {
             const std::string_view &name = assignable.name.getLexeme();
             if (const auto local = compiler->variables.lookup(name)) {
 
-                auto &Builder = compiler->Builder;
                 if constexpr (DEBUG_UPVALUES) {
+                    auto &Builder = compiler->Builder;
                     Builder.PrintF({Builder.CreateGlobalCachedString("resolveLocal(%s) = %p = "), Builder.CreateGlobalCachedString(name), local->value});
                     Builder.Print(Builder.ObjVal(Builder.CreateLoad(Builder.getPtrTy(), local->value)));
                 }

@@ -33,6 +33,7 @@ namespace lox {
         Value *IsClass(Value *value);
         Value *IsBoundMethod(Value *value);
         Value *IsInstance(Value *value);
+        Value *IsUpvalue(Value *value);
 
         // Code generation for converting an int64 to a Lox value.
         Value *BoolVal(Value *value);
