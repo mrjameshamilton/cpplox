@@ -7,7 +7,8 @@
 
 using namespace llvm;
 
-using LLVMIRBuilder = IRBuilder<NoFolder>;
+using LLVMIRBuilder = IRBuilder<>;
+//using LLVMIRBuilder = IRBuilder<NoFolder>;
 
 namespace lox {
     class FunctionCompiler;
