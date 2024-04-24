@@ -1,15 +1,13 @@
 #ifndef LOXFUNCTIONCOMPILER_H
 #define LOXFUNCTIONCOMPILER_H
 #include "../frontend/AST.h"
-#include "Globalstack.h"
-#include "Localstack.h"
 #include "LoxBuilder.h"
 #include "Memory.h"
 #include "ModuleCompiler.h"
+#include "Stack.h"
 #include "Upvalue.h"
 
 #include "llvm/IR/CFG.h"
-#include <iostream>
 #include <llvm/ADT/ScopedHashTable.h>
 #include <llvm/IR/Value.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
@@ -113,7 +111,8 @@ namespace lox {
 
         void beginScope() {
             // At the beginning of the scope, remember the current local variable stack pointer.
-            Builder.CreateStore(Builder.CreateLoad(Builder.getInt32Ty(), Builder.getModule().getLocalsStackPointer()), sp);
+            //Builder.CreateStore(Builder.CreateLoad(Builder.getInt32Ty(), Builder.getModule().getLocalsStackPointer()), sp);
+            Builder.CreateStore(Builder.getModule().getLocalsStack()->getCount(Builder), sp);
             scopes.emplace(variables);
         }
 
@@ -148,7 +147,8 @@ namespace lox {
             scopes.pop();
             // At the end of the scope, reset the stack pointer then any variables allocated
             // in the scope are no longer accessible as GC roots and can be freed.
-            Builder.CreateStore(Builder.CreateLoad(Builder.getInt32Ty(), sp), Builder.getModule().getLocalsStackPointer());
+            Builder.getModule().getLocalsStack()->setCount(Builder, Builder.CreateLoad(Builder.getInt32Ty(), sp));
+            //Builder.CreateStore(Builder.CreateLoad(Builder.getInt32Ty(), sp), Builder.getModule().getLocalsStackPointer());
 
             if (isEarlyReturn) {
                 // Any further code can go in the unreachable block.

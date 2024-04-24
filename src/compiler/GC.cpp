@@ -5,10 +5,10 @@
 #include "ModuleCompiler.h"
 #include "Upvalue.h"
 
-#include "Globalstack.h"
-#include "Greystack.h"
-#include "Localstack.h"
+#include "Stack.h"
 #include "Table.h"
+
+#include <memory>
 
 namespace lox {
 
@@ -46,7 +46,7 @@ namespace lox {
             B.Print(B.ObjVal(ObjectPtr));
         }
 
-        PushGrey(B, ObjectPtr);
+        B.getModule().getGrayStack()->CreatePush(B, ObjectPtr);
 
         B.CreateStore(
             B.getTrue(),
@@ -267,53 +267,35 @@ namespace lox {
     }
 
     static void TraceReferences(LoxBuilder &Builder) {
-        static auto TraceRefsFunction([&Builder] {
+        static auto BlackenFunction([&Builder] {
             const auto F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
-                    {},
+                    {Builder.getPtrTy()},
                     false
                 ),
                 Function::InternalLinkage,
-                "$traceRefs",
+                "$blacken",
                 Builder.getModule()
             );
+
+            F->addFnAttr(Attribute::AlwaysInline);
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
             const auto EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
-
-            if constexpr (DEBUG_LOG_GC) {
-                B.PrintString("-- trace refs --");
-            }
-
-            const auto $stack = B.getModule().getGrayStack();
-            const auto $count = B.getModule().getGreyCount();
-
-            const auto WhileCond = B.CreateBasicBlock("while.cond");
-            const auto WhileBody = B.CreateBasicBlock("while.body");
-            const auto WhileEnd = B.CreateBasicBlock("while.end");
-
-            B.CreateBr(WhileCond);
-            B.SetInsertPoint(WhileCond);
-            B.CreateCondBr(B.CreateICmpSGT(B.CreateLoad(B.getInt32Ty(), $count), B.getInt32(0)), WhileBody, WhileEnd);
-            B.SetInsertPoint(WhileBody);
-            {
-                const auto newCount = B.CreateSub(B.CreateLoad(B.getInt32Ty(), $count), B.getInt32(1));
-                B.CreateStore(newCount, $count);
-                const auto addr = B.CreateGEP(B.getPtrTy(), B.CreateLoad(B.getPtrTy(), $stack), newCount);
-                BlackenObject(B, B.CreateLoad(B.getPtrTy(), addr));
-
-                B.CreateBr(WhileCond);
-            }
-            B.SetInsertPoint(WhileEnd);
+            BlackenObject(B, F->arg_begin());
             B.CreateRetVoid();
 
             return F;
         }());
 
-        Builder.CreateCall(TraceRefsFunction);
+        if constexpr (DEBUG_LOG_GC) {
+            Builder.PrintString("-- trace refs --");
+        }
+
+        Builder.getModule().getGrayStack()->CreatePopAll(Builder, BlackenFunction);
     }
 
     static void MarkRoots(LoxBuilder &Builder) {

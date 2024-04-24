@@ -13,11 +13,7 @@ constexpr unsigned int FIRST_GC_AT = 512;
 namespace lox {
     using namespace llvm;
 
-    struct Greystack {
-        GlobalVariable *count;
-        GlobalVariable *capacity;
-        GlobalVariable *stack;
-    };
+    class GlobalStack;
 
     class LoxModule : public Module {
         StructType *const ObjStructType = StructType::create(
@@ -141,39 +137,6 @@ namespace lox {
             "callsp",
             IntegerType::getInt32Ty(getContext())
         ));
-        GlobalVariable *const localsstack = cast<GlobalVariable>(getOrInsertGlobal(
-            "localsstack",
-            ArrayType::get(PointerType::getUnqual(getContext()), MAX_LOCALS)
-        ));
-        GlobalVariable *const localsstackpointer = cast<GlobalVariable>(getOrInsertGlobal(
-            "localsp",
-            IntegerType::getInt32Ty(getContext())
-        ));
-        GlobalVariable *const globalsstack = cast<GlobalVariable>(getOrInsertGlobal(
-            "globalsstack",
-            ArrayType::get(PointerType::getUnqual(getContext()), MAX_GLOBALS)
-        ));
-        GlobalVariable *const globalsstackpointer = cast<GlobalVariable>(getOrInsertGlobal(
-            "globalsp",
-            IntegerType::getInt32Ty(getContext())
-        ));
-        GlobalVariable *const globals = cast<GlobalVariable>(getOrInsertGlobal(
-            "globals",
-            TableStruct->getPointerTo()
-        ));
-        GlobalVariable *const greyCapacity = cast<GlobalVariable>(getOrInsertGlobal(
-            "greyCapacity",
-            IntegerType::getInt32Ty(getContext())
-        ));
-        GlobalVariable *const greyCount = cast<GlobalVariable>(getOrInsertGlobal(
-            "greyCount",
-            IntegerType::getInt32Ty(getContext())
-        ));
-
-        GlobalVariable *const greyStack = cast<GlobalVariable>(getOrInsertGlobal(
-            "greystack",
-            PointerType::getUnqual(getContext())
-        ));
         GlobalVariable *const allocatedBytes = cast<GlobalVariable>(getOrInsertGlobal(
             "$allocatedBytes",
             IntegerType::getInt32Ty(getContext())
@@ -182,6 +145,9 @@ namespace lox {
             "$nextGC",
             IntegerType::getInt32Ty(getContext())
         ));
+        std::shared_ptr<GlobalStack> grayStack;
+        std::shared_ptr<GlobalStack> globalsStack;
+        std::shared_ptr<GlobalStack> localsStack;
         llvm::StringMap<Constant *> strings;
 
     public:
@@ -190,11 +156,6 @@ namespace lox {
             objects->setAlignment(Align(8));
             objects->setConstant(false);
             objects->setInitializer(ConstantPointerNull::get(PointerType::get(Context, 0)));
-
-            globals->setLinkage(GlobalValue::PrivateLinkage);
-            globals->setAlignment(Align(8));
-            globals->setConstant(false);
-            globals->setInitializer(ConstantPointerNull::get(PointerType::get(Context, 0)));
 
             runtimeStrings->setLinkage(GlobalValue::PrivateLinkage);
             runtimeStrings->setAlignment(Align(8));
@@ -215,41 +176,6 @@ namespace lox {
             callstackpointer->setAlignment(Align(8));
             callstackpointer->setConstant(false);
             callstackpointer->setInitializer(ConstantInt::get(IntegerType::getInt32Ty(getContext()), 0));
-
-            localsstack->setLinkage(GlobalVariable::PrivateLinkage);
-            localsstack->setAlignment(Align(8));
-            localsstack->setConstant(false);
-            localsstack->setInitializer(Constant::getNullValue(ArrayType::get(PointerType::getUnqual(getContext()), MAX_LOCALS)));
-
-            localsstackpointer->setLinkage(GlobalVariable::PrivateLinkage);
-            localsstackpointer->setAlignment(Align(8));
-            localsstackpointer->setConstant(false);
-            localsstackpointer->setInitializer(ConstantInt::get(IntegerType::getInt32Ty(getContext()), 0));
-
-            globalsstack->setLinkage(GlobalVariable::PrivateLinkage);
-            globalsstack->setAlignment(Align(8));
-            globalsstack->setConstant(false);
-            globalsstack->setInitializer(Constant::getNullValue(ArrayType::get(PointerType::getUnqual(getContext()), MAX_GLOBALS)));
-
-            globalsstackpointer->setLinkage(GlobalVariable::PrivateLinkage);
-            globalsstackpointer->setAlignment(Align(8));
-            globalsstackpointer->setConstant(false);
-            globalsstackpointer->setInitializer(ConstantInt::get(IntegerType::getInt32Ty(getContext()), 0));
-
-            greyCapacity->setLinkage(GlobalVariable::PrivateLinkage);
-            greyCapacity->setAlignment(Align(8));
-            greyCapacity->setConstant(false);
-            greyCapacity->setInitializer(ConstantInt::get(IntegerType::getInt32Ty(getContext()), 0));
-
-            greyCount->setLinkage(GlobalVariable::PrivateLinkage);
-            greyCount->setAlignment(Align(8));
-            greyCount->setConstant(false);
-            greyCount->setInitializer(ConstantInt::get(IntegerType::getInt32Ty(getContext()), 0));
-
-            greyStack->setLinkage(GlobalVariable::PrivateLinkage);
-            greyStack->setAlignment(Align(8));
-            greyStack->setConstant(false);
-            greyStack->setInitializer(ConstantPointerNull::get(PointerType::get(Context, 0)));
 
             allocatedBytes->setLinkage(GlobalVariable::PrivateLinkage);
             allocatedBytes->setAlignment(Align(8));
@@ -319,32 +245,28 @@ namespace lox {
             return callstackpointer;
         }
 
-        GlobalVariable *getLocalsStack() const {
-            return localsstack;
+        std::shared_ptr<GlobalStack> getGrayStack() const {
+            return grayStack;
         }
 
-        GlobalVariable *getLocalsStackPointer() const {
-            return localsstackpointer;
+        void setGrayStack(std::shared_ptr<GlobalStack> g) {
+            this->grayStack = std::move(g);
         }
 
-        GlobalVariable *getGlobals() const {
-            return globalsstack;
+        std::shared_ptr<GlobalStack> getGlobalsStack() const {
+            return globalsStack;
         }
 
-        GlobalVariable *getGlobalsCount() const {
-            return globalsstackpointer;
+        void setGlobalsStack(std::shared_ptr<GlobalStack> g) {
+            this->globalsStack = std::move(g);
         }
 
-        GlobalVariable *getGreyCount() const {
-            return greyCount;
+        std::shared_ptr<GlobalStack> getLocalsStack() const {
+            return localsStack;
         }
 
-        GlobalVariable *getGreyCapacity() const {
-            return greyCapacity;
-        }
-
-        GlobalVariable *getGrayStack() const {
-            return greyStack;
+        void setLocalsStack(std::shared_ptr<GlobalStack> g) {
+            this->localsStack = std::move(g);
         }
 
         GlobalVariable *getAllocatedBytes() const {

@@ -6,6 +6,7 @@
 
 #include "../Debug.h"
 #include "GC.h"
+#include "Stack.h"
 
 
 namespace lox {
@@ -450,7 +451,7 @@ namespace lox {
             B.SetInsertPoint(WhileEnd);
 
             // Free greystack
-            B.CreateRealloc(B.CreateLoad(B.getPtrTy(), B.getModule().getGrayStack()), B.getInt32(0));
+            B.getModule().getGrayStack()->CreateFree(B);
 
             if constexpr (DEBUG_LOG_GC) {
                 B.PrintF({B.CreateGlobalCachedString("--end free objects (%p)--\n"), (B.CreateLoad(B.getPtrTy(), objects))});

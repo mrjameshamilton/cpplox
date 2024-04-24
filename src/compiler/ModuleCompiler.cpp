@@ -1,6 +1,7 @@
 #include "ModuleCompiler.h"
 #include "FunctionCompiler.h"
 #include "GC.h"
+#include "Stack.h"
 
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Value.h>
@@ -12,6 +13,10 @@ using namespace llvm::sys;
 namespace lox {
 
     void ModuleCompiler::evaluate(const Program &program) const {
+        M->setGrayStack(std::make_shared<GlobalStack>(*M, "gray"));
+        M->setGlobalsStack(std::make_shared<GlobalStack>(*M, "globals"));
+        M->setLocalsStack(std::make_shared<GlobalStack>(*M, "locals"));
+
         // Native clock function.
         Function *Clock = Function::Create(
             FunctionType::get(IntegerType::getInt64Ty(*Context), {Builder->getPtrTy(), Builder->getInt64Ty()}, false),

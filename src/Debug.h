@@ -3,6 +3,6 @@
 
 constexpr bool DEBUG = false;
 constexpr bool DEBUG_LOG_GC = false;
-constexpr bool ENABLE_RUNTIME_ASSERTS = false;
+constexpr bool ENABLE_RUNTIME_ASSERTS = true;
 
 #endif//DEBUG_H

@@ -6,10 +6,8 @@
 constexpr bool STRESS_GC = false;
 constexpr int GC_GROWTH_FACTOR = 2;
 
-
 namespace lox {
     Function *CreateGcFunction(LoxBuilder &Builder);
 }
-
 
 #endif//GC_H
