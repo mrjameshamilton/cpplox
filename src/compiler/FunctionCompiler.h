@@ -46,6 +46,9 @@ namespace lox {
             std::string_view name;
             Value *value;
             bool isCaptured = false;
+            Local(FunctionCompiler& compiler, const std::string_view name, Value* value, const bool isCaptured = false) : compiler{compiler}, name{name}, value{value}, isCaptured{isCaptured} {
+                compiler.Builder.CreateLifetimeStart(value);
+            }
             ~Local() {
                 if (isCaptured) {
                     // When a captured local goes out of scope,
@@ -56,6 +59,7 @@ namespace lox {
                     }
                     closeUpvalues(compiler.Builder, value);
                 }
+                compiler.Builder.CreateLifetimeEnd(value);
             }
         };
 
@@ -245,8 +249,8 @@ namespace lox {
                 PushGlobal(Builder, global);
             } else {
                 const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), key);
-                Builder.CreateStore(value, alloca);
                 variables.insert(key, std::make_shared<Local>(*this, key, alloca));
+                Builder.CreateStore(value, alloca);
                 PushLocal(Builder, alloca, ("normal local {" + key + "}").str());
             }
         }

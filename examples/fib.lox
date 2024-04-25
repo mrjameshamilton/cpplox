@@ -7,6 +7,3 @@ var start = clock();
 print fib(30);
 var end = clock();
 print end - start;
-
-print fib;
-print clock;
