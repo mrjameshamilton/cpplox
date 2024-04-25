@@ -23,6 +23,7 @@ namespace lox {
         ModuleCompiler() = default;
 
         void evaluate(const Program &program) const;
+        void optimize() const;
         bool writeIR(const std::string &Filename) const;
     };
 

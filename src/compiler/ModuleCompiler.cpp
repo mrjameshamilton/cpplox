@@ -70,6 +70,25 @@ namespace lox {
         Builder->CreateRet(Builder->getInt32(0));
     }
 
+    void ModuleCompiler::optimize() const {
+        LoopAnalysisManager LAM;
+        FunctionAnalysisManager FAM;
+        CGSCCAnalysisManager CGAM;
+        ModuleAnalysisManager MAM;
+        PassBuilder PB;
+
+        // PB.printPassNames(outs());
+        PB.registerModuleAnalyses(MAM);
+        PB.registerCGSCCAnalyses(CGAM);
+        PB.registerFunctionAnalyses(FAM);
+        PB.registerLoopAnalyses(LAM);
+        PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+        ModulePassManager MPM = PB.buildPerModuleDefaultPipeline(OptimizationLevel::O3);
+
+        MPM.run(*M, MAM);
+    }
+
     bool ModuleCompiler::writeIR(const std::string &Filename) const {
         std::error_code ec;
         auto out = raw_fd_ostream(Filename, ec);

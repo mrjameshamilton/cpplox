@@ -17,6 +17,7 @@ using namespace lox;
 
 cl::opt<std::string> InputFilename(cl::Positional, cl::desc("<input>"), cl::Required);
 cl::opt<std::string> OutputFilename("o", cl::desc("Output LLVM IR file"), cl::value_desc("<output>"));
+cl::opt<bool> DontOptimize("dontoptimize", cl::desc("Don't optimize the LLVM IR"));
 
 std::string read_string_from_file(const std::string &file_path) {
     const std::ifstream input_stream(file_path, std::ios_base::binary);
@@ -49,9 +50,12 @@ int main(const int argc, char **argv) {
     resolver.resolve(ast);
     if (hadError) return 65;
 
-    const ModuleCompiler ModuleCompiler;
-    ModuleCompiler.evaluate(ast);
     if (!OutputFilename.empty()) {
+        const ModuleCompiler ModuleCompiler;
+        ModuleCompiler.evaluate(ast);
+        if (!DontOptimize.getValue()) {
+            ModuleCompiler.optimize();
+        }
         ModuleCompiler.writeIR(OutputFilename.getValue());
     } else {
         Interpreter Interpreter;
