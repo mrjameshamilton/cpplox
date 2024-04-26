@@ -24,7 +24,8 @@ namespace lox {
 
         void evaluate(const Program &program) const;
         void optimize() const;
-        bool writeIR(const std::string &Filename) const;
+        bool writeIR(std::string_view Filename) const;
+        bool writeObject(std::string_view Filename) const;
     };
 
 }// namespace lox

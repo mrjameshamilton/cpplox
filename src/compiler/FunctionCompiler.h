@@ -46,7 +46,7 @@ namespace lox {
             std::string_view name;
             Value *value;
             bool isCaptured = false;
-            Local(FunctionCompiler& compiler, const std::string_view name, Value* value, const bool isCaptured = false) : compiler{compiler}, name{name}, value{value}, isCaptured{isCaptured} {
+            Local(FunctionCompiler &compiler, const std::string_view name, Value *value, const bool isCaptured = false) : compiler{compiler}, name{name}, value{value}, isCaptured{isCaptured} {
                 compiler.Builder.CreateLifetimeStart(value);
             }
             ~Local() {

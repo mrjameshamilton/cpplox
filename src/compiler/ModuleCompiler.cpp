@@ -3,6 +3,24 @@
 #include "GC.h"
 #include "Stack.h"
 
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Verifier.h"
+#include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
+#include "llvm/TargetParser/Host.h"
+
+#include <iostream>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Value.h>
 #include <llvm/Passes/PassBuilder.h>
@@ -89,11 +107,62 @@ namespace lox {
         MPM.run(*M, MAM);
     }
 
-    bool ModuleCompiler::writeIR(const std::string &Filename) const {
+    bool ModuleCompiler::writeIR(const std::string_view Filename) const {
         std::error_code ec;
         auto out = raw_fd_ostream(Filename, ec);
         M->print(out, nullptr);
         out.close();
         return ec.value() == 0;
+    }
+
+    bool ModuleCompiler::writeObject(const std::string_view Filename) const {
+        const auto TargetTriple = getDefaultTargetTriple();
+        InitializeAllTargetInfos();
+        InitializeAllTargets();
+        InitializeAllTargetMCs();
+        InitializeAllAsmParsers();
+        InitializeAllAsmPrinters();
+
+        std::string Error;
+
+        // Print an error and exit if we couldn't find the requested target.
+        // This generally occurs if we've forgotten to initialise the
+        // TargetRegistry or we have a bogus target triple.
+        const auto Target = TargetRegistry::lookupTarget(TargetTriple, Error);
+        if (!Target) {
+            std::cerr << Error;
+            return false;
+        }
+
+        const auto CPU = "generic";
+        const auto Features = "";
+
+        const TargetOptions opt;
+        const auto TheTargetMachine = Target->createTargetMachine(
+            TargetTriple, CPU, Features, opt, Reloc::PIC_
+        );
+
+        M->setDataLayout(TheTargetMachine->createDataLayout());
+
+        std::error_code EC;
+        raw_fd_ostream dest(Filename, EC, sys::fs::OF_None);
+
+        if (EC) {
+            std::cerr << "Could not open file: " << EC.message();
+            return false;
+        }
+
+        legacy::PassManager pass;
+
+        if (constexpr auto FileType = CodeGenFileType::ObjectFile; TheTargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType)) {
+            std::cerr << "TheTargetMachine can't emit a file of this type";
+            return false;
+        }
+
+        pass.run(*M);
+        dest.flush();
+
+        std::cout << "Wrote " << Filename << "\n";
+        return true;
     }
 }// namespace lox

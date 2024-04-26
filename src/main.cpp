@@ -56,7 +56,15 @@ int main(const int argc, char **argv) {
         if (!DontOptimize.getValue()) {
             ModuleCompiler.optimize();
         }
-        ModuleCompiler.writeIR(OutputFilename.getValue());
+        const auto filename = OutputFilename.getValue();
+        if (filename.ends_with(".o")) {
+            ModuleCompiler.writeObject(filename);
+        } else if (filename.ends_with(".ll")) {
+            ModuleCompiler.writeIR(filename);
+        } else {
+            std::cout << "Output file should have .ll or .o extension";
+            return 65;
+        }
     } else {
         Interpreter Interpreter;
         Interpreter.evaluate(ast);
