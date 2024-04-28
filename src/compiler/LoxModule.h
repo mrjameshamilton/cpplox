@@ -6,8 +6,6 @@
 #include <llvm/IR/Module.h>
 
 constexpr unsigned int MAX_CALL_STACK_SIZE = 512;
-constexpr unsigned int MAX_LOCALS = 65'536;
-constexpr unsigned int MAX_GLOBALS = 65'536;
 constexpr unsigned int FIRST_GC_AT = 512;
 
 namespace lox {

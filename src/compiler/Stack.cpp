@@ -226,7 +226,7 @@ namespace lox {
             B.SetInsertPoint(ForBody);
 
             const auto top = B.CreateSub(B.CreateLoad(B.getInt32Ty(), $count), B.CreateLoad(B.getInt32Ty(), i));
-            const auto addr = B.CreateGEP(ArrayType::get(B.getPtrTy(), MAX_GLOBALS), stack, {B.getInt32(0), top});
+            const auto addr = B.CreateGEP(ArrayType::get(B.getPtrTy(), 1), stack, {B.getInt32(0), top});
 
             const auto ptr = B.CreateLoad(B.getPtrTy(), addr);
             const auto value = B.CreateLoad(B.getInt64Ty(), ptr);
