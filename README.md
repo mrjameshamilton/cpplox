@@ -77,7 +77,7 @@ can be checked out and executed via `ninja test`:
 $ mkdir build
 $ CRAFTING_INTERPRETERS_PATH=/path/to/craftinginterpreters cmake -S . -B build -G Ninja
 $ ninja -C build
-$ ninja -C test
+$ ninja -C build test
 ```
 
 # Docker
