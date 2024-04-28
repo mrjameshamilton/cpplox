@@ -6,7 +6,6 @@
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Value.h>
-#include <stack>
 
 using namespace llvm;
 
@@ -30,7 +29,6 @@ namespace lox {
             ("stack_" + name).str(),
             StackStruct
         ));
-        std::stack<unsigned int> stored;
 
     public:
         explicit GlobalStack(LoxModule &M, const std::string_view name) : M{M}, name(name) {
