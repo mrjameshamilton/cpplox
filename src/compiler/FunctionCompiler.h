@@ -115,7 +115,6 @@ namespace lox {
 
         void beginScope() {
             // At the beginning of the scope, remember the current local variable stack pointer.
-            //Builder.CreateStore(Builder.CreateLoad(Builder.getInt32Ty(), Builder.getModule().getLocalsStackPointer()), sp);
             Builder.CreateStore(Builder.getModule().getLocalsStack()->getCount(Builder), sp);
             scopes.emplace(variables);
         }
@@ -152,7 +151,6 @@ namespace lox {
             // At the end of the scope, reset the stack pointer then any variables allocated
             // in the scope are no longer accessible as GC roots and can be freed.
             Builder.getModule().getLocalsStack()->setCount(Builder, Builder.CreateLoad(Builder.getInt32Ty(), sp));
-            //Builder.CreateStore(Builder.CreateLoad(Builder.getInt32Ty(), sp), Builder.getModule().getLocalsStackPointer());
 
             if (isEarlyReturn) {
                 // Any further code can go in the unreachable block.
