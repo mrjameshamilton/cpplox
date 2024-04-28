@@ -201,9 +201,10 @@ namespace lox {
 
     inline void executeBlock(Interpreter &interpreter, const StmtList &statements, const std::shared_ptr<Environment> &newEnvironment);
 
+    static const char* return_value_string = "return value"s.c_str();
     struct ReturnException final : std::runtime_error {
         LoxObject value;
-        explicit ReturnException(LoxObject value) : runtime_error("return value"), value{std::move(value)} {
+        explicit ReturnException(LoxObject value) : runtime_error(return_value_string), value{std::move(value)} {
         }
     };
 

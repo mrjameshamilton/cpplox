@@ -9,9 +9,12 @@ find_package(LLVM 18.1.3 REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
-include_directories(${LLVM_INCLUDE_DIRS})
+include_directories(${LLVM_INCLUDE_DIRS} SYSTEM)
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 add_definitions(${LLVM_DEFINITIONS_LIST})
+
+get_filename_component(binFile "../bin" REALPATH BASE_DIR "${CMAKE_BINARY_DIR}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${binFile})
 
 add_executable(cpplox src/main.cpp
         src/frontend/Token.h
@@ -53,6 +56,7 @@ add_executable(cpplox src/main.cpp
 target_compile_options(cpplox PRIVATE
         $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX>
         $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
+        -O3
 #        -std=c++20 -stdlib=libc++
 )
 
@@ -67,3 +71,20 @@ llvm_map_components_to_libnames(llvm_libs
         mcparser
         option)
 target_link_libraries(cpplox ${llvm_libs})
+
+#set(DART_PATH "/opt/dart-sdk-v2/bin/dart")
+#set(CRAFTING_INTERPRETERS_PATH "~/Projects/craftinginterpreters")
+
+set(CRAFTING_INTERPRETERS_PATH $ENV{CRAFTING_INTERPRETERS_PATH})
+
+file(WRITE ${CMAKE_BINARY_DIR}/cpplox-compiler.sh "\
+#!/bin/bash\n \
+TMPFILE=$(mktemp --suffix .ll)\n \
+script_dir=$(dirname \"$0\")\n \
+${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cpplox  $1 -o $TMPFILE && lli $TMPFILE\n"
+)
+file(CHMOD ${CMAKE_BINARY_DIR}/cpplox-compiler.sh PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE WORLD_READ WORLD_WRITE WORLD_EXECUTE)
+
+enable_testing()
+add_test(NAME interpreter COMMAND dart tool/bin/test.dart jlox -i ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cpplox WORKING_DIRECTORY ${CRAFTING_INTERPRETERS_PATH})
+add_test(NAME compiler COMMAND dart tool/bin/test.dart jlox -i ${CMAKE_BINARY_DIR}/cpplox-compiler.sh WORKING_DIRECTORY ${CRAFTING_INTERPRETERS_PATH})
