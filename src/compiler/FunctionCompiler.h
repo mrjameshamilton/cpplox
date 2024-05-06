@@ -253,6 +253,16 @@ namespace lox {
             }
         }
 
+        Value *insertTemp(Value *value, const std::string_view what) {
+            assert(value->getType() == Builder.getPtrTy());
+            const auto name = "$temp";
+            const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getPtrTy(), name);
+            Builder.CreateStore(Builder.ObjVal(value), alloca);
+            variables.insert(name, std::make_shared<Local>(*this, name, alloca));
+            PushLocal(Builder, alloca, ("temp: " + what).str());
+            return value;
+        }
+
         Value *captureLocal(Value *local);
 
     private:

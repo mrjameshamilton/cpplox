@@ -33,13 +33,13 @@ namespace lox {
             Builder.getModule()
         );
 
-        const auto closurePtr = Builder.AllocateClosure(F, functionStmt->name.getLexeme(), false);
+        const auto closurePtr = Builder.AllocateClosure(*this, F, functionStmt->name.getLexeme(), false);
 
         if (type == LoxFunctionType::FUNCTION) {
             // Methods aren't stored as variables.
             insertVariable(functionStmt->name.getLexeme(), Builder.ObjVal(closurePtr));
         } else if (type == LoxFunctionType::METHOD || type == LoxFunctionType::INITIALIZER) {
-            PushTemp(Builder, closurePtr, "method closure");
+            insertTemp(closurePtr, "method closure");
         }
 
         FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, type, this);
@@ -150,10 +150,13 @@ namespace lox {
     }
 
     void FunctionCompiler::operator()(const ClassStmtPtr &classStmt) {
-        const auto klass = Builder.AllocateClass(classStmt->name.getLexeme());
+        const auto className = classStmt->name.getLexeme();
+        const auto klass = Builder.AllocateClass(
+            insertTemp(Builder.AllocateString(className, ("class_" + className).str()), "class name")
+        );
         const auto methods = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2));
 
-        insertVariable(classStmt->name.getLexeme(), Builder.ObjVal(klass));
+        insertVariable(className, Builder.ObjVal(klass));
 
         if (classStmt->super_class.has_value()) {
             // Copy all methods from the superclass methods table, to the subclass
@@ -190,12 +193,12 @@ namespace lox {
         }
 
         for (auto &method: classStmt->methods) {
-            const auto name = PushTemp(Builder, Builder.AllocateString(method->name.getLexeme()), "method name");
+            const auto name = insertTemp(Builder.AllocateString(method->name.getLexeme()), "method name");
             const auto methodPtr =
                 CreateFunction(
                     method->type,
                     method,
-                    (classStmt->name.getLexeme() + "." + method->name.getLexeme()).str()
+                    (className + "." + method->name.getLexeme()).str()
                 );
             Builder.TableSet(methods, name, Builder.ObjVal(methodPtr));
         }

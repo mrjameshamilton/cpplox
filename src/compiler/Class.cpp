@@ -8,8 +8,7 @@ using namespace std::string_view_literals;
 
 namespace lox {
 
-    Value *LoxBuilder::AllocateClass(const std::string_view className) {
-        const auto name = PushTemp(*this, AllocateString(className, ("class_" + className).str()), "class name");
+    Value *LoxBuilder::AllocateClass(Value *name) {
         const auto ptr = AllocateObj(ObjType::CLASS, "class");
 
         const auto methods = AllocateTable();
@@ -98,6 +97,6 @@ namespace lox {
             {klass, receiver, key, getInt32(line), CreateGlobalCachedString(pFunction == nullptr ? "script" : pFunction->getName())}
         );
 
-        return PushTemp(*this, boundMethodObj, "bound method");
+        return boundMethodObj;
     }
 }// namespace lox

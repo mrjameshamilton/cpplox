@@ -1,10 +1,11 @@
+#include "FunctionCompiler.h"
 #include "LoxBuilder.h"
 #include "ModuleCompiler.h"
 #include "Stack.h"
 
 namespace lox {
 
-    static Value *AllocateFunction(LoxBuilder &Builder, llvm::Function *Function, const std::string_view name, const bool isNative) {
+    static Value *AllocateFunction(LoxBuilder &Builder, llvm::Function *Function, Value *name, const bool isNative) {
         static auto AllocateFunctionFunction([&Builder] {
             const auto F = Function::Create(
                 FunctionType::get(
@@ -44,14 +45,14 @@ namespace lox {
         return Builder.CreateCall(
             AllocateFunctionFunction,
             {Function,
-             PushTemp(Builder, Builder.AllocateString(name), "function name"),
+             name,
              Builder.getInt32(Function->arg_size() - 2),// receiver + upvalues
              isNative ? Builder.getTrue() : Builder.getFalse()
             }
         );
     }
 
-    Value *LoxBuilder::AllocateClosure(llvm::Function *function, const std::string_view name, const bool isNative) {
+    Value *LoxBuilder::AllocateClosure(FunctionCompiler &compiler, llvm::Function *function, const std::string_view name, const bool isNative) {
         static auto AllocationClosureFunction([this] {
             const auto F = Function::Create(
                 FunctionType::get(
@@ -85,9 +86,10 @@ namespace lox {
             return F;
         }());
 
+        const auto nameValue = compiler.insertTemp(AllocateString(name), "function name");
         return CreateCall(
             AllocationClosureFunction,
-            {PushTemp(*this, AllocateFunction(*this, function, name, isNative), "function")}
+            {compiler.insertTemp(AllocateFunction(*this, function, nameValue, isNative), "function")}
         );
     }
 }// namespace lox

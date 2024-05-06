@@ -284,14 +284,6 @@ namespace lox {
         Builder.getModule().getLocalsStack()->CreatePush(Builder, local);
     }
 
-    Value *PushTemp(LoxBuilder &Builder, Value *value, const StringRef what) {
-        assert(value->getType() == Builder.getPtrTy());
-        const auto temp = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getPtrTy(), "temp");
-        Builder.CreateStore(Builder.ObjVal(value), temp);
-        PushLocal(Builder, temp, ("temp: " + what).str());
-        return value;
-    }
-
     void IterateLocals(LoxBuilder &Builder, Function *FunctionPointer) {
         if constexpr (DEBUG_LOG_GC) {
             const auto sp = Builder.getModule().getLocalsStack()->getCount(Builder);

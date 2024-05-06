@@ -75,7 +75,7 @@ namespace lox {
                 Builder.SetInsertPoint(IsMaybeStringBlock);
                 Builder.CreateCondBr(Builder.CreateAnd(Builder.IsString(left), Builder.IsString(right)), IsStringBlock, InvalidBlock);
                 Builder.SetInsertPoint(IsStringBlock);
-                const auto Y = Builder.Concat(left, right);
+                const auto Y = Builder.ObjVal(insertTemp(Builder.Concat(left, right), "string concat"));
                 Builder.CreateBr(EndBlock);
 
                 Builder.SetInsertPoint(InvalidBlock);
@@ -212,6 +212,25 @@ namespace lox {
             })
         );
         const auto value = evaluate(callExpr->callee);
+        if (std::holds_alternative<VarExprPtr>(callExpr->callee)) {
+            const auto varExpr = std::get<VarExprPtr>(std::move(callExpr->callee));
+
+            Value *const v = lookupVariable(*varExpr);
+
+            //v->dump();
+            //value->dump();
+            if (const auto i = dyn_cast<Instruction>(v)) {
+
+                const auto function = Builder.getModule().getFunction("foo");
+
+                //std::cout << "alt: @" << varExpr->name.getLexeme() << " " << std::endl;
+                if (function) {
+                  //  std::cout << "" << function->getFunction().getName().str() << std::endl;
+                }
+            }
+
+
+        }
         const auto valuePtr = Builder.AsObj(value);
 
         const auto IsClosureBlock = Builder.CreateBasicBlock("is.closure");
@@ -233,7 +252,7 @@ namespace lox {
         const auto initializer = Builder.TableGet(Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2)), initString);
 
         const auto instance = Builder.AllocateInstance(klass);
-        const auto instanceVal = Builder.ObjVal(PushTemp(Builder, instance, "instance"));
+        const auto instanceVal = Builder.ObjVal(insertTemp(instance, "instance"));
 
         const auto EndClassBlock = Builder.CreateBasicBlock("class.end");
         const auto HasInitializerBlock = Builder.CreateBasicBlock("call.init");
@@ -326,7 +345,8 @@ namespace lox {
         Builder.SetInsertPoint(IsMethodBlock);
 
         const auto klass = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
-        const auto bound = Builder.ObjVal(Builder.BindMethod(klass, instance, key, getExpr->name.getLine(), enclosing == nullptr ? nullptr : Builder.getFunction()));
+        const auto bound = Builder.ObjVal(
+            insertTemp(Builder.BindMethod(klass, instance, key, getExpr->name.getLine(), enclosing == nullptr ? nullptr : Builder.getFunction()), "bound method"));
 
         Builder.CreateBr(IsDefinedBlock);
 
@@ -359,7 +379,7 @@ namespace lox {
         static auto assignable = Assignable{Token(THIS, "this"sv, nullptr, superExpr->name.getLine())};
         const auto instance = Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(assignable));
         const auto klass = Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(*superExpr));
-        const auto key = PushTemp(Builder, Builder.AllocateString(superExpr->method.getLexeme()), "super method name");
+        const auto key = insertTemp(Builder.AllocateString(superExpr->method.getLexeme()), "super method name");
         const auto method = Builder.BindMethod(
             Builder.AsObj(klass),
             Builder.AsObj(instance),
@@ -391,7 +411,7 @@ namespace lox {
                 [this](const std::string_view string_value) -> Value * {
                     return Builder.ObjVal(
                         // Push onto the locals stack so that the string is reachable as a GC root, before it's assigned to a variable.
-                        PushTemp(Builder, Builder.AllocateString(string_value), ("string {" + string_value + "}").str())
+                        insertTemp(Builder.AllocateString(string_value), ("string {" + string_value + "}").str())
                     );
                 },
                 [this](const std::nullptr_t) -> Value * { return Builder.getNilVal(); },

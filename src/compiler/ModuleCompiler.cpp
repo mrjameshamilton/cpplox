@@ -80,7 +80,7 @@ namespace lox {
 
         MainCompiler.compile(program, {}, [&MainCompiler, &Clock](LoxBuilder &B) {
             MainCompiler.insertVariable("$initString", B.ObjVal(B.AllocateString("init")));
-            MainCompiler.insertVariable("clock", B.ObjVal(B.AllocateClosure(Clock, "clock", true)));
+            MainCompiler.insertVariable("clock", B.ObjVal(B.AllocateClosure(MainCompiler, Clock, "clock", true)));
         });
 
         Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));

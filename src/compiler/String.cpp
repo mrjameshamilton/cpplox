@@ -364,6 +364,6 @@ namespace lox {
             return F;
         }());
 
-        return ObjVal(PushTemp(*this, CreateCall(ConcatFunction, {a, b}), "concat string"));
+        return CreateCall(ConcatFunction, {a, b});
     }
 }// namespace lox

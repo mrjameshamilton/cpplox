@@ -52,7 +52,6 @@ namespace lox {
     void IterateGlobals(LoxBuilder &Builder, Function *FunctionPointer);
 
     void PushLocal(LoxBuilder &Builder, Value *local, StringRef what);
-    Value *PushTemp(LoxBuilder &Builder, Value *value, StringRef what);
     void IterateLocals(LoxBuilder &Builder, Function *FunctionPointer);
 }// namespace lox
 #endif//STACK_H
