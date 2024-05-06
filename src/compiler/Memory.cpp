@@ -50,6 +50,9 @@ namespace lox {
                 getModule()
             );
 
+            F->addFnAttr(Attribute::getWithAllocSizeArgs(getContext(), 1, {}));
+            F->addFnAttr(Attribute::get(getContext(), Attribute::AllocKind, static_cast<uint64_t>(AllocFnKind::Realloc)));
+
             LoxBuilder B(getContext(), getModule(), *F);
 
             const auto EntryBasicBlock = B.CreateBasicBlock("entry");
