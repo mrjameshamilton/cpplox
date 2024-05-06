@@ -74,7 +74,7 @@ namespace lox {
             auto ptr = B.CreateLoad(B.getPtrTy(), $stack);
             const auto addr = B.CreateGEP(B.getPtrTy(), ptr, count);
             if constexpr (DEBUG_LOG_GC) {
-                B.PrintF({B.CreateGlobalCachedString("pushh(%p, %p) = %p\n"), ptr, addr, objPtr});
+                B.PrintF({B.CreateGlobalCachedString("push(%p, %p) = %p\n"), ptr, addr, objPtr});
             }
             B.CreateStore(objPtr, addr);
 
