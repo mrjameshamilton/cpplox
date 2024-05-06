@@ -42,6 +42,7 @@ namespace lox {
             "clock_native",
             *M
         );
+        Clock->addFnAttr(Attribute::NoRecurse);
 
         LoxBuilder ClockBuilder(*Context, *M, *Clock);
         const auto Entry = ClockBuilder.CreateBasicBlock("entry");
@@ -69,6 +70,9 @@ namespace lox {
             "script",
             *M
         );
+
+        F->addFnAttr(Attribute::NoRecurse);
+        Builder->getFunction()->addFnAttr(Attribute::NoRecurse);
 
         FunctionCompiler MainCompiler(*Context, *M, *F, LoxFunctionType::NONE);
 
