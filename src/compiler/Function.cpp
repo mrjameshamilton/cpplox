@@ -4,20 +4,20 @@
 
 namespace lox {
 
-    Value *LoxBuilder::AllocateFunction(llvm::Function *Function, const std::string_view name, const bool isNative) {
-        static auto AllocateFunctionFunction([this] {
+    static Value *AllocateFunction(LoxBuilder &Builder, llvm::Function *Function, const std::string_view name, const bool isNative) {
+        static auto AllocateFunctionFunction([&Builder] {
             const auto F = Function::Create(
                 FunctionType::get(
-                    getPtrTy(),
-                    {getPtrTy(), getPtrTy(), getInt32Ty(), getInt1Ty()},
+                    Builder.getPtrTy(),
+                    {Builder.getPtrTy(), Builder.getPtrTy(), Builder.getInt32Ty(), Builder.getInt1Ty()},
                     false
                 ),
                 Function::InternalLinkage,
                 "$allocateFunction",
-                getModule()
+                Builder.getModule()
             );
 
-            LoxBuilder B(getContext(), getModule(), *F);
+            LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
             const auto EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
@@ -41,12 +41,12 @@ namespace lox {
             return F;
         }());
 
-        return CreateCall(
+        return Builder.CreateCall(
             AllocateFunctionFunction,
             {Function,
-             PushTemp(*this, AllocateString(name), "function name"),
-             getInt32(Function->arg_size() - 2),// receiver + upvalues
-             isNative ? getTrue() : getFalse()
+             PushTemp(Builder, Builder.AllocateString(name), "function name"),
+             Builder.getInt32(Function->arg_size() - 2),// receiver + upvalues
+             isNative ? Builder.getTrue() : Builder.getFalse()
             }
         );
     }
@@ -87,7 +87,7 @@ namespace lox {
 
         return CreateCall(
             AllocationClosureFunction,
-            {PushTemp(*this, AllocateFunction(function, name, isNative), "function")}
+            {PushTemp(*this, AllocateFunction(*this, function, name, isNative), "function")}
         );
     }
 }// namespace lox
