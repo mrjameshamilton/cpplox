@@ -257,8 +257,8 @@ namespace lox {
             assert(value->getType() == Builder.getPtrTy());
             const auto name = "$temp";
             const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getPtrTy(), name);
-            Builder.CreateStore(Builder.ObjVal(value), alloca);
             variables.insert(name, std::make_shared<Local>(*this, name, alloca));
+            Builder.CreateStore(Builder.ObjVal(value), alloca);
             PushLocal(Builder, alloca, ("temp: " + what).str());
             return value;
         }
