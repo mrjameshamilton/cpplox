@@ -302,8 +302,22 @@ namespace lox {
 
             B.SetInsertPoint(IsStringBlock);
             {
-                B.CreateFree(B.AsObj(value), ObjType::STRING);
-                B.CreateBr(EndBlock);
+                const auto DynamicStringBlock = B.CreateBasicBlock("dynamic.string");
+                const auto StaticStringBlock = B.CreateBasicBlock("static.string");
+
+                const auto string = B.AsObj(value);
+                const auto isDynamic = B.CreateLoad(B.getInt1Ty(), B.CreateObjStructGEP(ObjType::STRING, string, 4));
+                B.CreateCondBr(isDynamic, DynamicStringBlock, StaticStringBlock);
+                B.SetInsertPoint(DynamicStringBlock);
+                {
+                    B.IRBuilder::CreateFree(B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::STRING, string, 1)));
+                    B.CreateBr(StaticStringBlock);
+                }
+                B.SetInsertPoint(StaticStringBlock);
+                {
+                    B.CreateFree(string, ObjType::STRING);
+                    B.CreateBr(EndBlock);
+                }
             }
             B.SetInsertPoint(IsFunctionBlock);
             {

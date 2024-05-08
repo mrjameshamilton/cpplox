@@ -28,6 +28,7 @@ namespace lox {
                 PointerType::getUnqual(getContext()), // char* ptr
                 IntegerType::getInt32Ty(getContext()),// length
                 IntegerType::getInt32Ty(getContext()),// hash
+                IntegerType::getInt1Ty(getContext()), // dynamically allocated
             },
             "String"
         );

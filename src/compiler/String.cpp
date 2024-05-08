@@ -204,6 +204,7 @@ namespace lox {
             B.CreateStore(String, B.CreateObjStructGEP(ObjType::STRING, ptr, 1));
             B.CreateStore(Length, B.CreateObjStructGEP(ObjType::STRING, ptr, 2));
             B.CreateStore(StringHash(B, String, Length), B.CreateObjStructGEP(ObjType::STRING, ptr, 3));
+            B.CreateStore(B.getTrue(), B.CreateObjStructGEP(ObjType::STRING, ptr, 4));
 
             B.TableSet(B.CreateLoad(B.getPtrTy(), B.getModule().getRuntimeStrings()), ptr, B.getNilVal());
 
@@ -256,6 +257,7 @@ namespace lox {
             B.CreateStore(String, B.CreateObjStructGEP(ObjType::STRING, ptr, 1));
             B.CreateStore(Length, B.CreateObjStructGEP(ObjType::STRING, ptr, 2));
             B.CreateStore(hash, B.CreateObjStructGEP(ObjType::STRING, ptr, 3));
+            B.CreateStore(B.getFalse(), B.CreateObjStructGEP(ObjType::STRING, ptr, 4));
 
             B.TableSet(B.CreateLoad(B.getPtrTy(), B.getModule().getRuntimeStrings()), ptr, B.getNilVal());
 
@@ -315,9 +317,9 @@ namespace lox {
 
             B.CreateMemCpy(
                 StringMalloc,
-                Align(1),
+                Align(8),
                 String0String,
-                Align(1),
+                Align(8),
                 B.CreateSExt(String0Length, B.getInt64Ty())
             );
 
@@ -327,9 +329,9 @@ namespace lox {
                     StringMalloc,
                     {B.CreateSExt(String0Length, B.getInt64Ty())}
                 ),
-                Align(1),
+                Align(8),
                 String1String,
-                Align(1),
+                Align(8),
                 B.CreateSExt(
                     B.CreateNSWAdd(
                         String1Length,
@@ -348,7 +350,7 @@ namespace lox {
 
             B.SetInsertPoint(IsInternedBlock);
             // Temporary string not required anymore.
-            B.CreateRealloc(StringMalloc, B.getInt32(0));
+            B.IRBuilder::CreateFree(StringMalloc);
             B.CreateRet(interned);
 
             B.SetInsertPoint(NotInternedBlock);
