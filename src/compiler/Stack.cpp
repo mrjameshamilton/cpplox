@@ -260,9 +260,8 @@ namespace lox {
     }
 
     void GlobalStack::CreateFree(LoxBuilder &Builder) const {
-        Builder.CreateRealloc(Builder.CreateLoad(Builder.getPtrTy(), stack), Builder.getInt32(0));
+        Builder.IRBuilder::CreateFree(Builder.CreateLoad(Builder.getPtrTy(), stack));
     }
-
 
     void PushGlobal(LoxBuilder &Builder, GlobalVariable *global) {
         Builder.getModule().getGlobalsStack()->CreatePush(Builder, global);

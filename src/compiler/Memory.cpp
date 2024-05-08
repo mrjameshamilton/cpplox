@@ -90,7 +90,7 @@ namespace lox {
                 B.CreateCondBr(B.CreateICmpEQ(B.getInt32(0), newSize), IsFreeBlock, IsAllocBlock);
                 B.SetInsertPoint(IsFreeBlock);
                 {
-                    B.CreateRealloc(ptr, B.getInt32(0));
+                    B.IRBuilder::CreateFree(ptr);
                     B.CreateRet(B.getNullPtr());
                 }
                 B.SetInsertPoint(IsAllocBlock);
@@ -452,9 +452,6 @@ namespace lox {
                 }
             }
             B.SetInsertPoint(WhileEnd);
-
-            // Free greystack
-            B.getModule().getGrayStack()->CreateFree(B);
 
             if constexpr (DEBUG_LOG_GC) {
                 B.PrintF({B.CreateGlobalCachedString("--end free objects (%p)--\n"), (B.CreateLoad(B.getPtrTy(), objects))});
