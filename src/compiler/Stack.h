@@ -41,7 +41,7 @@ namespace lox {
         Value *getCount(LoxBuilder &B) const;
         void setCount(LoxBuilder &B, Value *count) const;
 
-        void CreatePush(LoxBuilder &Builder, Value *Object) const;
+        void CreatePush(LoxBuilder &Builder, Value *Object, StringRef what) const;
         void CreatePop(LoxBuilder &Builder) const;
         void CreatePopAll(LoxBuilder &Builder, Function *FunctionPointer) const;
         void CreateIterateValues(LoxBuilder &Builder, Function *FunctionPointer) const;

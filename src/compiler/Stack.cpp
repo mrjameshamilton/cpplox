@@ -13,12 +13,12 @@ namespace lox {
         B.CreateStore(count, B.CreateStructGEP(StackStruct, stack, 1));
     }
 
-    void GlobalStack::CreatePush(LoxBuilder &Builder, Value *Object) const {
+    void GlobalStack::CreatePush(LoxBuilder &Builder, Value *Object, const StringRef what) const {
         static auto PushFunction([&] {
             const auto F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
-                    {Builder.getPtrTy(), Builder.getPtrTy(), Builder.getPtrTy()},
+                    {Builder.getPtrTy(), Builder.getPtrTy(), Builder.getPtrTy(), Builder.getPtrTy()},
                     false
                 ),
                 Function::InternalLinkage,
@@ -37,6 +37,7 @@ namespace lox {
             const auto $capacity = B.CreateStructGEP(StackStruct, arguments, 2);
             const auto objPtr = arguments + 1;
             const auto name = arguments + 2;
+            const auto what = arguments + 3;
 
             if (DEBUG_LOG_GC) {
                 B.PrintF({B.CreateGlobalCachedString("push stack %s ptr %p\n"), name, arguments});
@@ -74,7 +75,7 @@ namespace lox {
             auto ptr = B.CreateLoad(B.getPtrTy(), $stack);
             const auto addr = B.CreateGEP(B.getPtrTy(), ptr, count);
             if constexpr (DEBUG_LOG_GC) {
-                B.PrintF({B.CreateGlobalCachedString("push(%p, %p) = %p\n"), ptr, addr, objPtr});
+                B.PrintF({B.CreateGlobalCachedString("push %s [%s] (%p, %p) = %p\n"), name, what, ptr, addr, objPtr});
             }
             B.CreateStore(objPtr, addr);
 
@@ -86,7 +87,7 @@ namespace lox {
             return F;
         }());
 
-        Builder.CreateCall(PushFunction, {stack, Object, Builder.CreateGlobalCachedString(name)});
+        Builder.CreateCall(PushFunction, {stack, Object, Builder.CreateGlobalCachedString(name), Builder.CreateGlobalCachedString(what)});
     }
 
     void GlobalStack::CreatePop(LoxBuilder &Builder) const {
@@ -264,7 +265,7 @@ namespace lox {
     }
 
     void PushGlobal(LoxBuilder &Builder, GlobalVariable *global) {
-        Builder.getModule().getGlobalsStack()->CreatePush(Builder, global);
+        Builder.getModule().getGlobalsStack()->CreatePush(Builder, global, "global");
     }
 
     void IterateGlobals(LoxBuilder &Builder, Function *FunctionPointer) {
@@ -280,7 +281,7 @@ namespace lox {
             Builder.PrintF({Builder.CreateGlobalCachedString("pushlocal(%p [%s, %d])\n"), local, Builder.CreateGlobalCachedString(what), sp});
             //B.PrintObject(B.CreateLoad(B.getInt64Ty(), local));
         }
-        Builder.getModule().getLocalsStack()->CreatePush(Builder, local);
+        Builder.getModule().getLocalsStack()->CreatePush(Builder, local, what);
     }
 
     void IterateLocals(LoxBuilder &Builder, Function *FunctionPointer) {

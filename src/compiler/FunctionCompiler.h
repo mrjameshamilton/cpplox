@@ -300,7 +300,7 @@ namespace lox {
             const auto upvaluePtr = Builder.CreateLoad(Builder.getPtrTy(), upvalueIndex, "upvaluePtr");
 
             if constexpr (DEBUG_UPVALUES) {
-                Builder.PrintF({Builder.CreateGlobalCachedString("addUpValue(%d, %p, %p)\n"), Builder.getInt32(upvalueArrayIndex), upvalueIndex, upvaluePtr});
+                Builder.PrintF({Builder.CreateGlobalCachedString("addUpValue(%p, %d, %p, %p)\n"), upvalues, Builder.getInt32(upvalueArrayIndex), upvalueIndex, upvaluePtr});
             }
 
             // The pointer from the upvalues array for new upvalue index.
