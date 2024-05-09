@@ -1,4 +1,5 @@
 #include "Table.h"
+#include "../Debug.h"
 #include "LoxBuilder.h"
 #include "Memory.h"
 #include "ModuleCompiler.h"
