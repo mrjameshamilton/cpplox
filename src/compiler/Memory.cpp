@@ -29,12 +29,18 @@ namespace lox {
         return arraySize ? CreateMul(allocsize, arraySize) : allocsize;
     }
 
-    Value *LoxBuilder::CreateRealloc(Value *ptr, Value *newSize) {
+    Value *LoxBuilder::CreateRealloc(Value *ptr, Value *newSize, const StringRef what) {
         static const auto realloc = getModule().getOrInsertFunction(
             "realloc",
             FunctionType::get(getPtrTy(), {getPtrTy(), getInt64Ty()}, false)
         );
-        return CreateCall(realloc, {ptr, newSize});
+
+        const auto call = CreateCall(realloc, {ptr, newSize});
+
+        if constexpr (DEBUG_LOG_GC) {
+            PrintF({CreateGlobalCachedString("realloc %s (%p, %d) = %p\n"), CreateGlobalCachedString(what), ptr, newSize, call});
+        }
+        return call;
     }
 
     Value *LoxBuilder::CreateReallocate(Value *ptr, Value *oldSize, Value *newSize) {
@@ -95,7 +101,7 @@ namespace lox {
                 }
                 B.SetInsertPoint(IsAllocBlock);
                 {
-                    B.CreateRet(B.CreateRealloc(ptr, B.getSizeOf(PointerType::getUnqual(getContext()), newSize)));
+                    B.CreateRet(B.CreateRealloc(ptr, newSize, "alloc"));
                 }
             }
             return F;
@@ -251,7 +257,7 @@ namespace lox {
     }
 
     Value *LoxBuilder::AllocateArray(Type *type, Value *arraySize) {
-        return CreateRealloc(getNullPtr(), getSizeOf(type, arraySize));
+        return CreateRealloc(getNullPtr(), getSizeOf(type, arraySize), "array");
     }
 
     void FreeObject(LoxBuilder &Builder, Value *value) {
@@ -351,12 +357,16 @@ namespace lox {
             }
             B.SetInsertPoint(IsClassBlock);
             {
-                B.CreateFree(B.AsObj(value), ObjType::CLASS);
+                const auto klass = B.AsObj(value);
+                B.IRBuilder::CreateFree(B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::CLASS, klass, 2)));
+                B.CreateFree(klass, ObjType::CLASS);
                 B.CreateBr(EndBlock);
             }
             B.SetInsertPoint(IsInstanceBlock);
             {
-                B.CreateFree(B.AsObj(value), ObjType::INSTANCE);
+                const auto instance = B.AsObj(value);
+                B.IRBuilder::CreateFree(B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::INSTANCE, instance, 2)));
+                B.CreateFree(instance, ObjType::INSTANCE);
                 B.CreateBr(EndBlock);
             }
             B.SetInsertPoint(IsBoundMethodBlock);

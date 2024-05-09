@@ -62,7 +62,7 @@ namespace lox {
             B.CreateStore(newCapacity, $capacity);
 
             // TODO: handle null return
-            const auto result = B.CreateRealloc(stack, B.getSizeOf(B.getPtrTy(), newCapacity));
+            const auto result = B.CreateRealloc(stack, B.getSizeOf(B.getPtrTy(), newCapacity), "stack");
             if constexpr (DEBUG_LOG_GC) {
                 B.PrintF({B.CreateGlobalCachedString("realloc stack: %p -> %p (count: %d, capacity: %d, newCapacity: %d)\n"), stack, result, count, capacity, newCapacity});
             }

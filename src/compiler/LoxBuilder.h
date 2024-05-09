@@ -69,7 +69,7 @@ namespace lox {
         Value *TableAddAll(Value *FromTable, Value *ToTable);
 
         Value *CreateReallocate(Value *ptr, Value *oldSize, Value *newSize);
-        Value *CreateRealloc(Value *ptr, Value *newSize);
+        Value *CreateRealloc(Value *ptr, Value *newSize, StringRef what);
         void CreateFree(Value *ptr, Type *type, Value *arraySize);
         void CreateFree(Value *ptr, enum ObjType type, Value *arraySize);
         void CollectGarbage();

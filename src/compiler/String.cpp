@@ -312,8 +312,7 @@ namespace lox {
 
             const auto StringMalloc = B.CreateRealloc(
                 B.getNullPtr(),
-                B.CreateSExt(B.CreateNSWAdd(B.getInt32(1), NewLength), B.getInt64Ty())
-            );
+                B.CreateSExt(B.CreateNSWAdd(B.getInt32(1), NewLength), B.getInt64Ty()), "concat string");
 
             B.CreateMemCpy(
                 StringMalloc,

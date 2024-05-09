@@ -28,7 +28,7 @@ namespace lox {
 
             const auto ptr = B.CreateRealloc(
                 B.getNullPtr(),
-                B.getSizeOf(getModule().getTableStructType())
+                B.getSizeOf(getModule().getTableStructType()), "table"
             );
 
             B.CreateStore(B.getInt32(0), B.CreateStructGEP(B.getModule().getTableStructType(), ptr, 0));
@@ -171,7 +171,10 @@ namespace lox {
             const auto table = arguments;
             const auto capacity = arguments + 1;
 
-            const auto entries = B.CreateRealloc(B.getNullPtr(), B.getSizeOf(B.getModule().getEntryStructType(), capacity));
+            if constexpr (DEBUG_LOG_GC) {
+                B.PrintF({B.CreateGlobalCachedString("adjustCapcity: %d\n"), capacity});
+            }
+            const auto entries = B.CreateRealloc(B.getNullPtr(), B.getSizeOf(B.getModule().getEntryStructType(), capacity), "entries");
             const auto i = CreateEntryBlockAlloca(F, B.getInt32Ty(), "i");
 
             B.CreateStore(B.getInt32(0), i);
