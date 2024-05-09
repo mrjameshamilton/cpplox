@@ -7,6 +7,9 @@ namespace lox {
 
         Builder.SetInsertPoint(EntryBasicBlock);
 
+        // At the beginning of the function, remember the current local variable stack pointer.
+        Builder.CreateStore(Builder.getModule().getLocalsStack()->getCount(Builder), sp);
+
         beginScope();
         {
             // The default return value is nil.
@@ -46,6 +49,11 @@ namespace lox {
             Builder.SetInsertPoint(ReturnBlock);
         }
         endScope();
+
+        // At the end of the function, reset the stack pointer then any variables allocated
+        // in the function are no longer accessible as GC roots and can be freed.
+        Builder.getModule().getLocalsStack()->setCount(Builder, Builder.CreateLoad(Builder.getInt32Ty(), sp));
+
         assert(scopes.empty());
 
         if (type == LoxFunctionType::INITIALIZER) {
