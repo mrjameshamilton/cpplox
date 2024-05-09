@@ -113,7 +113,7 @@ namespace lox {
         PB.registerLoopAnalyses(LAM);
         PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
-        ModulePassManager MPM = PB.buildPerModuleDefaultPipeline(OptimizationLevel::O3);
+        ModulePassManager MPM = PB.buildPerModuleDefaultPipeline(OptimizationLevel::O2);
 
         MPM.run(*M, MAM);
     }
