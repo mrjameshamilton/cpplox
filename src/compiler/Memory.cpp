@@ -358,14 +358,21 @@ namespace lox {
             B.SetInsertPoint(IsClassBlock);
             {
                 const auto klass = B.AsObj(value);
-                B.IRBuilder::CreateFree(B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::CLASS, klass, 2)));
+                // TODO: CreateFreeTable function.
+                const auto methods = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::CLASS, klass, 2));
+                const auto entries = B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getTableStructType(), methods, 2));
+                B.IRBuilder::CreateFree(entries);
+                B.IRBuilder::CreateFree(methods);
                 B.CreateFree(klass, ObjType::CLASS);
                 B.CreateBr(EndBlock);
             }
             B.SetInsertPoint(IsInstanceBlock);
             {
                 const auto instance = B.AsObj(value);
-                B.IRBuilder::CreateFree(B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::INSTANCE, instance, 2)));
+                const auto fields = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
+                const auto entries = B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getTableStructType(), fields, 2));
+                B.IRBuilder::CreateFree(entries);
+                B.IRBuilder::CreateFree(fields);
                 B.CreateFree(instance, ObjType::INSTANCE);
                 B.CreateBr(EndBlock);
             }
