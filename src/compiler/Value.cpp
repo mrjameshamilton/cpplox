@@ -54,52 +54,74 @@ namespace lox {
         return CreateICmpEQ(CreateAnd(value, QNAN | SIGN_BIT), getInt64(QNAN | SIGN_BIT));
     }
 
+    static Value *CheckType(LoxBuilder &Builder, Value *value, const ObjType type) {
+        assert(value->getType() == Builder.getInt64Ty());
+        static auto CheckTypeFunction([&Builder] {
+            const auto F = Function::Create(
+                FunctionType::get(
+                    Builder.getInt1Ty(),
+                    {Builder.getInt64Ty(), Builder.getInt8Ty()},
+                    false
+                ),
+                Function::InternalLinkage,
+                "$checkType",
+                Builder.getModule()
+            );
+
+            F->addFnAttr(Attribute::AlwaysInline);
+
+            LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
+
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
+
+            const auto arguments = F->args().begin();
+            const auto value = arguments;
+            const auto type = arguments + 1;
+
+            const auto IsObjBlock = B.CreateBasicBlock("is.obj");
+            const auto IsNotObjectBlock = B.CreateBasicBlock("is.notobj");
+
+            // The value is of the specified object type if the value is an object
+            // and the object type field in the struct matches the type.
+            // Must first check if its an object and early return; since
+            // the ObjType function will assume value is an object pointer.
+            B.CreateCondBr(B.IsObj(value), IsObjBlock, IsNotObjectBlock);
+
+            B.SetInsertPoint(IsNotObjectBlock);
+            B.CreateRet(B.getFalse());
+
+            B.SetInsertPoint(IsObjBlock);
+            B.CreateRet(B.CreateICmpEQ(B.ObjType(value), type));
+
+            return F;
+        }());
+
+        return Builder.CreateCall(CheckTypeFunction, {value, Builder.ObjTypeInt(type)});
+    }
+
     Value *LoxBuilder::IsClosure(Value *value) {
-        assert(value->getType() == getInt64Ty());
-        return CreateAnd(
-            IsObj(value),
-            CreateICmpEQ(ObjType(value), ObjTypeInt(ObjType::CLOSURE))
-        );
+        return CheckType(*this, value, ObjType::CLOSURE);
     }
 
     Value *LoxBuilder::IsString(Value *value) {
-        assert(value->getType() == getInt64Ty());
-        return CreateAnd(
-            IsObj(value),
-            CreateICmpEQ(ObjType(value), ObjTypeInt(ObjType::STRING))
-        );
+        return CheckType(*this, value, ObjType::STRING);
     }
 
     Value *LoxBuilder::IsClass(Value *value) {
-        assert(value->getType() == getInt64Ty());
-        return CreateAnd(
-            IsObj(value),
-            CreateICmpEQ(ObjType(value), ObjTypeInt(ObjType::CLASS))
-        );
+        return CheckType(*this, value, ObjType::CLASS);
     }
 
     Value *LoxBuilder::IsInstance(Value *value) {
-        assert(value->getType() == getInt64Ty());
-        return CreateAnd(
-            IsObj(value),
-            CreateICmpEQ(ObjType(value), ObjTypeInt(ObjType::INSTANCE))
-        );
+        return CheckType(*this, value, ObjType::INSTANCE);
     }
 
     Value *LoxBuilder::IsUpvalue(Value *value) {
-        assert(value->getType() == getInt64Ty());
-        return CreateAnd(
-            IsObj(value),
-            CreateICmpEQ(ObjType(value), ObjTypeInt(ObjType::UPVALUE))
-        );
+        return CheckType(*this, value, ObjType::UPVALUE);
     }
 
     Value *LoxBuilder::IsBoundMethod(Value *value) {
-        assert(value->getType() == getInt64Ty());
-        return CreateAnd(
-            IsObj(value),
-            CreateICmpEQ(ObjType(value), ObjTypeInt(ObjType::BOUND_METHOD))
-        );
+        return CheckType(*this, value, ObjType::BOUND_METHOD);
     }
 
     Value *LoxBuilder::ObjType(Value *value) {
