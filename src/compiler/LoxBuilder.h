@@ -106,7 +106,7 @@ namespace lox {
             return ptr;
         }
 
-        void RuntimeError(Value *line, StringRef message, const std::vector<Value *> &values, Value *location);
+        void RuntimeError(Value *line, StringRef message, const std::vector<Value *> &values, Value *location, bool freeObjects = true);
         void RuntimeError(const unsigned line, const StringRef message, const std::vector<Value *> &values, const llvm::Function *function) {
             RuntimeError(getInt32(line), message, values, CreateGlobalCachedString(function->getName()));
         }

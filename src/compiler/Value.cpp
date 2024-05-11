@@ -416,7 +416,7 @@ namespace lox {
         PrintF({CreateGlobalCachedString("%s\n"), CreateSelect(AsBool(value), CreateGlobalCachedString("true"), CreateGlobalCachedString("false"))});
     }
 
-    void LoxBuilder::RuntimeError(Value *line, const StringRef message, const std::vector<Value *> &values, Value *location) {
+    void LoxBuilder::RuntimeError(Value *line, const StringRef message, const std::vector<Value *> &values, Value *location, const bool freeObjects) {
         static const auto Exit = getModule().getOrInsertFunction(
             "exit",
             FunctionType::get(getVoidTy(), {getInt32Ty()}, true)
@@ -427,7 +427,7 @@ namespace lox {
         PushCall(*this, line, location);
         PrintStackTrace(*this);
 
-        FreeObjects(*this);
+        if (freeObjects) FreeObjects(*this);
 
         CreateCall(Exit, getInt32(70));
     }
