@@ -490,7 +490,7 @@ namespace lox {
                 B.PrintF({B.CreateGlobalCachedString("     collected %zu bytes (from %zu to %zu)\n"), B.CreateSub(before, current), before, current});
             }
 
-            const auto& M = B.getModule();
+            const auto &M = B.getModule();
             M.getGrayStack()->CreateFree(B);
             M.getLocalsStack()->CreateFree(B);
             M.getGlobalsStack()->CreateFree(B);

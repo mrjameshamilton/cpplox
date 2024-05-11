@@ -16,16 +16,12 @@ namespace lox {
         assert(ObjectPtr->getType() == B.getPtrTy());
 
         const auto IsNotNull = B.CreateBasicBlock("is.notnull");
-        const auto IsObjBlock = B.CreateBasicBlock("is.obj");
         const auto IsNotMarkedBlock = B.CreateBasicBlock("is.notmarked");
         const auto IsMarkedBlock = DEBUG_LOG_GC ? B.CreateBasicBlock("is.marked") : nullptr;
         const auto EndBlock = B.CreateBasicBlock("end.obj");
 
         B.CreateCondBr(B.CreateIsNull(ObjectPtr), EndBlock, IsNotNull);
         B.SetInsertPoint(IsNotNull);
-
-        B.CreateCondBr(B.IsObj(B.ObjVal(ObjectPtr)), IsObjBlock, EndBlock);
-        B.SetInsertPoint(IsObjBlock);
 
         const auto isMarked = B.CreateLoad(B.getInt1Ty(), B.CreateStructGEP(B.getModule().getObjStructType(), ObjectPtr, 1, "isMarked"));
 
@@ -187,20 +183,10 @@ namespace lox {
                 const auto addr = B.CreateGEP(B.getPtrTy(), array, B.CreateLoad(B.getInt32Ty(), i));
                 const auto object_ptr = B.CreateLoad(B.getPtrTy(), addr);
 
-                const auto IsObjBlock = B.CreateBasicBlock("is.obj");
-                const auto IsNotObjectBlock = B.CreateBasicBlock("end.is.obj");
+                MarkObject(B, object_ptr);
 
-                B.CreateCondBr(B.IsObj(B.ObjVal(object_ptr)), IsObjBlock, IsNotObjectBlock);
-                B.SetInsertPoint(IsObjBlock);
-                {
-                    MarkObject(B, object_ptr);
-                    B.CreateBr(IsNotObjectBlock);
-                }
-                B.SetInsertPoint(IsNotObjectBlock);
-                {
-                    B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
-                    B.CreateBr(WhileCond);
-                }
+                B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
+                B.CreateBr(WhileCond);
             }
             B.SetInsertPoint(IsUpvalueBlock);
             {
