@@ -44,7 +44,7 @@ namespace lox {
         void CreatePush(LoxBuilder &Builder, Value *Object, StringRef what) const;
         void CreatePop(LoxBuilder &Builder) const;
         void CreatePopAll(LoxBuilder &Builder, Function *FunctionPointer) const;
-        void CreateIterateValues(LoxBuilder &Builder, Function *FunctionPointer) const;
+        void CreateIterateObjectValues(LoxBuilder &Builder, Function *FunctionPointer) const;
         void CreateFree(LoxBuilder &Builder) const;
     };
 

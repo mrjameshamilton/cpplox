@@ -183,7 +183,7 @@ namespace lox {
         Builder.CreateCall(IterateFunction, {stack, FunctionPointer});
     }
 
-    void GlobalStack::CreateIterateValues(LoxBuilder &Builder, Function *FunctionPointer) const {
+    void GlobalStack::CreateIterateObjectValues(LoxBuilder &Builder, Function *FunctionPointer) const {
         static auto IterateFunction([&] {
             const auto F = Function::Create(
                 FunctionType::get(
@@ -292,7 +292,7 @@ namespace lox {
         if constexpr (DEBUG_LOG_GC) {
             Builder.PrintString("--iterate globals--");
         }
-        Builder.getModule().getGlobalsStack()->CreateIterateValues(Builder, FunctionPointer);
+        Builder.getModule().getGlobalsStack()->CreateIterateObjectValues(Builder, FunctionPointer);
     }
 
     void PushLocal(LoxBuilder &Builder, Value *local, const StringRef what) {
@@ -310,6 +310,6 @@ namespace lox {
             Builder.PrintF({Builder.CreateGlobalCachedString("--iterate locals (%d)--\n"), sp});
         }
 
-        Builder.getModule().getLocalsStack()->CreateIterateValues(Builder, FunctionPointer);
+        Builder.getModule().getLocalsStack()->CreateIterateObjectValues(Builder, FunctionPointer);
     }
 }// namespace lox
