@@ -86,10 +86,11 @@ namespace lox {
             return F;
         }());
 
-        const auto nameValue = AsObj(compiler.insertTemp(ObjVal(AllocateString(name)), "function name"));
-        return CreateCall(
-            AllocationClosureFunction,
-            {AsObj(compiler.insertTemp(ObjVal(AllocateFunction(*this, function, nameValue, isNative)), "function"))}
-        );
+        const auto nameObj = AllocateString(name);
+        compiler.insertTemp(ObjVal(nameObj), "function name");
+        const auto functionObj = AllocateFunction(*this, function, nameObj, isNative);
+        compiler.insertTemp(ObjVal(functionObj), "function");
+
+        return CreateCall(AllocationClosureFunction, {functionObj});
     }
 }// namespace lox
