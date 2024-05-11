@@ -33,6 +33,11 @@ namespace lox {
             Builder.getModule()
         );
 
+        if (type == LoxFunctionType::INITIALIZER) {
+            // Initializers always return their instance which is the second parameter.
+            F->addParamAttr(1, Attribute::Returned);
+        }
+
         const auto closurePtr = Builder.AllocateClosure(*this, F, functionStmt->name.getLexeme(), false);
 
         if (type == LoxFunctionType::FUNCTION) {
