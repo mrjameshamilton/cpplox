@@ -39,7 +39,7 @@ namespace lox {
             // Methods aren't stored as variables.
             insertVariable(functionStmt->name.getLexeme(), Builder.ObjVal(closurePtr));
         } else if (type == LoxFunctionType::METHOD || type == LoxFunctionType::INITIALIZER) {
-            insertTemp(closurePtr, "method closure");
+            insertTemp(Builder.ObjVal(closurePtr), "method closure");
         }
 
         FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, type, this);
@@ -155,7 +155,9 @@ namespace lox {
     void FunctionCompiler::operator()(const ClassStmtPtr &classStmt) {
         const auto className = classStmt->name.getLexeme();
         const auto klass = Builder.AllocateClass(
-            insertTemp(Builder.AllocateString(className, ("class_" + className).str()), "class name")
+            Builder.AsObj(
+                insertTemp(Builder.ObjVal(Builder.AllocateString(className, ("class_" + className).str())), "class name")
+            )
         );
         const auto methods = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2));
 
@@ -196,14 +198,14 @@ namespace lox {
         }
 
         for (auto &method: classStmt->methods) {
-            const auto name = insertTemp(Builder.AllocateString(method->name.getLexeme()), "method name");
+            const auto name = insertTemp(Builder.ObjVal(Builder.AllocateString(method->name.getLexeme())), "method name");
             const auto methodPtr =
                 CreateFunction(
                     method->type,
                     method,
                     (className + "." + method->name.getLexeme()).str()
                 );
-            Builder.TableSet(methods, name, Builder.ObjVal(methodPtr));
+            Builder.TableSet(methods, Builder.AsObj(name), Builder.ObjVal(methodPtr));
         }
 
         if (classStmt->super_class.has_value()) {

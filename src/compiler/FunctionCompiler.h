@@ -202,7 +202,7 @@ namespace lox {
             return global;
         }
 
-        GlobalVariable *lookupGlobal(const std::string_view &name) {
+        GlobalVariable *lookupGlobal(const std::string_view name) {
             auto global = Builder.getModule().getNamedGlobal(("g" + name).str());
             if (!global) {
                 // Global was not yet defined, so define it already but with an uninitialized value.
@@ -219,10 +219,13 @@ namespace lox {
                 PushGlobal(Builder, global);
             }
 
+            assert(global->getValueType() == Builder.getInt64Ty());
+
             return global;
         }
 
-        void insertVariable(const std::string_view &key, Value *value) {
+        void insertVariable(const std::string_view key, Value *value) {
+            assert(value->getType() == Builder.getInt64Ty());
             if (isGlobalScope()) {
                 const auto name = ("g" + key).str();// TODO: how to not call Twine.+?
                 const auto global = cast<GlobalVariable>(Builder.getModule().getOrInsertGlobal(
@@ -250,11 +253,11 @@ namespace lox {
         }
 
         Value *insertTemp(Value *value, const std::string_view what) {
-            assert(value->getType() == Builder.getPtrTy());
+            assert(value->getType() == Builder.getInt64Ty());
             const auto name = "$temp";
             const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getPtrTy(), name);
             variables.insert(name, std::make_shared<Local>(*this, name, alloca));
-            Builder.CreateStore(Builder.ObjVal(value), alloca);
+            Builder.CreateStore(value, alloca);
             PushLocal(Builder, alloca, ("temp: " + what).str());
             return value;
         }

@@ -75,7 +75,7 @@ namespace lox {
                 Builder.SetInsertPoint(IsMaybeStringBlock);
                 Builder.CreateCondBr(Builder.CreateAnd(Builder.IsString(left), Builder.IsString(right)), IsStringBlock, InvalidBlock);
                 Builder.SetInsertPoint(IsStringBlock);
-                const auto Y = Builder.ObjVal(insertTemp(Builder.Concat(left, right), "string concat"));
+                const auto Y = insertTemp(Builder.ObjVal(Builder.Concat(left, right)), "string concat");
                 Builder.CreateBr(EndBlock);
 
                 Builder.SetInsertPoint(InvalidBlock);
@@ -233,7 +233,7 @@ namespace lox {
         const auto initializer = Builder.TableGet(Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2)), initString);
 
         const auto instance = Builder.AllocateInstance(klass);
-        const auto instanceVal = Builder.ObjVal(insertTemp(instance, "instance"));
+        const auto instanceVal = insertTemp(Builder.ObjVal(instance), "instance");
 
         const auto EndClassBlock = Builder.CreateBasicBlock("class.end");
         const auto HasInitializerBlock = Builder.CreateBasicBlock("call.init");
@@ -292,38 +292,40 @@ namespace lox {
         result->addIncoming(instanceVal, EndClassBlock);
         result->addIncoming(functionReturnVal, EndCall);
 
-        // TODO: move check into insertTemp?
         const auto IsObjBlock = Builder.CreateBasicBlock("is.obj");
         const auto ReturnBlock = Builder.CreateBasicBlock("return");
         Builder.CreateCondBr(Builder.IsObj(result), IsObjBlock, ReturnBlock);
         Builder.SetInsertPoint(IsObjBlock);
-        insertTemp(Builder.AsObj(result), "function return value");
-        // Make the return value reachable as a GC root e.g. in the following
-        // the g closure could be GC'd if not reachable.
-        //
-        // class Foo {
-        //   getClosure() {
-        //     fun f() {
-        //       fun g() {
-        //         fun h() {
-        //           return this.toString();
-        //         }
-        //         return h;
-        //       }
-        //       return g;
-        //     }
-        //     return f;
-        //   }
-        //
-        //   toString() { return "Foo"; }
-        // }
-        //
-        // var f = Foo().getClosure();
-        // //var g = f(); // assigning the result of f to variable would make it reachable
-        // var h = f()/* the result here needs to be reachable */();
-        // print h();
+        {
+            // Make the return value reachable as a GC root e.g. in the following
+            // the g closure could be GC'd if not reachable.
+            //
+            // class Foo {
+            //   getClosure() {
+            //     fun f() {
+            //       fun g() {
+            //         fun h() {
+            //           return this.toString();
+            //         }
+            //         return h;
+            //       }
+            //       return g;
+            //     }
+            //     return f;
+            //   }
+            //
+            //   toString() { return "Foo"; }
+            // }
+            //
+            // var f = Foo().getClosure();
+            // //var g = f(); // assigning the result of f to variable would make it reachable
+            // var h = f()/* the result here needs to be reachable */();
+            // print h();
+            insertTemp(result, "function return value");
 
-        Builder.CreateBr(ReturnBlock);
+            Builder.CreateBr(ReturnBlock);
+        }
+
         Builder.SetInsertPoint(ReturnBlock);
 
         return result;
@@ -362,9 +364,8 @@ namespace lox {
         Builder.SetInsertPoint(IsMethodBlock);
 
         const auto klass = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
-        const auto bound = Builder.ObjVal(
-            insertTemp(Builder.BindMethod(klass, instance, key, getExpr->name.getLine(), enclosing == nullptr ? nullptr : Builder.getFunction()), "bound method")
-        );
+        const auto bound =
+            insertTemp(Builder.ObjVal(Builder.BindMethod(klass, instance, key, getExpr->name.getLine(), enclosing == nullptr ? nullptr : Builder.getFunction())), "bound method");
 
         Builder.CreateBr(IsDefinedBlock);
 
@@ -397,11 +398,11 @@ namespace lox {
         static auto assignable = Assignable{Token(THIS, "this"sv, nullptr, superExpr->name.getLine())};
         const auto instance = Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(assignable));
         const auto klass = Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(*superExpr));
-        const auto key = insertTemp(Builder.AllocateString(superExpr->method.getLexeme()), "super method name");
+        const auto key = insertTemp(Builder.ObjVal(Builder.AllocateString(superExpr->method.getLexeme())), "super method name");
         const auto method = Builder.BindMethod(
             Builder.AsObj(klass),
             Builder.AsObj(instance),
-            key,
+            Builder.AsObj(key),
             superExpr->name.getLine(),
             enclosing == nullptr ? nullptr : Builder.getFunction()
         );
@@ -427,10 +428,8 @@ namespace lox {
                     return Builder.getInt64(std::bit_cast<int64_t>(double_value));
                 },
                 [this](const std::string_view string_value) -> Value * {
-                    return Builder.ObjVal(
-                        // Push onto the locals stack so that the string is reachable as a GC root, before it's assigned to a variable.
-                        insertTemp(Builder.AllocateString(string_value), ("string {" + string_value + "}").str())
-                    );
+                    // Push onto the locals stack so that the string is reachable as a GC root, before it's assigned to a variable.
+                    return insertTemp(Builder.ObjVal(Builder.AllocateString(string_value)), ("string {" + string_value + "}").str());
                 },
                 [this](const std::nullptr_t) -> Value * { return Builder.getNilVal(); },
             },
