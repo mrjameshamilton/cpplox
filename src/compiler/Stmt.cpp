@@ -51,6 +51,9 @@ namespace lox {
 
         // Store captured variables in the closure's upvalue array.
         if (!C.upvalues.empty()) {
+            if constexpr (DEBUG_UPVALUES) {
+                Builder.PrintF({Builder.CreateGlobalCachedString("capture variables\n")});
+            }
             const auto upvaluesArrayPtr = Builder.CreateReallocate(
                 Builder.getNullPtr(),
                 Builder.getInt32(0),

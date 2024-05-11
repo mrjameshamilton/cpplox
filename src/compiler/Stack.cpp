@@ -234,8 +234,9 @@ namespace lox {
 
             const auto IsObjBlock = B.CreateBasicBlock("is.obj");
             const auto EndBlock = B.CreateBasicBlock("end.obj");
+            const auto IsNotObjBlock = DEBUG_LOG_GC ? B.CreateBasicBlock("is.not.obj") : EndBlock;
 
-            B.CreateCondBr(B.IsObj(value), IsObjBlock, EndBlock);
+            B.CreateCondBr(B.IsObj(value), IsObjBlock, IsNotObjBlock);
             B.SetInsertPoint(IsObjBlock);
             B.CreateCall(
                 FunctionType::get(B.getVoidTy(), {B.getPtrTy()}, false),
@@ -243,6 +244,13 @@ namespace lox {
                 {(B.AsObj(value))}
             );
             B.CreateBr(EndBlock);
+
+            if constexpr (DEBUG_LOG_GC) {
+                B.SetInsertPoint(IsNotObjBlock);
+                B.PrintF({B.CreateGlobalCachedString("not object %p %d\n"), ptr, value});
+                B.CreateBr(EndBlock);
+            }
+
             B.SetInsertPoint(EndBlock);
 
             B.CreateBr(ForInc);
