@@ -120,6 +120,10 @@ namespace lox {
 
     bool ModuleCompiler::writeIR(const std::string_view Filename) const {
         std::error_code ec;
+
+        const auto TargetTriple = getDefaultTargetTriple();
+        M->setTargetTriple(TargetTriple);
+
         auto out = raw_fd_ostream(Filename, ec);
         M->print(out, nullptr);
         out.close();
