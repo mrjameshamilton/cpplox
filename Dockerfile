@@ -17,6 +17,7 @@ RUN wget https://apt.llvm.org/llvm.sh
 RUN chmod +x llvm.sh
 RUN ./llvm.sh 18
 RUN ln -s /bin/lli-18 /bin/lli
+RUN ln -s /bin/clang-18 /bin/clang
 
 # Get craftinginterpreters repo for the test suite
 ENV CRAFTING_INTERPRETERS_PATH=/craftinginterpreters

@@ -81,7 +81,7 @@ file(WRITE ${CMAKE_BINARY_DIR}/cpplox-compiler.sh "\
 #!/bin/bash\n \
 TMPFILE=$(mktemp --suffix .ll)\n \
 script_dir=$(dirname \"$0\")\n \
-${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cpplox  $1 -o $TMPFILE && lli $TMPFILE\n"
+${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cpplox  $1 -o $TMPFILE && clang $TMPFILE -o out && ./out \n"
 )
 file(CHMOD ${CMAKE_BINARY_DIR}/cpplox-compiler.sh PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE WORLD_READ WORLD_WRITE WORLD_EXECUTE)
 
