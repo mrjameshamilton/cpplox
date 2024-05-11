@@ -1,0 +1,17 @@
+class Bar {
+    bar() {
+        return "bar";
+    }
+}
+
+class Foo < Bar {
+    init(a) {
+        this.a = a;
+    }
+
+    foo() {
+        return super.bar() + " " + this.a;
+    }
+}
+
+print Foo("foo").foo();
