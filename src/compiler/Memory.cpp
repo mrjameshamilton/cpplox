@@ -490,6 +490,14 @@ namespace lox {
                 B.PrintF({B.CreateGlobalCachedString("     collected %zu bytes (from %zu to %zu)\n"), B.CreateSub(before, current), before, current});
             }
 
+            const auto& M = B.getModule();
+            M.getGrayStack()->CreateFree(B);
+            M.getLocalsStack()->CreateFree(B);
+            M.getGlobalsStack()->CreateFree(B);
+            const auto runtimeStringsTable = B.CreateLoad(B.getPtrTy(), M.getRuntimeStrings());
+            B.IRBuilder::CreateFree(B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getTableStructType(), runtimeStringsTable, 2)));
+            B.IRBuilder::CreateFree(runtimeStringsTable);
+
             B.CreateRetVoid();
 
             return F;

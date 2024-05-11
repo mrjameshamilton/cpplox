@@ -1,6 +1,7 @@
 #include "Value.h"
 #include "Callstack.h"
 #include "LoxBuilder.h"
+#include "Memory.h"
 
 #include <llvm/ADT/StringExtras.h>
 #include <llvm/IR/Constants.h>
@@ -425,6 +426,8 @@ namespace lox {
         // Push the current location onto the call stack, so that it's printed as part of the stacktrace.
         PushCall(*this, line, location);
         PrintStackTrace(*this);
+
+        FreeObjects(*this);
 
         CreateCall(Exit, getInt32(70));
     }

@@ -90,12 +90,6 @@ namespace lox {
 
         FreeObjects(*Builder);
 
-        M->getGrayStack()->CreateFree(*Builder);
-        M->getLocalsStack()->CreateFree(*Builder);
-        M->getGlobalsStack()->CreateFree(*Builder);
-        Builder->IRBuilder::CreateFree(Builder->CreateLoad(Builder->getPtrTy(), Builder->CreateStructGEP(Builder->getModule().getTableStructType(), runtimeStringsTable, 2)));
-        Builder->IRBuilder::CreateFree(runtimeStringsTable);
-
         Builder->CreateRet(Builder->getInt32(0));
     }
 
