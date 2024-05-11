@@ -1,4 +1,5 @@
 #include "Value.h"
+#include "../Debug.h"
 #include "Callstack.h"
 #include "LoxBuilder.h"
 #include "Memory.h"
@@ -401,9 +402,9 @@ namespace lox {
 
         SetInsertPoint(DefaultBlock);
         {
-            PrintF({CreateGlobalCachedString("{{object %d}}\n"), ObjType(value)});
+            if constexpr (DEBUG_LOG_GC) PrintF({CreateGlobalCachedString("{{object %d}}\n"), ObjType(value)});
+            CreateUnreachable();
         }
-        CreateUnreachable();
 
         SetInsertPoint(EndBlock);
     }
