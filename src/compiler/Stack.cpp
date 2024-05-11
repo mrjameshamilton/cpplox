@@ -230,7 +230,16 @@ namespace lox {
             const auto addr = B.CreateGEP(ArrayType::get(B.getPtrTy(), 1), stack, {B.getInt32(0), top});
 
             const auto ptr = B.CreateLoad(B.getPtrTy(), addr);
+
+            if constexpr (DEBUG_LOG_GC) {
+                B.PrintF({B.CreateGlobalCachedString("iter ptr: %p\n"), ptr});
+            }
+
             const auto value = B.CreateLoad(B.getInt64Ty(), ptr);
+
+            if constexpr (DEBUG_LOG_GC) {
+                B.PrintF({B.CreateGlobalCachedString("iter value: %d\n"), value});
+            }
 
             const auto IsObjBlock = B.CreateBasicBlock("is.obj");
             const auto EndBlock = B.CreateBasicBlock("end.obj");
@@ -238,6 +247,9 @@ namespace lox {
 
             B.CreateCondBr(B.IsObj(value), IsObjBlock, IsNotObjBlock);
             B.SetInsertPoint(IsObjBlock);
+            if constexpr (DEBUG_LOG_GC) {
+                B.PrintF({B.CreateGlobalCachedString("calling function %p(%d, %p)\n"), function, value, B.AsObj(value)});
+            }
             B.CreateCall(
                 FunctionType::get(B.getVoidTy(), {B.getPtrTy()}, false),
                 function,
