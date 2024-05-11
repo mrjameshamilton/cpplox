@@ -115,7 +115,7 @@ namespace lox {
 
         ModulePassManager MPM = PB.buildPerModuleDefaultPipeline(OptimizationLevel::O2);
 
-        //MPM.run(*M, MAM);
+        MPM.run(*M, MAM);
     }
 
     bool ModuleCompiler::writeIR(const std::string_view Filename) const {
