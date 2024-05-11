@@ -212,25 +212,6 @@ namespace lox {
             })
         );
         const auto value = evaluate(callExpr->callee);
-        if (std::holds_alternative<VarExprPtr>(callExpr->callee)) {
-            const auto varExpr = std::get<VarExprPtr>(std::move(callExpr->callee));
-
-            Value *const v = lookupVariable(*varExpr);
-
-            //v->dump();
-            //value->dump();
-            if (const auto i = dyn_cast<Instruction>(v)) {
-
-                const auto function = Builder.getModule().getFunction("foo");
-
-                //std::cout << "alt: @" << varExpr->name.getLexeme() << " " << std::endl;
-                if (function) {
-                  //  std::cout << "" << function->getFunction().getName().str() << std::endl;
-                }
-            }
-
-
-        }
         const auto valuePtr = Builder.AsObj(value);
 
         const auto IsClosureBlock = Builder.CreateBasicBlock("is.closure");
@@ -301,6 +282,33 @@ namespace lox {
         receiver->addIncoming(Builder.getNilVal(), IsClosureBlock);
 
         const auto functionReturnVal = call(receiver, closure, paramValues, callExpr->keyword.getLine());
+
+        insertTemp(Builder.AsObj(functionReturnVal), "function return value");
+        // Make the return value reachable as a GC root e.g. in the following
+        // the g closure could be GC'd if not reachable.
+        //
+        // class Foo {
+        //   getClosure() {
+        //     fun f() {
+        //       fun g() {
+        //         fun h() {
+        //           return this.toString();
+        //         }
+        //         return h;
+        //       }
+        //       return g;
+        //     }
+        //     return f;
+        //   }
+        //
+        //   toString() { return "Foo"; }
+        // }
+        //
+        // var f = Foo().getClosure();
+        // //var g = f(); // assigning the result of f to variable would make it reachable
+        // var h = f()/* the result here needs to be reachable */();
+        // print h();
+
         const auto EndCall = Builder.GetInsertBlock();
 
         Builder.CreateBr(EndBlock);
