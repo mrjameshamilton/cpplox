@@ -284,8 +284,8 @@ namespace lox {
         Builder.IRBuilder::CreateFree(Builder.CreateLoad(Builder.getPtrTy(), stack));
     }
 
-    void PushGlobal(LoxBuilder &Builder, GlobalVariable *global) {
-        Builder.getModule().getGlobalsStack()->CreatePush(Builder, global, "global");
+    void PushGlobal(LoxBuilder &Builder, GlobalVariable *global, const std::string_view name) {
+        Builder.getModule().getGlobalsStack()->CreatePush(Builder, global, ("global: " + name).str());
     }
 
     void IterateGlobals(LoxBuilder &Builder, Function *FunctionPointer) {

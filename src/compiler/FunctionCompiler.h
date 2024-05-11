@@ -216,7 +216,7 @@ namespace lox {
                 global->setConstant(false);
                 global->setInitializer(cast<ConstantInt>(Builder.getUninitializedVal()));
 
-                PushGlobal(Builder, global);
+                PushGlobal(Builder, global, name);
             }
 
             assert(global->getValueType() == Builder.getInt64Ty());
@@ -243,7 +243,7 @@ namespace lox {
                     global->setInitializer(cast<ConstantInt>(Builder.getNilVal()));
                     Builder.CreateStore(value, global);
                 }
-                PushGlobal(Builder, global);
+                PushGlobal(Builder, global, key);
             } else {
                 const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), key);
                 variables.insert(key, std::make_shared<Local>(*this, key, alloca));
