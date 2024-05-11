@@ -283,7 +283,21 @@ namespace lox {
 
         const auto functionReturnVal = call(receiver, closure, paramValues, callExpr->keyword.getLine());
 
-        insertTemp(Builder.AsObj(functionReturnVal), "function return value");
+
+        const auto EndCall = Builder.GetInsertBlock();
+
+        Builder.CreateBr(EndBlock);
+        Builder.SetInsertPoint(EndBlock);
+        const auto result = Builder.CreatePHI(Builder.getInt64Ty(), 2);
+        result->addIncoming(instanceVal, EndClassBlock);
+        result->addIncoming(functionReturnVal, EndCall);
+
+        // TODO: move check into insertTemp?
+        const auto IsObjBlock = Builder.CreateBasicBlock("is.obj");
+        const auto ReturnBlock = Builder.CreateBasicBlock("return");
+        Builder.CreateCondBr(Builder.IsObj(result), IsObjBlock, ReturnBlock);
+        Builder.SetInsertPoint(IsObjBlock);
+        insertTemp(Builder.AsObj(result), "function return value");
         // Make the return value reachable as a GC root e.g. in the following
         // the g closure could be GC'd if not reachable.
         //
@@ -309,13 +323,8 @@ namespace lox {
         // var h = f()/* the result here needs to be reachable */();
         // print h();
 
-        const auto EndCall = Builder.GetInsertBlock();
-
-        Builder.CreateBr(EndBlock);
-        Builder.SetInsertPoint(EndBlock);
-        const auto result = Builder.CreatePHI(Builder.getInt64Ty(), 2);
-        result->addIncoming(instanceVal, EndClassBlock);
-        result->addIncoming(functionReturnVal, EndCall);
+        Builder.CreateBr(ReturnBlock);
+        Builder.SetInsertPoint(ReturnBlock);
 
         return result;
     }
@@ -354,7 +363,8 @@ namespace lox {
 
         const auto klass = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
         const auto bound = Builder.ObjVal(
-            insertTemp(Builder.BindMethod(klass, instance, key, getExpr->name.getLine(), enclosing == nullptr ? nullptr : Builder.getFunction()), "bound method"));
+            insertTemp(Builder.BindMethod(klass, instance, key, getExpr->name.getLine(), enclosing == nullptr ? nullptr : Builder.getFunction()), "bound method")
+        );
 
         Builder.CreateBr(IsDefinedBlock);
 
