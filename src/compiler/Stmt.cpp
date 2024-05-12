@@ -56,6 +56,10 @@ namespace lox {
 
         // Store captured variables in the closure's upvalue array.
         if (!C.upvalues.empty()) {
+            F->addParamAttr(0, Attribute::NonNull);
+            F->addParamAttr(0, Attribute::ReadOnly);
+            F->addParamAttr(0, Attribute::NoUndef);
+
             if constexpr (DEBUG_UPVALUES) {
                 Builder.PrintF({Builder.CreateGlobalCachedString("capture variables\n")});
             }
@@ -83,6 +87,8 @@ namespace lox {
                 const auto upvalueIndex = Builder.CreateGEP(Builder.getPtrTy(), upvaluesArrayPtr, Builder.getInt32(upvalue->index), "upvalueIndex");
                 Builder.CreateStore(upvalue->isLocal ? captureLocal(upvalue->value) : upvalue->value, upvalueIndex);
             }
+        } else {
+            F->addParamAttr(0, Attribute::ReadNone);
         }
 
         return closurePtr;
