@@ -121,7 +121,11 @@ namespace lox {
     }
 
     void LoxBuilder::CreateFree(Value *ptr, Type *type, Value *arraySize = nullptr) {
-        CreateReallocate(ptr, getSizeOf(type, arraySize ? arraySize : getInt32(1)), getInt32(0));
+        if (arraySize) {
+            CreateReallocate(ptr, getSizeOf(type, arraySize), getInt32(0));
+        } else {
+            CreateReallocate(ptr, getSizeOf(type, 1), getInt32(0));
+        }
     }
 
     void LoxBuilder::CreateFree(Value *ptr, const lox::ObjType type, Value *arraySize = nullptr) {
