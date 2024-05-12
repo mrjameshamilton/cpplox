@@ -62,7 +62,7 @@ namespace lox {
             const auto upvaluesArrayPtr = Builder.CreateReallocate(
                 Builder.getNullPtr(),
                 Builder.getInt32(0),
-                Builder.getSizeOf(Builder.getModule().getStructType(ObjType::UPVALUE), Builder.getInt32(C.upvalues.size()))
+                Builder.getSizeOf(Builder.getModule().getStructType(ObjType::UPVALUE), C.upvalues.size())
             );
 
             // Initalize upvalues to nullptr.
