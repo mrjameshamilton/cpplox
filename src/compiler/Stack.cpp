@@ -9,6 +9,99 @@ namespace lox {
         return B.CreateLoad(B.getInt32Ty(), B.CreateStructGEP(StackStruct, stack, 1));
     }
 
+
+    void GlobalStack::save(LoxBuilder &Builder) const {
+        static auto PopFunction([&] {
+            const auto F = Function::Create(
+                FunctionType::get(
+                    Builder.getVoidTy(),
+                    {Builder.getPtrTy()},
+                    false
+                ),
+                Function::InternalLinkage,
+                "$stackSave",
+                Builder.getModule()
+            );
+
+            LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
+
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
+
+            const auto arguments = F->args().begin();
+            const auto $stack = B.CreateStructGEP(StackStruct, arguments, 0);
+            const auto $count = B.CreateStructGEP(StackStruct, arguments, 1);
+            const auto $capacity = B.CreateStructGEP(StackStruct, arguments, 2);
+            const auto $saveArray = B.CreateStructGEP(StackStruct, arguments, 3);
+            const auto $saveArrayPointer = B.CreateStructGEP(StackStruct, arguments, 4);
+
+            const auto stack = B.CreateLoad(B.getPtrTy(), $stack);
+            const auto count = B.CreateLoad(B.getInt32Ty(), $count);
+            const auto capacity = B.CreateLoad(B.getInt32Ty(), $capacity);
+            const auto saveArrayPointer = B.CreateLoad(B.getInt32Ty(), $saveArrayPointer);
+
+            const auto addr = B.CreateGEP(StackStruct->getElementType(3), $saveArray, {B.getInt32(0), saveArrayPointer});
+
+            if constexpr (DEBUG_STACK) {
+                B.PrintF({B.CreateGlobalCachedString("save %d -> %p\n"), count, addr});
+            }
+
+            B.CreateStore(count, addr);
+
+            B.CreateStore(B.CreateAdd(saveArrayPointer, B.getInt32(1)), $saveArrayPointer);
+
+            B.CreateRetVoid();
+
+            return F;
+        }());
+
+        Builder.CreateCall(PopFunction, {stack});
+    }
+
+    void GlobalStack::restore(LoxBuilder &Builder) const {
+        static auto RestoreFunction([&] {
+            const auto F = Function::Create(
+                FunctionType::get(
+                    Builder.getVoidTy(),
+                    {Builder.getPtrTy()},
+                    false
+                ),
+                Function::InternalLinkage,
+                "$stackRestore",
+                Builder.getModule()
+            );
+
+            LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
+
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
+
+            const auto arguments = F->args().begin();
+            const auto $count = B.CreateStructGEP(StackStruct, arguments, 1);
+            const auto $saveArray = B.CreateStructGEP(StackStruct, arguments, 3);
+            const auto $saveArrayPointer = B.CreateStructGEP(StackStruct, arguments, 4);
+
+            const auto saveArrayPointer = B.CreateLoad(B.getInt32Ty(), $saveArrayPointer);
+            const auto top = B.CreateSub(saveArrayPointer, B.getInt32(1));
+            const auto addr = B.CreateInBoundsGEP(StackStruct->getElementType(3), $saveArray, {B.getInt32(0), top});
+            const auto value = B.CreateLoad(B.getInt32Ty(), addr);
+
+            if constexpr (DEBUG_STACK) {
+                B.PrintF({B.CreateGlobalCachedString("restore %d (%p) -> %p\n"), value, addr, $count});
+            }
+
+            B.CreateStore(value, $count);
+
+            B.CreateStore(top, $saveArrayPointer);
+
+            B.CreateRetVoid();
+
+            return F;
+        }());
+
+        Builder.CreateCall(RestoreFunction, {stack});
+    }
+
     void GlobalStack::setCount(LoxBuilder &B, Value *count) const {
         B.CreateStore(count, B.CreateStructGEP(StackStruct, stack, 1));
     }

@@ -21,6 +21,9 @@ namespace lox {
                 PointerType::getUnqual(M.getContext()),
                 IntegerType::getInt32Ty(M.getContext()),
                 IntegerType::getInt32Ty(M.getContext()),
+                // save / restore stack
+                ArrayType::get(IntegerType::getInt32Ty(M.getContext()), 1024),
+                IntegerType::getInt32Ty(M.getContext())
             },
             "Stack"
         );
@@ -41,6 +44,9 @@ namespace lox {
         Value *getCount(LoxBuilder &B) const;
         void setCount(LoxBuilder &B, Value *count) const;
 
+
+        void save(LoxBuilder&Builder) const;
+        void restore(LoxBuilder&Builder) const;
         void CreatePush(LoxBuilder &Builder, Value *Object, StringRef what) const;
         void CreatePop(LoxBuilder &Builder) const;
         void CreatePopAll(LoxBuilder &Builder, Function *FunctionPointer) const;

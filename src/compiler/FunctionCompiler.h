@@ -114,6 +114,9 @@ namespace lox {
 
 
         void beginScope() {
+            // At the beginning of the scope, remember the current local variable stack pointer.
+            Builder.getModule().getLocalsStack()->save(Builder);
+
             scopes.emplace(variables);
         }
 
@@ -147,6 +150,10 @@ namespace lox {
             }
 
             scopes.pop();
+
+            // At the end of the scope, reset the stack pointer then any variables allocated
+            // in the scope are no longer accessible as GC roots and can be freed.
+            Builder.getModule().getLocalsStack()->restore(Builder);
 
             if (isEarlyReturn) {
                 // Any further code can go in the unreachable block.

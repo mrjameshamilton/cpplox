@@ -482,6 +482,7 @@ namespace lox {
     }
 
     Function *CreateGcFunction(LoxBuilder &Builder) {
+        // TODO: shrink stacks as well
         static auto GCFunction([&Builder] {
             const auto F = Function::Create(
                 FunctionType::get(

@@ -1,4 +1,5 @@
 #include "ModuleCompiler.h"
+#include "../Debug.h"
 #include "FunctionCompiler.h"
 #include "GC.h"
 #include "Stack.h"
@@ -87,6 +88,19 @@ namespace lox {
         const auto runtimeStringsTable = Builder->AllocateTable();
         Builder->CreateStore(runtimeStringsTable, M->getRuntimeStrings());
         Builder->CreateCall(F);
+
+        if constexpr (ENABLE_RUNTIME_ASSERTS) {
+            const auto locals = Builder->getModule().getLocalsStack()->getCount(*Builder);
+            const auto IsZeroBlock = Builder->CreateBasicBlock("is.empty");
+            const auto IsNotZeroBlock = Builder->CreateBasicBlock("is.notempty");
+
+            Builder->CreateCondBr(Builder->CreateICmpEQ(Builder->getInt32(0), locals), IsZeroBlock, IsNotZeroBlock);
+            Builder->SetInsertPoint(IsNotZeroBlock);
+            Builder->RuntimeError(Builder->getInt32(0), "locals not zero (%d)\n", {locals}, Builder->CreateGlobalCachedString("assert"));
+            Builder->CreateUnreachable();
+
+            Builder->SetInsertPoint(IsZeroBlock);
+        }
 
         FreeObjects(*Builder);
 
