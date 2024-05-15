@@ -34,7 +34,7 @@ namespace lox {
     void ModuleCompiler::evaluate(const Program &program) const {
         M->setGrayStack(std::make_shared<GlobalStack>(*M, "gray"));
         M->setGlobalsStack(std::make_shared<GlobalStack>(*M, "globals"));
-        M->setLocalsStack(std::make_shared<GlobalStack>(*M, "locals"));
+        M->setLocalsStack(std::make_shared<GlobalStack>(*M, "locals", MAX_LOCALS_STACK_SIZE));
 
         // Native clock function.
         Function *Clock = Function::Create(

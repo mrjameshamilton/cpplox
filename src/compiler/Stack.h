@@ -15,6 +15,7 @@ namespace lox {
 
     class GlobalStack {
         LoxModule &M;
+        const unsigned int restoreStackSize;
         StructType *const StackStruct = StructType::create(
             M.getContext(),
             {
@@ -22,7 +23,7 @@ namespace lox {
                 IntegerType::getInt32Ty(M.getContext()),
                 IntegerType::getInt32Ty(M.getContext()),
                 // save / restore stack
-                ArrayType::get(IntegerType::getInt32Ty(M.getContext()), 1024),
+                ArrayType::get(IntegerType::getInt32Ty(M.getContext()), restoreStackSize),
                 IntegerType::getInt32Ty(M.getContext())
             },
             "Stack"
@@ -34,7 +35,7 @@ namespace lox {
         ));
 
     public:
-        explicit GlobalStack(LoxModule &M, const std::string_view name) : M{M}, name(name) {
+        explicit GlobalStack(LoxModule &M, const std::string_view name, const unsigned int restoreStackSize = 0) : M{M}, restoreStackSize{restoreStackSize}, name(name) {
             stack->setLinkage(GlobalVariable::PrivateLinkage);
             stack->setAlignment(Align(8));
             stack->setConstant(false);

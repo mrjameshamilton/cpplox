@@ -70,8 +70,6 @@ namespace lox {
 
         // At the end of the function, reset the stack pointer then any variables allocated
         // in the function are no longer accessible as GC roots and can be freed.
-        // This is especially important for early returns from scopes, since the endScope()
-        // won't be called for scopes they would normally close after the return.
         Builder.getModule().getLocalsStack()->setCount(Builder, Builder.CreateLoad(Builder.getInt32Ty(), sp));
 
         if constexpr (DEBUG_LOG_GC) {

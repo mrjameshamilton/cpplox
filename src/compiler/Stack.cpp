@@ -11,6 +11,8 @@ namespace lox {
 
 
     void GlobalStack::save(LoxBuilder &Builder) const {
+        assert(restoreStackSize != 0);
+
         static auto PopFunction([&] {
             const auto F = Function::Create(
                 FunctionType::get(
@@ -59,6 +61,8 @@ namespace lox {
     }
 
     void GlobalStack::restore(LoxBuilder &Builder) const {
+        assert(restoreStackSize != 0);
+
         static auto RestoreFunction([&] {
             const auto F = Function::Create(
                 FunctionType::get(
