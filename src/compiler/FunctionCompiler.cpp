@@ -24,9 +24,7 @@ namespace lox {
         beginScope();
         {
             // The default return value is nil.
-            Builder.CreateStore(Builder.getNilVal(), returnVal);
-            // Push the returnVal so that it's reachable until closing this outermost scope.
-            PushLocal(Builder, returnVal, "$returnVal");
+            insertVariable("$returnVal", Builder.getNilVal());
 
             if (entryBlockBuilder) entryBlockBuilder(Builder);
 
@@ -66,6 +64,12 @@ namespace lox {
             Builder.CreateBr(ReturnBlock);
             Builder.SetInsertPoint(ReturnBlock);
         }
+
+        const auto returnVal = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), "returnValTemp");
+        if (const auto value = variables.lookup("$returnVal")) {
+            Builder.CreateStore(Builder.CreateLoad(Builder.getInt64Ty(), value->value), returnVal);
+        }
+
         endScope();
 
         // At the end of the function, reset the stack pointer then any variables allocated

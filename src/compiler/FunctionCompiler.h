@@ -72,14 +72,12 @@ namespace lox {
         LoxFunctionType type;
         BasicBlock *EntryBasicBlock = Builder.CreateBasicBlock("entry");
         BasicBlock *ExitBasicBlock = Builder.CreateBasicBlock("epilogue");
-        AllocaInst *returnVal;
         AllocaInst *sp;
 
     public:
         explicit FunctionCompiler(LLVMContext &Context, LoxModule &Module, Function &F, const LoxFunctionType type = LoxFunctionType::FUNCTION, FunctionCompiler *enclosing = nullptr)
             : Builder{Context, Module, F}, enclosing(enclosing), type{type} {
             Builder.SetInsertPoint(EntryBasicBlock);
-            returnVal = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), "$returnVal");
             sp = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt32Ty(), "$sp");
         }
 

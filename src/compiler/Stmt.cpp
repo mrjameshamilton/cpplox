@@ -108,6 +108,7 @@ namespace lox {
 
     void FunctionCompiler::operator()(const ReturnStmtPtr &returnStmt) {
         if (returnStmt->expression.has_value()) {
+            const auto returnVal = variables.lookup("$returnVal")->value;
             Builder.CreateStore(evaluate(returnStmt->expression.value()), returnVal);
         }
         Builder.CreateBr(ExitBasicBlock);
