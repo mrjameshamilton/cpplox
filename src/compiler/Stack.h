@@ -18,13 +18,12 @@ namespace lox {
         const unsigned int restoreStackSize;
         StructType *const StackStruct = StructType::create(
             M.getContext(),
-            {
-                PointerType::getUnqual(M.getContext()),
-                IntegerType::getInt32Ty(M.getContext()),
-                IntegerType::getInt32Ty(M.getContext()),
-                // save / restore stack
-                ArrayType::get(IntegerType::getInt32Ty(M.getContext()), restoreStackSize),
-                IntegerType::getInt32Ty(M.getContext())
+            {PointerType::getUnqual(M.getContext()),
+             IntegerType::getInt32Ty(M.getContext()),
+             IntegerType::getInt32Ty(M.getContext()),
+             // save / restore stack
+             ArrayType::get(IntegerType::getInt32Ty(M.getContext()), restoreStackSize),
+             IntegerType::getInt32Ty(M.getContext())
             },
             "Stack"
         );
@@ -46,9 +45,9 @@ namespace lox {
         void setCount(LoxBuilder &B, Value *count) const;
 
 
-        void save(LoxBuilder&Builder) const;
-        void restore(LoxBuilder&Builder) const;
-        void CreatePush(LoxBuilder &Builder, Value *Object, StringRef what) const;
+        void save(LoxBuilder &Builder) const;
+        void restore(LoxBuilder &Builder) const;
+        void CreatePush(LoxBuilder &Builder, Value *Object, StringRef what);
         void CreatePop(LoxBuilder &Builder) const;
         void CreatePopAll(LoxBuilder &Builder, Function *FunctionPointer) const;
         void CreateIterateObjectValues(LoxBuilder &Builder, Function *FunctionPointer) const;

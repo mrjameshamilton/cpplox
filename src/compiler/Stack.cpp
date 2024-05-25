@@ -5,6 +5,80 @@
 
 namespace lox {
 
+    static void ensureCapacity(LoxBuilder &Builder, Value *stack, Value *name, StructType *type, Value *size) {
+        assert(size->getType() == Builder.getInt32Ty());
+
+        static auto PushFunction([&Builder] {
+            const auto F = Function::Create(
+                FunctionType::get(
+                    Builder.getVoidTy(),
+                    {Builder.getPtrTy(), Builder.getPtrTy(), Builder.getPtrTy(), Builder.getInt32Ty(), Builder.getPtrTy()},
+                    false
+                ),
+                Function::InternalLinkage,
+                "$stackEnsureCapacity",
+                Builder.getModule()
+            );
+
+            F->addFnAttr(Attribute::AlwaysInline);
+
+            LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
+
+            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
+
+            const auto arguments = F->args().begin();
+            const auto $stack = arguments + 0;
+            const auto $count = arguments + 1;
+            const auto $capacity = arguments + 2;
+            const auto size = arguments + 3;
+            const auto name = arguments + 4;
+
+            if (DEBUG_STACK) {
+                B.PrintF({B.CreateGlobalCachedString("ensure cap stack %s with %d\n"), name, size});
+            }
+
+            const auto stack = B.CreateLoad(B.getPtrTy(), $stack);
+            const auto count = B.CreateLoad(B.getInt32Ty(), $count);
+            const auto capacity = B.CreateLoad(B.getInt32Ty(), $capacity);
+            if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
+                B.PrintF({B.CreateGlobalCachedString("realloc stack %s: %p (count: %d, capacity: %d)\n"), name, stack, count, capacity});
+            }
+            const auto GrowBlock = B.CreateBasicBlock("grow");
+            const auto EndBlock = B.CreateBasicBlock("end");
+
+            B.CreateCondBr(B.CreateICmpSLT(capacity, size), GrowBlock, EndBlock);
+
+            B.SetInsertPoint(GrowBlock);
+            const auto newCapacity = B.CreateSelect(
+                B.CreateICmpSLT(capacity, B.getInt32(8)),
+                B.getInt32(8),
+                B.CreateMul(capacity, B.getInt32(GROWTH_FACTOR))
+            );
+            B.CreateStore(newCapacity, $capacity);
+
+            // TODO: handle null return
+            const auto result = B.CreateRealloc(stack, B.getSizeOf(B.getPtrTy(), newCapacity), "stack");
+            if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
+                B.PrintF({B.CreateGlobalCachedString("realloc stack: %p; %p -> %p (count: %d, capacity: %d, newCapacity: %d)\n"), $stack, stack, result, count, capacity, newCapacity});
+            }
+            B.CreateStore(result, $stack);
+
+            B.CreateBr(EndBlock);
+            B.SetInsertPoint(EndBlock);
+
+            B.CreateRetVoid();
+
+            return F;
+        }());
+
+        const auto $stack = Builder.CreateStructGEP(type, stack, 0);
+        const auto $count = Builder.CreateStructGEP(type, stack, 1);
+        const auto $capacity = Builder.CreateStructGEP(type, stack, 2);
+
+        Builder.CreateCall(PushFunction, {$stack, $count, $capacity, size, name});
+    }
+
     Value *GlobalStack::getCount(LoxBuilder &B) const {
         return B.CreateLoad(B.getInt32Ty(), B.CreateStructGEP(StackStruct, stack, 1));
     }
@@ -110,7 +184,7 @@ namespace lox {
         B.CreateStore(count, B.CreateStructGEP(StackStruct, stack, 1));
     }
 
-    void GlobalStack::CreatePush(LoxBuilder &Builder, Value *Object, const StringRef what) const {
+    void GlobalStack::CreatePush(LoxBuilder &Builder, Value *Object, const StringRef what) {
         static auto PushFunction([&] {
             const auto F = Function::Create(
                 FunctionType::get(
@@ -128,50 +202,24 @@ namespace lox {
             const auto EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
-            const auto arguments = F->args().begin();
-            const auto $stack = B.CreateStructGEP(StackStruct, arguments, 0);
-            const auto $count = B.CreateStructGEP(StackStruct, arguments, 1);
-            const auto $capacity = B.CreateStructGEP(StackStruct, arguments, 2);
-            const auto objPtr = arguments + 1;
-            const auto name = arguments + 2;
-            const auto what = arguments + 3;
+            const auto stackGlobal = F->args().begin();
+            const auto $stack = B.CreateStructGEP(StackStruct, stackGlobal, 0);
+            const auto $count = B.CreateStructGEP(StackStruct, stackGlobal, 1);
+            const auto objPtr = stackGlobal + 1;
+            const auto name = stackGlobal + 2;
+            const auto what = stackGlobal + 3;
 
-            if (DEBUG_LOG_GC) {
-                B.PrintF({B.CreateGlobalCachedString("push stack %s ptr %p\n"), name, arguments});
+            if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
+                B.PrintF({B.CreateGlobalCachedString("push stack %p; %s ptr %p\n"), $stack, name, stackGlobal});
             }
 
-            const auto stack = B.CreateLoad(B.getPtrTy(), $stack);
             const auto count = B.CreateLoad(B.getInt32Ty(), $count);
-            const auto capacity = B.CreateLoad(B.getInt32Ty(), $capacity);
-            if constexpr (DEBUG_LOG_GC) {
-                B.PrintF({B.CreateGlobalCachedString("realloc stack %s: %p (count: %d, capacity: %d)\n"), name, stack, count, capacity});
-            }
-            const auto GrowBlock = B.CreateBasicBlock("grow");
-            const auto EndBlock = B.CreateBasicBlock("end");
 
-            B.CreateCondBr(B.CreateICmpSLT(capacity, B.CreateAdd(B.getInt32(1), count)), GrowBlock, EndBlock);
+            ensureCapacity(B, stackGlobal, name, StackStruct, B.CreateAdd(B.getInt32(1), count));
 
-            B.SetInsertPoint(GrowBlock);
-            const auto newCapacity = B.CreateSelect(
-                B.CreateICmpSLT(capacity, B.getInt32(8)),
-                B.getInt32(8),
-                B.CreateMul(capacity, B.getInt32(GROWTH_FACTOR))
-            );
-            B.CreateStore(newCapacity, $capacity);
-
-            // TODO: handle null return
-            const auto result = B.CreateRealloc(stack, B.getSizeOf(B.getPtrTy(), newCapacity), "stack");
-            if constexpr (DEBUG_LOG_GC) {
-                B.PrintF({B.CreateGlobalCachedString("realloc stack: %p -> %p (count: %d, capacity: %d, newCapacity: %d)\n"), stack, result, count, capacity, newCapacity});
-            }
-            B.CreateStore(result, $stack);
-
-            B.CreateBr(EndBlock);
-            B.SetInsertPoint(EndBlock);
-
-            auto ptr = B.CreateLoad(B.getPtrTy(), $stack);
+            const auto ptr = B.CreateLoad(B.getPtrTy(), $stack);
             const auto addr = B.CreateGEP(B.getPtrTy(), ptr, count);
-            if constexpr (DEBUG_LOG_GC) {
+            if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
                 B.PrintF({B.CreateGlobalCachedString("push %s [%s] (%p, %p) = %p\n"), name, what, ptr, addr, objPtr});
             }
             B.CreateStore(objPtr, addr);
