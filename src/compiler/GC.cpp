@@ -168,7 +168,9 @@ namespace lox {
                 MarkObject(B, function);
                 MarkObject(B, name);
 
-                const auto i = CreateEntryBlockAlloca(F, B.getInt32Ty(), "i", B.getInt32(0));
+                const auto i = CreateEntryBlockAlloca(F, B.getInt32Ty(), "i", [](auto &B, auto *alloca) {
+                    B.CreateStore(B.getInt32(0), alloca);
+                });
                 const auto size = B.CreateLoad(B.getInt32Ty(), B.CreateStructGEP(B.getModule().getStructType(ObjType::CLOSURE), closure, 3));
                 const auto array = B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getStructType(ObjType::CLOSURE), closure, 2));
 

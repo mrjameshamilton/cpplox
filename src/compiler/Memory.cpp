@@ -11,11 +11,11 @@
 
 namespace lox {
 
-    AllocaInst *CreateEntryBlockAlloca(Function *TheFunction, Type *type, const std::string_view VarName, Value *initialValue) {
+    AllocaInst *CreateEntryBlockAlloca(Function *TheFunction, Type *type, const std::string_view VarName, const std::function<void(IRBuilder<> &, AllocaInst *)> &entryBuilder) {
         IRBuilder TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
         const auto alloca = TmpB.CreateAlloca(type, nullptr, VarName);
-        if (initialValue) {
-            TmpB.CreateStore(initialValue, alloca);
+        if (entryBuilder) {
+            entryBuilder(TmpB, alloca);
         }
         return alloca;
     }
