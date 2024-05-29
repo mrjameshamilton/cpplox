@@ -66,7 +66,7 @@ namespace lox {
         // ---- Main -----
 
         Function *F = Function::Create(
-            FunctionType::get(IntegerType::getInt64Ty(*Context), {}, false),
+            FunctionType::get(Builder->getVoidTy(), {}, false),
             Function::InternalLinkage,
             "script",
             *M
@@ -75,13 +75,13 @@ namespace lox {
         F->addFnAttr(Attribute::NoRecurse);
         Builder->getFunction()->addFnAttr(Attribute::NoRecurse);
 
-        FunctionCompiler MainCompiler(*Context, *M, *F, LoxFunctionType::NONE);
+        FunctionCompiler ScriptCompiler(*Context, *M, *F, LoxFunctionType::NONE);
 
         CreateGcFunction(*Builder);
 
-        MainCompiler.compile(program, {}, [&MainCompiler, &Clock](LoxBuilder &B) {
-            MainCompiler.insertVariable("$initString", B.ObjVal(B.AllocateString("init")));
-            MainCompiler.insertVariable("clock", B.ObjVal(B.AllocateClosure(MainCompiler, Clock, "clock", true)));
+        ScriptCompiler.compile(program, {}, [&ScriptCompiler, &Clock](LoxBuilder &B) {
+            ScriptCompiler.insertVariable("$initString", B.ObjVal(B.AllocateString("init")));
+            ScriptCompiler.insertVariable("clock", B.ObjVal(B.AllocateClosure(ScriptCompiler, Clock, "clock", true)));
         });
 
         Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));

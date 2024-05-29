@@ -17,7 +17,9 @@ namespace lox {
         beginScope();
         {
             // The default return value is nil.
-            insertVariable("$returnVal", Builder.getNilVal());
+            if (type != LoxFunctionType::NONE && type != LoxFunctionType::INITIALIZER) {
+                insertVariable("$returnVal", Builder.getNilVal());
+            }
 
             if (entryBlockBuilder) entryBlockBuilder(Builder);
 
@@ -58,9 +60,14 @@ namespace lox {
             Builder.SetInsertPoint(ReturnBlock);
         }
 
-        const auto returnVal = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), "returnValTemp");
-        if (const auto value = variables.lookup("$returnVal")) {
-            Builder.CreateStore(Builder.CreateLoad(Builder.getInt64Ty(), value->value), returnVal);
+        AllocaInst *returnVal = nullptr;
+        if (type != LoxFunctionType::NONE && type != LoxFunctionType::INITIALIZER) {
+            returnVal = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), "returnValTemp");
+            // Store a copy of the return value, before the $returnVal
+            // local goes out of scope.
+            if (const auto value = variables.lookup("$returnVal")) {
+                Builder.CreateStore(Builder.CreateLoad(Builder.getInt64Ty(), value->value), returnVal);
+            }
         }
 
         endScope();
@@ -84,7 +91,9 @@ namespace lox {
 
         assert(scopes.empty());
 
-        if (type == LoxFunctionType::INITIALIZER) {
+        if (type == LoxFunctionType::NONE) {
+            Builder.CreateRetVoid();
+        } else if (type == LoxFunctionType::INITIALIZER) {
             Builder.CreateRet(Builder.getFunction()->arg_begin() + 1);
         } else {
             Builder.CreateRet(Builder.CreateLoad(Builder.getInt64Ty(), returnVal));

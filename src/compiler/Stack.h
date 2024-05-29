@@ -19,9 +19,10 @@ namespace lox {
         LoxModule &M;
         StructType *const StackStruct = StructType::create(
             M.getContext(),
-            {PointerType::getUnqual(M.getContext()),
-             IntegerType::getInt32Ty(M.getContext()),
-             IntegerType::getInt32Ty(M.getContext()),
+            {
+                PointerType::getUnqual(M.getContext()),
+                IntegerType::getInt32Ty(M.getContext()),
+                IntegerType::getInt32Ty(M.getContext()),
             },
             "Stack"
         );
@@ -32,7 +33,7 @@ namespace lox {
         ));
 
     public:
-        explicit GlobalStack(LoxModule &M, const std::string_view name) : M{M},name(name) {
+        explicit GlobalStack(LoxModule &M, const std::string_view name) : M{M}, name(name) {
             stack->setLinkage(GlobalVariable::PrivateLinkage);
             stack->setAlignment(Align(8));
             stack->setConstant(false);
@@ -47,7 +48,7 @@ namespace lox {
         void CreatePush(LoxModule &M, IRBuilder<> &Builder, Value *Object) const;
         void CreatePushN(LoxModule &M, IRBuilder<> &Builder, Value *Object, Value *N) const;
         void CreatePop(LoxBuilder &Builder) const;
-        void CreatePopN(LoxBuilder &Builder, Value* N) const;
+        void CreatePopN(LoxBuilder &Builder, Value *N) const;
         void CreatePopAll(LoxBuilder &Builder, Function *FunctionPointer) const;
         void CreateIterateObjectValues(LoxBuilder &Builder, Function *FunctionPointer) const;
         void CreateFree(LoxBuilder &Builder) const;
