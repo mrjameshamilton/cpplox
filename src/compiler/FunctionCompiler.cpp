@@ -14,13 +14,6 @@ namespace lox {
             });
         }
 
-        // At the beginning of the function, remember the current local variable stack pointer.
-        Builder.CreateStore(Builder.getModule().getLocalsStack()->getCount(Builder), sp);
-
-        if constexpr (DEBUG_LOG_GC) {
-            Builder.PrintF({Builder.CreateGlobalCachedString("\tset sp = %d\n"), Builder.CreateLoad(Builder.getInt32Ty(), sp)});
-        }
-
         beginScope();
         {
             // The default return value is nil.
@@ -72,9 +65,18 @@ namespace lox {
 
         endScope();
 
+        // At the beginning of the function, remember the current local variable stack pointer.
+        IRBuilder EntryBlockBuilder(&Builder.getFunction()->getEntryBlock(), Builder.getFunction()->getEntryBlock().begin());
+        auto &M = Builder.getModule();
+        const auto locals = M.getLocalsStack();
+        // Ensure the alloca for the sp comes before any of its uses.
+        sp->moveBefore(EntryBlockBuilder.CreateStore(locals->CreateGetCount(EntryBlockBuilder), sp));
+        // Create new slots for the required number of locals.
+        locals->CreatePushN(M, EntryBlockBuilder, Constant::getNullValue(EntryBlockBuilder.getPtrTy()), EntryBlockBuilder.getInt32(localsCount));
+
         // At the end of the function, reset the stack pointer then any variables allocated
         // in the function are no longer accessible as GC roots and can be freed.
-        Builder.getModule().getLocalsStack()->setCount(Builder, Builder.CreateLoad(Builder.getInt32Ty(), sp));
+        locals->CreatePopN(Builder, Builder.getInt32(localsCount));
 
         if constexpr (DEBUG_LOG_GC) {
             Builder.PrintF({Builder.CreateGlobalCachedString("# end function scope %s (sp %d)\n"), Builder.CreateGlobalCachedString(Builder.getFunction()->getName()), Builder.CreateLoad(Builder.getInt32Ty(), sp)});

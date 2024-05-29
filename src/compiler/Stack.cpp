@@ -5,24 +5,24 @@
 
 namespace lox {
 
-    static void ensureCapacity(LoxBuilder &Builder, Value *stack, Value *name, StructType *type, Value *size) {
+    static void ensureCapacity(LoxModule &M, IRBuilder<> &Builder, Value *stack, StructType *type, Value *size) {
         assert(size->getType() == Builder.getInt32Ty());
 
-        static auto PushFunction([&Builder] {
+        static auto EnsureCapacityFunction([&Builder, &M] {
             const auto F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
-                    {Builder.getPtrTy(), Builder.getPtrTy(), Builder.getPtrTy(), Builder.getInt32Ty(), Builder.getPtrTy()},
+                    {Builder.getPtrTy(), Builder.getPtrTy(), Builder.getPtrTy(), Builder.getInt32Ty()},
                     false
                 ),
                 Function::InternalLinkage,
                 "$stackEnsureCapacity",
-                Builder.getModule()
+                M
             );
 
             F->addFnAttr(Attribute::AlwaysInline);
 
-            LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
+            LoxBuilder B(Builder.getContext(), M, *F);
 
             const auto EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
@@ -32,17 +32,16 @@ namespace lox {
             const auto $count = arguments + 1;
             const auto $capacity = arguments + 2;
             const auto size = arguments + 3;
-            const auto name = arguments + 4;
 
             if (DEBUG_STACK) {
-                B.PrintF({B.CreateGlobalCachedString("ensure cap stack %s with %d\n"), name, size});
+                B.PrintF({B.CreateGlobalCachedString("ensure cap stack with %d\n"), size});
             }
 
             const auto stack = B.CreateLoad(B.getPtrTy(), $stack);
             const auto count = B.CreateLoad(B.getInt32Ty(), $count);
             const auto capacity = B.CreateLoad(B.getInt32Ty(), $capacity);
             if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
-                B.PrintF({B.CreateGlobalCachedString("realloc stack %s: %p (count: %d, capacity: %d)\n"), name, stack, count, capacity});
+                B.PrintF({B.CreateGlobalCachedString("realloc stack: %p (count: %d, capacity: %d)\n"), stack, count, capacity});
             }
             const auto GrowBlock = B.CreateBasicBlock("grow");
             const auto EndBlock = B.CreateBasicBlock("end");
@@ -51,22 +50,39 @@ namespace lox {
 
             B.SetInsertPoint(GrowBlock);
             const auto newCapacity = B.CreateSelect(
-                B.CreateICmpSLT(capacity, B.getInt32(8)),
+                B.CreateICmpSLT(size, B.getInt32(8)),
                 B.getInt32(8),
-                B.CreateMul(capacity, B.getInt32(GROWTH_FACTOR))
+                B.CreateMul(size, B.getInt32(GROWTH_FACTOR))
             );
             B.CreateStore(newCapacity, $capacity);
 
-            // TODO: handle null return
-            const auto result = B.CreateRealloc(stack, B.getSizeOf(B.getPtrTy(), newCapacity), "stack");
+            auto newSize = B.getSizeOf(B.getPtrTy(), newCapacity);
+
             if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
-                B.PrintF({B.CreateGlobalCachedString("realloc stack: %p; %p -> %p (count: %d, capacity: %d, newCapacity: %d)\n"), $stack, stack, result, count, capacity, newCapacity});
+                B.PrintF({B.CreateGlobalCachedString("realloc stack: %p with new size %d\n"), stack, newSize});
             }
-            B.CreateStore(result, $stack);
 
-            B.CreateBr(EndBlock);
+            const auto result = B.CreateRealloc(stack, newSize, "stack");
+
+            const auto IsNullBlock = B.CreateBasicBlock("error.realloc");
+            const auto OkBlock = B.CreateBasicBlock("ok.realloc");
+
+            B.CreateCondBr(B.CreateIsNull(result), IsNullBlock, OkBlock);
+            B.SetInsertPoint(IsNullBlock);
+            {
+                B.RuntimeError(B.getInt32(0), "Could not reallocate %d for %p\n", {newSize, stack}, B.CreateGlobalCachedString("ensureCapacity"));
+                B.CreateUnreachable();
+            }
+            B.SetInsertPoint(OkBlock);
+            {
+                if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
+                    B.PrintF({B.CreateGlobalCachedString("realloc stack: %p; %p -> %p (count: %d, capacity: %d, newCapacity: %d)\n"), $stack, stack, result, count, capacity, newCapacity});
+                }
+                B.CreateStore(result, $stack);
+                B.CreateBr(EndBlock);
+            }
+
             B.SetInsertPoint(EndBlock);
-
             B.CreateRetVoid();
 
             return F;
@@ -76,128 +92,105 @@ namespace lox {
         const auto $count = Builder.CreateStructGEP(type, stack, 1);
         const auto $capacity = Builder.CreateStructGEP(type, stack, 2);
 
-        Builder.CreateCall(PushFunction, {$stack, $count, $capacity, size, name});
+        Builder.CreateCall(EnsureCapacityFunction, {$stack, $count, $capacity, size});
     }
 
-    Value *GlobalStack::getCount(LoxBuilder &B) const {
+    Value *GlobalStack::CreateGetCount(IRBuilder<> &B) const {
         return B.CreateLoad(B.getInt32Ty(), B.CreateStructGEP(StackStruct, stack, 1));
     }
 
+    Value *GlobalStack::CreateGet(LoxBuilder &B, Value *index) const {
+        const auto $stack = B.CreateStructGEP(StackStruct, stack, 0);
+        const auto stack = B.CreateLoad(B.getPtrTy(), $stack);
+        const auto addr = B.CreateGEP(ArrayType::get(B.getPtrTy(), 1), stack, {B.getInt32(0), index});
 
-    void GlobalStack::save(LoxBuilder &Builder) const {
-        assert(restoreStackSize != 0);
+        return B.CreateLoad(B.getPtrTy(), addr);
+    }
 
-        static auto PopFunction([&] {
+    void GlobalStack::CreateSet(LoxBuilder &B, Value *index, Value *value) const {
+        const auto $stack = B.CreateStructGEP(StackStruct, stack, 0);
+        const auto stack = B.CreateLoad(B.getPtrTy(), $stack);
+        const auto addr = B.CreateGEP(ArrayType::get(B.getPtrTy(), 1), stack, {B.getInt32(0), index});
+
+        if constexpr (DEBUG_STACK) {
+            B.PrintF({B.CreateGlobalCachedString("set value: %d %p -> %p\n"), index, value, addr});
+        }
+
+        B.CreateStore(value, addr);
+    }
+
+    void GlobalStack::CreatePushN(LoxModule &M, IRBuilder<> &Builder, Value *Object, Value *N) const {
+        static auto PushFunction([&Builder, &M, this] {
             const auto F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
-                    {Builder.getPtrTy()},
+                    {Builder.getPtrTy(), Builder.getPtrTy(), Builder.getInt32Ty()},
                     false
                 ),
                 Function::InternalLinkage,
-                "$stackSave",
-                Builder.getModule()
+                "$stackPushN",
+                M
             );
 
-            LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
+            LoxBuilder B(Builder.getContext(), M, *F);
 
             const auto EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
             const auto arguments = F->args().begin();
-            const auto $stack = B.CreateStructGEP(StackStruct, arguments, 0);
-            const auto $count = B.CreateStructGEP(StackStruct, arguments, 1);
-            const auto $capacity = B.CreateStructGEP(StackStruct, arguments, 2);
-            const auto $saveArray = B.CreateStructGEP(StackStruct, arguments, 3);
-            const auto $saveArrayPointer = B.CreateStructGEP(StackStruct, arguments, 4);
+            const auto stackGlobal = arguments;
+            const auto $stack = B.CreateStructGEP(StackStruct, stackGlobal, 0);
+            const auto objPtr = arguments + 1;
+            const auto N = arguments + 2;
 
-            const auto stack = B.CreateLoad(B.getPtrTy(), $stack);
-            const auto count = B.CreateLoad(B.getInt32Ty(), $count);
-            const auto capacity = B.CreateLoad(B.getInt32Ty(), $capacity);
-            const auto saveArrayPointer = B.CreateLoad(B.getInt32Ty(), $saveArrayPointer);
-
-            const auto addr = B.CreateGEP(StackStruct->getElementType(3), $saveArray, {B.getInt32(0), saveArrayPointer});
-
-            if constexpr (DEBUG_STACK) {
-                B.PrintF({B.CreateGlobalCachedString("save %d -> %p\n"), count, addr});
+            if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
+                B.PrintF({B.CreateGlobalCachedString("push stack %p; ptr %p\n"), $stack, stackGlobal});
             }
 
-            B.CreateStore(count, addr);
+            const auto i = CreateEntryBlockAlloca(F, B.getInt32Ty(), "i");
 
-            B.CreateStore(B.CreateAdd(saveArrayPointer, B.getInt32(1)), $saveArrayPointer);
+            B.CreateStore(B.getInt32(1), i);
 
+            const auto ForCond = B.CreateBasicBlock("for.cond");
+            const auto ForBody = B.CreateBasicBlock("for.body");
+            const auto ForInc = B.CreateBasicBlock("for.inc");
+            const auto ForEnd = B.CreateBasicBlock("for.end");
+
+            B.CreateBr(ForCond);
+            B.SetInsertPoint(ForCond);
+            B.CreateCondBr(B.CreateICmpSLE(B.CreateLoad(B.getInt32Ty(), i), N), ForBody, ForEnd);
+            B.SetInsertPoint(ForBody);
+
+            CreatePush(M, B, objPtr);
+
+            B.CreateBr(ForInc);
+            B.SetInsertPoint(ForInc);
+            B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
+            B.CreateBr(ForCond);
+
+            B.SetInsertPoint(ForEnd);
             B.CreateRetVoid();
 
             return F;
         }());
 
-        Builder.CreateCall(PopFunction, {stack});
+        Builder.CreateCall(PushFunction, {stack, Object, N});
     }
 
-    void GlobalStack::restore(LoxBuilder &Builder) const {
-        assert(restoreStackSize != 0);
-
-        static auto RestoreFunction([&] {
+    void GlobalStack::CreatePush(LoxModule &M, IRBuilder<> &Builder, Value *Object) const {
+        static auto PushFunction([&Builder, &M, this] {
             const auto F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
-                    {Builder.getPtrTy()},
-                    false
-                ),
-                Function::InternalLinkage,
-                "$stackRestore",
-                Builder.getModule()
-            );
-
-            LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
-
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
-            B.SetInsertPoint(EntryBasicBlock);
-
-            const auto arguments = F->args().begin();
-            const auto $count = B.CreateStructGEP(StackStruct, arguments, 1);
-            const auto $saveArray = B.CreateStructGEP(StackStruct, arguments, 3);
-            const auto $saveArrayPointer = B.CreateStructGEP(StackStruct, arguments, 4);
-
-            const auto saveArrayPointer = B.CreateLoad(B.getInt32Ty(), $saveArrayPointer);
-            const auto top = B.CreateSub(saveArrayPointer, B.getInt32(1));
-            const auto addr = B.CreateInBoundsGEP(StackStruct->getElementType(3), $saveArray, {B.getInt32(0), top});
-            const auto value = B.CreateLoad(B.getInt32Ty(), addr);
-
-            if constexpr (DEBUG_STACK) {
-                B.PrintF({B.CreateGlobalCachedString("restore %d (%p) -> %p\n"), value, addr, $count});
-            }
-
-            B.CreateStore(value, $count);
-
-            B.CreateStore(top, $saveArrayPointer);
-
-            B.CreateRetVoid();
-
-            return F;
-        }());
-
-        Builder.CreateCall(RestoreFunction, {stack});
-    }
-
-    void GlobalStack::setCount(LoxBuilder &B, Value *count) const {
-        B.CreateStore(count, B.CreateStructGEP(StackStruct, stack, 1));
-    }
-
-    void GlobalStack::CreatePush(LoxBuilder &Builder, Value *Object, const StringRef what) {
-        static auto PushFunction([&] {
-            const auto F = Function::Create(
-                FunctionType::get(
-                    Builder.getVoidTy(),
-                    {Builder.getPtrTy(), Builder.getPtrTy(), Builder.getPtrTy(), Builder.getPtrTy()},
+                    {Builder.getPtrTy(), Builder.getPtrTy()},
                     false
                 ),
                 Function::InternalLinkage,
                 "$stackPush",
-                Builder.getModule()
+                M
             );
 
-            LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
+            LoxBuilder B(Builder.getContext(), M, *F);
 
             const auto EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
@@ -206,21 +199,19 @@ namespace lox {
             const auto $stack = B.CreateStructGEP(StackStruct, stackGlobal, 0);
             const auto $count = B.CreateStructGEP(StackStruct, stackGlobal, 1);
             const auto objPtr = stackGlobal + 1;
-            const auto name = stackGlobal + 2;
-            const auto what = stackGlobal + 3;
 
             if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
-                B.PrintF({B.CreateGlobalCachedString("push stack %p; %s ptr %p\n"), $stack, name, stackGlobal});
+                B.PrintF({B.CreateGlobalCachedString("push stack %p; ptr %p\n"), $stack, stackGlobal});
             }
 
             const auto count = B.CreateLoad(B.getInt32Ty(), $count);
 
-            ensureCapacity(B, stackGlobal, name, StackStruct, B.CreateAdd(B.getInt32(1), count));
+            ensureCapacity(M, B, stackGlobal, StackStruct, B.CreateAdd(B.getInt32(1), count));
 
             const auto ptr = B.CreateLoad(B.getPtrTy(), $stack);
             const auto addr = B.CreateGEP(B.getPtrTy(), ptr, count);
             if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
-                B.PrintF({B.CreateGlobalCachedString("push %s [%s] (%p, %p) = %p\n"), name, what, ptr, addr, objPtr});
+                B.PrintF({B.CreateGlobalCachedString("push (%p, %p) = %p\n"), ptr, addr, objPtr});
             }
             B.CreateStore(objPtr, addr);
 
@@ -232,19 +223,19 @@ namespace lox {
             return F;
         }());
 
-        Builder.CreateCall(PushFunction, {stack, Object, Builder.CreateGlobalCachedString(name), Builder.CreateGlobalCachedString(what)});
+        Builder.CreateCall(PushFunction, {stack, Object});
     }
 
-    void GlobalStack::CreatePop(LoxBuilder &Builder) const {
+    void GlobalStack::CreatePopN(LoxBuilder &Builder, Value *N) const {
         static auto PopFunction([&] {
             const auto F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
-                    {Builder.getPtrTy()},
+                    {Builder.getPtrTy(), Builder.getInt32Ty()},
                     false
                 ),
                 Function::InternalLinkage,
-                "$stackPop",
+                "$stackPopN",
                 Builder.getModule()
             );
 
@@ -255,17 +246,22 @@ namespace lox {
 
             const auto arguments = F->args().begin();
             const auto $count = B.CreateStructGEP(StackStruct, arguments, 1);
+            const auto N = arguments + 1;
 
             const auto count = B.CreateLoad(B.getInt32Ty(), $count);
 
-            B.CreateStore(B.CreateSub(count, B.getInt32(1)), $count);
+            B.CreateStore(B.CreateSub(count, N), $count);
 
             B.CreateRetVoid();
 
             return F;
         }());
 
-        Builder.CreateCall(PopFunction, {stack});
+        Builder.CreateCall(PopFunction, {stack, N});
+    }
+
+    void GlobalStack::CreatePop(LoxBuilder &Builder) const {
+        CreatePopN(Builder, Builder.getInt32(1));
     }
 
     void GlobalStack::CreatePopAll(LoxBuilder &Builder, Function *FunctionPointer) const {
@@ -354,7 +350,7 @@ namespace lox {
             const auto stack = B.CreateLoad(B.getPtrTy(), $stack);
             const auto count = B.CreateLoad(B.getInt32Ty(), $count);
 
-            if constexpr (DEBUG_LOG_GC) {
+            if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
                 B.PrintF({B.CreateGlobalCachedString("--iterate stack values (%d)--\n"), count});
             }
             const auto i = CreateEntryBlockAlloca(F, B.getInt32Ty(), "i");
@@ -376,23 +372,31 @@ namespace lox {
 
             const auto ptr = B.CreateLoad(B.getPtrTy(), addr);
 
-            if constexpr (DEBUG_LOG_GC) {
-                B.PrintF({B.CreateGlobalCachedString("iter ptr: %p\n"), ptr});
-            }
-
-            const auto value = B.CreateLoad(B.getInt64Ty(), ptr);
-
-            if constexpr (DEBUG_LOG_GC) {
-                B.PrintF({B.CreateGlobalCachedString("iter value: %d\n"), value});
+            if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
+                B.PrintF({B.CreateGlobalCachedString("iter ptr: %p %p\n"), addr, ptr});
             }
 
             const auto IsObjBlock = B.CreateBasicBlock("is.obj");
             const auto EndBlock = B.CreateBasicBlock("end.obj");
+            const auto IsNotNull = B.CreateBasicBlock("is.notnull");
             const auto IsNotObjBlock = DEBUG_LOG_GC ? B.CreateBasicBlock("is.not.obj") : EndBlock;
 
+            B.CreateCondBr(B.CreateIsNull(ptr), IsNotObjBlock, IsNotNull);
+            B.SetInsertPoint(IsNotNull);
+
+            const auto value = B.CreateLoad(B.getInt64Ty(), ptr);
+
+            if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
+                B.PrintF({B.CreateGlobalCachedString("iter value: %d\n"), value});
+            }
+            const auto CheckObjBlock = B.CreateBasicBlock("check.obj");
+
+            B.CreateCondBr(B.IsNil(value), IsNotObjBlock, CheckObjBlock);
+
+            B.SetInsertPoint(CheckObjBlock);
             B.CreateCondBr(B.IsObj(value), IsObjBlock, IsNotObjBlock);
             B.SetInsertPoint(IsObjBlock);
-            if constexpr (DEBUG_LOG_GC) {
+            if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
                 B.PrintF({B.CreateGlobalCachedString("calling function %p(%d, %p)\n"), function, value, B.AsObj(value)});
             }
             B.CreateCall(
@@ -404,7 +408,7 @@ namespace lox {
 
             if constexpr (DEBUG_LOG_GC) {
                 B.SetInsertPoint(IsNotObjBlock);
-                B.PrintF({B.CreateGlobalCachedString("not object %p %d\n"), ptr, value});
+                B.PrintF({B.CreateGlobalCachedString("not object %p\n"), ptr});
                 B.CreateBr(EndBlock);
             }
 
@@ -430,7 +434,7 @@ namespace lox {
     }
 
     void PushGlobal(LoxBuilder &Builder, GlobalVariable *global, const std::string_view name) {
-        Builder.getModule().getGlobalsStack()->CreatePush(Builder, global, ("global: " + name).str());
+        Builder.getModule().getGlobalsStack()->CreatePush(Builder.getModule(), Builder, global);
     }
 
     void IterateGlobals(LoxBuilder &Builder, Function *FunctionPointer) {
@@ -440,18 +444,9 @@ namespace lox {
         Builder.getModule().getGlobalsStack()->CreateIterateObjectValues(Builder, FunctionPointer);
     }
 
-    void PushLocal(LoxBuilder &Builder, Value *local, const StringRef what) {
-        if constexpr (DEBUG_LOG_GC) {
-            const auto sp = Builder.getModule().getLocalsStack()->getCount(Builder);
-            Builder.PrintF({Builder.CreateGlobalCachedString("pushlocal(%p [%s, %d])\n"), local, Builder.CreateGlobalCachedString(what), sp});
-            //B.PrintObject(B.CreateLoad(B.getInt64Ty(), local));
-        }
-        Builder.getModule().getLocalsStack()->CreatePush(Builder, local, what);
-    }
-
     void IterateLocals(LoxBuilder &Builder, Function *FunctionPointer) {
         if constexpr (DEBUG_LOG_GC) {
-            const auto sp = Builder.getModule().getLocalsStack()->getCount(Builder);
+            const auto sp = Builder.getModule().getLocalsStack()->CreateGetCount(Builder);
             Builder.PrintF({Builder.CreateGlobalCachedString("--iterate locals (%d)--\n"), sp});
         }
 

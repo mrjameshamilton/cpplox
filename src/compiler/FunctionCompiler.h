@@ -1,5 +1,6 @@
 #ifndef LOXFUNCTIONCOMPILER_H
 #define LOXFUNCTIONCOMPILER_H
+#include "../Debug.h"
 #include "../frontend/AST.h"
 #include "LoxBuilder.h"
 #include "Memory.h"
@@ -8,6 +9,8 @@
 #include "Upvalue.h"
 
 #include "llvm/IR/CFG.h"
+
+#include <iostream>
 #include <llvm/ADT/ScopedHashTable.h>
 #include <llvm/IR/Value.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
@@ -46,20 +49,45 @@ namespace lox {
             std::string_view name;
             Value *value;
             bool isCaptured = false;
+            unsigned int index;
             Local(FunctionCompiler &compiler, const std::string_view name, Value *value, const bool isCaptured = false) : compiler{compiler}, name{name}, value{value}, isCaptured{isCaptured} {
-                compiler.Builder.CreateLifetimeStart(value);
+                auto &B = compiler.Builder;
+                B.CreateLifetimeStart(value);
+                index = compiler.localsCount++;
+                if constexpr (DEBUG_STACK) {
+                    const auto stackOffset = B.CreateAdd(
+                        B.CreateLoad(B.getInt32Ty(), compiler.sp),
+                        B.getInt32(index)
+                    );
+                    B.PrintF({B.CreateGlobalCachedString("create local %d at %d %p\n"), B.getInt32(index), stackOffset, value});
+                }
             }
             ~Local() {
+                auto &B = compiler.Builder;
                 if (isCaptured) {
                     // When a captured local goes out of scope,
                     // the upvalues must be closed, since the local
                     // will not be available any longer.
                     if constexpr (DEBUG_UPVALUES) {
-                        compiler.Builder.PrintF({compiler.Builder.CreateGlobalCachedString(("closing upvalues for " + name + " (%p)\n").str()), value});
+                        B.PrintF({B.CreateGlobalCachedString(("closing upvalues for " + name + " (%p)\n").str()), value});
                     }
-                    closeUpvalues(compiler.Builder, value);
+                    closeUpvalues(B, value);
                 }
-                compiler.Builder.CreateLifetimeEnd(value);
+
+                B.CreateLifetimeEnd(value);
+
+                const auto locals = B.getModule().getLocalsStack();
+                const auto stackIndex = B.CreateAdd(
+                    B.CreateLoad(B.getInt32Ty(), compiler.sp),
+                    B.getInt32(index)
+                );
+                if constexpr (DEBUG_STACK) {
+                    B.PrintF({B.CreateGlobalCachedString("end local %d at %d %p sp: %d c: %d\n"), B.getInt32(index), stackIndex, value, B.CreateLoad(B.getInt32Ty(), compiler.sp), locals->CreateGetCount(B)});
+                }
+
+                // At the end of the scope, clear the entry in the locals stack,
+                // so that it's no longer reachable by the GC.
+                locals->CreateSet(B, stackIndex, B.getNullPtr());
             }
         };
 
@@ -73,6 +101,7 @@ namespace lox {
         BasicBlock *EntryBasicBlock = Builder.CreateBasicBlock("entry");
         BasicBlock *ExitBasicBlock = Builder.CreateBasicBlock("epilogue");
         AllocaInst *sp;
+        unsigned int localsCount = 0;
 
     public:
         explicit FunctionCompiler(LLVMContext &Context, LoxModule &Module, Function &F, const LoxFunctionType type = LoxFunctionType::FUNCTION, FunctionCompiler *enclosing = nullptr)
@@ -112,9 +141,6 @@ namespace lox {
 
 
         void beginScope() {
-            // At the beginning of the scope, remember the current local variable stack pointer.
-            Builder.getModule().getLocalsStack()->save(Builder);
-
             scopes.emplace(variables);
         }
 
@@ -148,10 +174,6 @@ namespace lox {
             }
 
             scopes.pop();
-
-            // At the end of the scope, reset the stack pointer then any variables allocated
-            // in the scope are no longer accessible as GC roots and can be freed.
-            Builder.getModule().getLocalsStack()->restore(Builder);
 
             if (isEarlyReturn) {
                 // Any further code can go in the unreachable block.
@@ -250,20 +272,31 @@ namespace lox {
                 }
                 PushGlobal(Builder, global, key);
             } else {
-                const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), key);
-                variables.insert(key, std::make_shared<Local>(*this, key, alloca));
+                const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getPtrTy(), key);
+                const auto local = std::make_shared<Local>(*this, key, alloca);
+                variables.insert(key, local);
                 Builder.CreateStore(value, alloca);
-                PushLocal(Builder, alloca, ("normal local {" + key + "}").str());
+
+                const auto locals = Builder.getModule().getLocalsStack();
+                const auto stackIndex = Builder.CreateAdd(Builder.CreateLoad(Builder.getInt32Ty(), sp), Builder.getInt32(local->index));
+                locals->CreateSet(Builder, stackIndex, alloca);
             }
         }
 
         Value *insertTemp(Value *value, const std::string_view what) {
             assert(value->getType() == Builder.getInt64Ty());
+
             const auto name = "$temp";
             const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getPtrTy(), name);
-            variables.insert(name, std::make_shared<Local>(*this, name, alloca));
+
+            const auto local = std::make_shared<Local>(*this, name, alloca);
+            variables.insert(name, local);
             Builder.CreateStore(value, alloca);
-            PushLocal(Builder, alloca, ("temp: " + what).str());
+
+            const auto locals = Builder.getModule().getLocalsStack();
+            const auto stackIndex = Builder.CreateAdd(Builder.CreateLoad(Builder.getInt32Ty(), sp), Builder.getInt32(local->index));
+            locals->CreateSet(Builder, stackIndex, alloca);
+
             return value;
         }
 

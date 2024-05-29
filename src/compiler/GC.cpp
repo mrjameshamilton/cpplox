@@ -42,7 +42,7 @@ namespace lox {
             B.Print(B.ObjVal(ObjectPtr));
         }
 
-        B.getModule().getGrayStack()->CreatePush(B, ObjectPtr, "grey");
+        B.getModule().getGrayStack()->CreatePush(B.getModule(), B, ObjectPtr);
 
         B.CreateStore(
             B.getTrue(),

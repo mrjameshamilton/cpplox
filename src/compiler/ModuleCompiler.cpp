@@ -34,7 +34,7 @@ namespace lox {
     void ModuleCompiler::evaluate(const Program &program) const {
         M->setGrayStack(std::make_shared<GlobalStack>(*M, "gray"));
         M->setGlobalsStack(std::make_shared<GlobalStack>(*M, "globals"));
-        M->setLocalsStack(std::make_shared<GlobalStack>(*M, "locals", MAX_LOCALS_STACK_SIZE));
+        M->setLocalsStack(std::make_shared<GlobalStack>(*M, "locals"));
 
         // Native clock function.
         Function *Clock = Function::Create(
@@ -90,7 +90,7 @@ namespace lox {
         Builder->CreateCall(F);
 
         if constexpr (ENABLE_RUNTIME_ASSERTS) {
-            const auto locals = Builder->getModule().getLocalsStack()->getCount(*Builder);
+            const auto locals = Builder->getModule().getLocalsStack()->CreateGetCount(*Builder);
             const auto IsZeroBlock = Builder->CreateBasicBlock("is.empty");
             const auto IsNotZeroBlock = Builder->CreateBasicBlock("is.notempty");
 
