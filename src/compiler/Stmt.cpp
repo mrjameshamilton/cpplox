@@ -24,9 +24,9 @@ namespace lox {
         paramTypes.insert(paramTypes.begin(), Builder.getInt64Ty());
         // The first parameter is the upvalues.
         paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
-        FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
+        auto *const FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
 
-        Function *F = Function::Create(
+        auto *const F = Function::Create(
             FT,
             Function::InternalLinkage,
             name,
@@ -38,7 +38,7 @@ namespace lox {
             F->addParamAttr(1, Attribute::Returned);
         }
 
-        const auto closurePtr = Builder.AllocateClosure(*this, F, functionStmt->name.getLexeme(), false);
+        auto *const closurePtr = Builder.AllocateClosure(*this, F, functionStmt->name.getLexeme(), false);
 
         if (type == LoxFunctionType::FUNCTION) {
             // Methods aren't stored as variables.
@@ -69,9 +69,9 @@ namespace lox {
                 Builder.getSizeOf(Builder.getModule().getStructType(ObjType::UPVALUE), C.upvalues.size())
             );
 
-            // Initalize upvalues to nullptr.
+            // Initialize upvalues to nullptr.
             for (const auto &upvalue: C.upvalues) {
-                const auto upvalueIndex = Builder.CreateGEP(Builder.getPtrTy(), upvaluesArrayPtr, Builder.getInt32(upvalue->index), "upvalueIndex");
+                auto *const upvalueIndex = Builder.CreateGEP(Builder.getPtrTy(), upvaluesArrayPtr, Builder.getInt32(upvalue->index), "upvalueIndex");
                 Builder.CreateStore(Builder.getNullPtr(), upvalueIndex);
             }
 
@@ -84,7 +84,7 @@ namespace lox {
                 Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closurePtr, 3, "closure.upvaluesCount")
             );
             for (const auto &upvalue: C.upvalues) {
-                const auto upvalueIndex = Builder.CreateGEP(Builder.getPtrTy(), upvaluesArrayPtr, Builder.getInt32(upvalue->index), "upvalueIndex");
+                auto *const upvalueIndex = Builder.CreateGEP(Builder.getPtrTy(), upvaluesArrayPtr, Builder.getInt32(upvalue->index), "upvalueIndex");
                 Builder.CreateStore(upvalue->isLocal ? captureLocal(upvalue->value) : upvalue->value, upvalueIndex);
             }
         } else {
@@ -108,7 +108,7 @@ namespace lox {
 
     void FunctionCompiler::operator()(const ReturnStmtPtr &returnStmt) {
         if (returnStmt->expression.has_value()) {
-            const auto returnVal = variables.lookup("$returnVal")->value;
+            auto *const returnVal = variables.lookup("$returnVal")->value;
             Builder.CreateStore(evaluate(returnStmt->expression.value()), returnVal);
         }
         Builder.CreateBr(ExitBasicBlock);
@@ -125,7 +125,7 @@ namespace lox {
     void FunctionCompiler::operator()(const VarStmtPtr &varStmt) {
         if (isGlobalScope()) {
             // Global variables can be re-declared.
-            if (const auto variable = lookupGlobal(varStmt->name.getLexeme())) {
+            if (auto *const variable = lookupGlobal(varStmt->name.getLexeme())) {
                 Builder.CreateStore(evaluate(varStmt->initializer), variable);
                 return;
             }
@@ -135,9 +135,9 @@ namespace lox {
     }
 
     void FunctionCompiler::operator()(const WhileStmtPtr &whileStmt) {
-        const auto Cond = Builder.CreateBasicBlock("Cond");
-        const auto Body = Builder.CreateBasicBlock("Loop");
-        const auto Exit = Builder.CreateBasicBlock("Exit");
+        auto *const Cond = Builder.CreateBasicBlock("Cond");
+        auto *const Body = Builder.CreateBasicBlock("Loop");
+        auto *const Exit = Builder.CreateBasicBlock("Exit");
 
         Builder.CreateBr(Cond);
         Builder.SetInsertPoint(Cond);
@@ -149,9 +149,9 @@ namespace lox {
     }
 
     void FunctionCompiler::operator()(const IfStmtPtr &ifStmt) {
-        const auto TrueBlock = Builder.CreateBasicBlock("if.true");
-        const auto FalseBlock = Builder.CreateBasicBlock("else");
-        const auto EndBlock = Builder.CreateBasicBlock("if.end");
+        auto *const TrueBlock = Builder.CreateBasicBlock("if.true");
+        auto *const FalseBlock = Builder.CreateBasicBlock("else");
+        auto *const EndBlock = Builder.CreateBasicBlock("if.end");
         Builder.CreateCondBr(Builder.IsTruthy(evaluate(ifStmt->condition)), TrueBlock, FalseBlock);
         Builder.SetInsertPoint(TrueBlock);
         evaluate(ifStmt->thenBranch);
@@ -166,10 +166,10 @@ namespace lox {
 
     void FunctionCompiler::operator()(const ClassStmtPtr &classStmt) {
         const auto className = classStmt->name.getLexeme();
-        const auto nameObj = Builder.AllocateString(className, ("class_" + className).str());
+        auto *const nameObj = Builder.AllocateString(className, ("class_" + className).str());
         insertTemp(Builder.ObjVal(nameObj), "class name");
-        const auto klass = Builder.AllocateClass(nameObj);
-        const auto methods = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2));
+        auto *const klass = Builder.AllocateClass(nameObj);
+        auto *const methods = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2));
 
         insertVariable(className, Builder.ObjVal(klass));
 
@@ -178,10 +178,10 @@ namespace lox {
             // to support inheritance. Do this before adding methods to the sub-class
             // to support overloaded methods.
 
-            const auto value = Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(*classStmt->super_class.value()));
-            const auto IsClassBlock = Builder.CreateBasicBlock("superclass.valid");
-            const auto IsNotClassBlock = Builder.CreateBasicBlock("superclass.invalid");
-            const auto EndBlock = Builder.CreateBasicBlock("superclass.end");
+            auto *const value = Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(*classStmt->super_class.value()));
+            auto *const IsClassBlock = Builder.CreateBasicBlock("superclass.valid");
+            auto *const IsNotClassBlock = Builder.CreateBasicBlock("superclass.invalid");
+            auto *const EndBlock = Builder.CreateBasicBlock("superclass.end");
 
             Builder.CreateCondBr(Builder.IsClass(value), IsClassBlock, IsNotClassBlock);
             Builder.SetInsertPoint(IsClassBlock);
@@ -190,8 +190,8 @@ namespace lox {
                          // could be declared multiple times, for different classes.
             insertVariable("super", value);
 
-            const auto superklass = Builder.AsObj(value);
-            const auto supermethods = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, superklass, 2));
+            auto *const superklass = Builder.AsObj(value);
+            auto *const supermethods = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, superklass, 2));
             Builder.TableAddAll(supermethods, methods);
             Builder.CreateBr(EndBlock);
 
@@ -208,9 +208,9 @@ namespace lox {
         }
 
         for (auto &method: classStmt->methods) {
-            const auto name = Builder.AllocateString(method->name.getLexeme());
+            auto *const name = Builder.AllocateString(method->name.getLexeme());
             insertTemp(Builder.ObjVal(name), "method name");
-            const auto methodPtr =
+            auto *const methodPtr =
                 CreateFunction(
                     method->type,
                     method,

@@ -53,8 +53,8 @@ namespace lox {
     }
 
     Value *LoxBuilder::AllocateClosure(FunctionCompiler &compiler, llvm::Function *function, const std::string_view name, const bool isNative) {
-        static auto AllocationClosureFunction([this] {
-            const auto F = Function::Create(
+        static auto *AllocationClosureFunction([this] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     getPtrTy(),
                     {getPtrTy()},
@@ -67,14 +67,12 @@ namespace lox {
 
             LoxBuilder B(getContext(), getModule(), *F);
 
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
-            const auto arguments = F->args().begin();
+            auto *const function = F->args().begin();
 
-            const auto function = arguments;
-
-            const auto ptr = B.AllocateObj(ObjType::CLOSURE, "closure");
+            auto *const ptr = B.AllocateObj(ObjType::CLOSURE, "closure");
 
             B.CreateStore(function, B.CreateObjStructGEP(ObjType::CLOSURE, ptr, 1));
             // An array will be allocated for the upvalues in lox::FunctionCompiler::CreateFunction.
@@ -86,9 +84,9 @@ namespace lox {
             return F;
         }());
 
-        const auto nameObj = AllocateString(name);
+        auto *const nameObj = AllocateString(name);
         compiler.insertTemp(ObjVal(nameObj), "function name");
-        const auto functionObj = AllocateFunction(*this, function, nameObj, isNative);
+        auto *const functionObj = AllocateFunction(*this, function, nameObj, isNative);
         compiler.insertTemp(ObjVal(functionObj), "function");
 
         return CreateCall(AllocationClosureFunction, {functionObj});

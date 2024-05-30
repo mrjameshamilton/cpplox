@@ -2,7 +2,6 @@
 #define CPPLOX_CALLSTACK_H
 
 #include "LoxBuilder.h"
-#include "ModuleCompiler.h"
 
 namespace lox {
     void PushCall(LoxBuilder &Builder, Value *line, Value *name);

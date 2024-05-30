@@ -8,12 +8,11 @@
 #include "GC.h"
 #include "Stack.h"
 
-
 namespace lox {
 
     AllocaInst *CreateEntryBlockAlloca(Function *TheFunction, Type *type, const std::string_view VarName, const std::function<void(IRBuilder<> &, AllocaInst *)> &entryBuilder) {
         IRBuilder TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
-        const auto alloca = TmpB.CreateAlloca(type, nullptr, VarName);
+        auto *const alloca = TmpB.CreateAlloca(type, nullptr, VarName);
         if (entryBuilder) {
             entryBuilder(TmpB, alloca);
         }
@@ -26,7 +25,7 @@ namespace lox {
         // https://mukulrathi.com/create-your-own-programming-language/concurrency-runtime-language-tutorial/#malloc
         Constant *allocsize = ConstantExpr::getSizeOf(type);
         allocsize = ConstantExpr::getTruncOrBitCast(allocsize, IntPtrTy);
-        return arraySize ? CreateMul(allocsize, arraySize) : allocsize;
+        return arraySize != nullptr ? CreateMul(allocsize, arraySize) : allocsize;
     }
 
     Constant *LoxBuilder::getSizeOf(Type *type, const unsigned int arraySize) {
@@ -44,7 +43,7 @@ namespace lox {
             FunctionType::get(getPtrTy(), {getPtrTy(), getInt64Ty()}, false)
         );
 
-        const auto call = CreateCall(realloc, {ptr, newSize});
+        auto *const call = CreateCall(realloc, {ptr, newSize});
 
         if constexpr (DEBUG_LOG_GC) {
             PrintF({CreateGlobalCachedString("realloc %s (%p, %d) = %p\n"), CreateGlobalCachedString(what), ptr, newSize, call});
@@ -53,8 +52,8 @@ namespace lox {
     }
 
     Value *LoxBuilder::CreateReallocate(Value *ptr, Value *oldSize, Value *newSize) {
-        static auto ReallocFunction([this] {
-            const auto F = Function::Create(
+        static auto *ReallocFunction([this] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     getPtrTy(),
                     {getPtrTy(), getInt32Ty(), getInt32Ty()},
@@ -71,21 +70,21 @@ namespace lox {
 
             LoxBuilder B(getContext(), getModule(), *F);
 
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
-            const auto arguments = F->args().begin();
-            const auto ptr = arguments;
-            const auto oldSize = arguments + 1;
-            const auto newSize = arguments + 2;
+            auto *const arguments = F->args().begin();
+            auto *const ptr = arguments;
+            auto *const oldSize = arguments + 1;
+            auto *const newSize = arguments + 2;
 
             B.CreateStore(
                 B.CreateAdd(B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes()), B.CreateSub(newSize, oldSize)),
                 B.getModule().getAllocatedBytes()
             );
 
-            const auto GcBlock = B.CreateBasicBlock("gc");
-            const auto NoGcBlock = B.CreateBasicBlock("no.gc");
+            auto *const GcBlock = B.CreateBasicBlock("gc");
+            auto *const NoGcBlock = B.CreateBasicBlock("no.gc");
 
             B.CreateCondBr(
                 B.CreateAnd(B.CreateICmpSGT(newSize, oldSize), B.CreateICmpSGT(B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes()), B.CreateLoad(B.getInt32Ty(), B.getModule().getNextGC()))),
@@ -100,8 +99,8 @@ namespace lox {
             }
             B.SetInsertPoint(NoGcBlock);
             {
-                const auto IsFreeBlock = B.CreateBasicBlock("is.free");
-                const auto IsAllocBlock = B.CreateBasicBlock("is.alloc");
+                auto *const IsFreeBlock = B.CreateBasicBlock("is.free");
+                auto *const IsAllocBlock = B.CreateBasicBlock("is.alloc");
 
                 B.CreateCondBr(B.CreateICmpEQ(B.getInt32(0), newSize), IsFreeBlock, IsAllocBlock);
                 B.SetInsertPoint(IsFreeBlock);
@@ -121,7 +120,7 @@ namespace lox {
     }
 
     void LoxBuilder::CreateFree(Value *ptr, Type *type, Value *arraySize = nullptr) {
-        if (arraySize) {
+        if (arraySize != nullptr) {
             CreateReallocate(ptr, getSizeOf(type, arraySize), getInt32(0));
         } else {
             CreateReallocate(ptr, getSizeOf(type, 1), getInt32(0));
@@ -133,8 +132,8 @@ namespace lox {
     }
 
     Value *LoxBuilder::AllocateObj(const enum ObjType objType, const std::string_view name) {
-        static auto AllocateObjectFunction([this] {
-            const auto F = Function::Create(
+        static auto *AllocateObjectFunction([this] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     getPtrTy(),
                     {getInt8Ty()},
@@ -147,18 +146,18 @@ namespace lox {
 
             LoxBuilder B(getContext(), getModule(), *F);
 
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
-            const auto arguments = F->args().begin();
+            auto *const arguments = F->args().begin();
 
-            const auto objType = arguments;
+            auto *const objType = arguments;
 
-            const auto objects = B.getModule().getObjects();
-            const auto DefaultBlock = B.CreateBasicBlock("default");
-            const auto EndBlock = B.CreateBasicBlock("end");
+            auto *const objects = B.getModule().getObjects();
+            auto *const DefaultBlock = B.CreateBasicBlock("default");
+            auto *const EndBlock = B.CreateBasicBlock("end");
 
-            const auto Switch = B.CreateSwitch(objType, DefaultBlock);
+            auto *const Switch = B.CreateSwitch(objType, DefaultBlock);
 
             const std::initializer_list<lox::ObjType> ObjTypes{
                 ObjType::STRING,
@@ -170,10 +169,10 @@ namespace lox {
                 ObjType::BOUND_METHOD
             };
 
-            const auto CurrentBlock = B.GetInsertBlock();
+            auto *const CurrentBlock = B.GetInsertBlock();
 
             B.SetInsertPoint(EndBlock);
-            const auto allocsize = B.CreatePHI(B.getInt32Ty(), ObjTypes.size());
+            auto *const allocsize = B.CreatePHI(B.getInt32Ty(), ObjTypes.size());
 
             B.SetInsertPoint(CurrentBlock);
 
@@ -181,8 +180,8 @@ namespace lox {
             // https://mukulrathi.com/create-your-own-programming-language/concurrency-runtime-language-tutorial/#malloc
 
             Type *IntPtrTy = IntegerType::getInt32Ty(B.getContext());
-            for (auto type: ObjTypes) {
-                const auto Block = B.CreateBasicBlock("obj_" + std::to_string(static_cast<uint8_t>(type)));
+            for (const auto &type: ObjTypes) {
+                auto *const Block = B.CreateBasicBlock("obj_" + std::to_string(static_cast<uint8_t>(type)));
                 Switch->addCase(B.ObjTypeInt(type), Block);
                 B.SetInsertPoint(Block);
                 allocsize->addIncoming(
@@ -197,7 +196,7 @@ namespace lox {
 
             B.SetInsertPoint(EndBlock);
 
-            const auto NewObjMalloc = B.CreateReallocate(
+            auto *const NewObjMalloc = B.CreateReallocate(
                 B.getNullPtr(),
                 B.getInt32(0),
                 allocsize
@@ -221,11 +220,11 @@ namespace lox {
             B.CreateStore(NewObjMalloc, objects);
 
             if constexpr (DEBUG_LOG_GC) {
-                static const auto fmt = B.CreateGlobalCachedString("%p\n");
+                static auto *const fmt = B.CreateGlobalCachedString("%p\n");
                 B.PrintF({fmt, B.CreateLoad(B.getPtrTy(), objects)});
-                static const auto fmt2 = B.CreateGlobalCachedString("\t%p allocate %zu.\n");
+                static auto *const fmt2 = B.CreateGlobalCachedString("\t%p allocate %zu.\n");
                 B.PrintF({fmt2, NewObjMalloc, allocsize});
-                static const auto fmt3 = B.CreateGlobalCachedString("\tobject.next = %p\n");
+                static auto *const fmt3 = B.CreateGlobalCachedString("\tobject.next = %p\n");
                 B.PrintF({fmt3, B.CreateLoad(getPtrTy(), B.CreateStructGEP(B.getModule().getObjStructType(), NewObjMalloc, 2, "next"))});
             }
 
@@ -273,8 +272,8 @@ namespace lox {
     void FreeObject(LoxBuilder &Builder, Value *value) {
         assert(value->getType() == Builder.getInt64Ty());
 
-        static auto FreeObjectFunction([&Builder] {
-            const auto F = Function::Create(
+        static auto *FreeObjectFunction([&Builder] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
                     {Builder.getInt64Ty()},
@@ -287,27 +286,27 @@ namespace lox {
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
-            const auto value = F->arg_begin();
+            auto *const value = F->arg_begin();
 
-            const auto IsStringBlock = B.CreateBasicBlock("string");
-            const auto IsFunctionBlock = B.CreateBasicBlock("function");
-            const auto IsClosureBlock = B.CreateBasicBlock("closure");
-            const auto IsUpvalueBlock = B.CreateBasicBlock("upvalue");
-            const auto IsClassBlock = B.CreateBasicBlock("class");
-            const auto IsBoundMethodBlock = B.CreateBasicBlock("boundmethod");
-            const auto IsInstanceBlock = B.CreateBasicBlock("instance");
-            const auto DefaultBlock = B.CreateBasicBlock("default");
-            const auto EndBlock = B.CreateBasicBlock("end");
+            auto *const IsStringBlock = B.CreateBasicBlock("string");
+            auto *const IsFunctionBlock = B.CreateBasicBlock("function");
+            auto *const IsClosureBlock = B.CreateBasicBlock("closure");
+            auto *const IsUpvalueBlock = B.CreateBasicBlock("upvalue");
+            auto *const IsClassBlock = B.CreateBasicBlock("class");
+            auto *const IsBoundMethodBlock = B.CreateBasicBlock("boundmethod");
+            auto *const IsInstanceBlock = B.CreateBasicBlock("instance");
+            auto *const DefaultBlock = B.CreateBasicBlock("default");
+            auto *const EndBlock = B.CreateBasicBlock("end");
 
             if constexpr (DEBUG_LOG_GC) {
                 B.PrintF({B.CreateGlobalCachedString("free %p (objtype: %d): "), value, B.ObjType(value)});
                 B.PrintObject(value);
             }
 
-            const auto Switch = B.CreateSwitch(B.ObjType(value), DefaultBlock);
+            auto *const Switch = B.CreateSwitch(B.ObjType(value), DefaultBlock);
             Switch->addCase(B.ObjTypeInt(ObjType::STRING), IsStringBlock);
             Switch->addCase(B.ObjTypeInt(ObjType::FUNCTION), IsFunctionBlock);
             Switch->addCase(B.ObjTypeInt(ObjType::CLOSURE), IsClosureBlock);
@@ -318,11 +317,11 @@ namespace lox {
 
             B.SetInsertPoint(IsStringBlock);
             {
-                const auto DynamicStringBlock = B.CreateBasicBlock("dynamic.string");
-                const auto StaticStringBlock = B.CreateBasicBlock("static.string");
+                auto *const DynamicStringBlock = B.CreateBasicBlock("dynamic.string");
+                auto *const StaticStringBlock = B.CreateBasicBlock("static.string");
 
-                const auto string = B.AsObj(value);
-                const auto isDynamic = B.CreateLoad(B.getInt1Ty(), B.CreateObjStructGEP(ObjType::STRING, string, 4));
+                auto *const string = B.AsObj(value);
+                auto *const isDynamic = B.CreateLoad(B.getInt1Ty(), B.CreateObjStructGEP(ObjType::STRING, string, 4));
                 B.CreateCondBr(isDynamic, DynamicStringBlock, StaticStringBlock);
                 B.SetInsertPoint(DynamicStringBlock);
                 {
@@ -343,14 +342,14 @@ namespace lox {
             }
             B.SetInsertPoint(IsClosureBlock);
             {
-                const auto closure = B.AsObj(value);
-                const auto size = B.CreateLoad(B.getInt32Ty(), B.CreateStructGEP(B.getModule().getStructType(ObjType::CLOSURE), closure, 3));
-                const auto IsNotNull = B.CreateBasicBlock("NotNullArray");
-                const auto NullArray = B.CreateBasicBlock("NullArray");
+                auto *const closure = B.AsObj(value);
+                auto *const size = B.CreateLoad(B.getInt32Ty(), B.CreateStructGEP(B.getModule().getStructType(ObjType::CLOSURE), closure, 3));
+                auto *const IsNotNull = B.CreateBasicBlock("NotNullArray");
+                auto *const NullArray = B.CreateBasicBlock("NullArray");
                 B.CreateCondBr(B.CreateICmpEQ(size, B.getInt32(0)), NullArray, IsNotNull);
                 B.SetInsertPoint(IsNotNull);
                 {
-                    const auto array = B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getStructType(ObjType::CLOSURE), closure, 2));
+                    auto *const array = B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getStructType(ObjType::CLOSURE), closure, 2));
                     B.CreateFree(array, ObjType::UPVALUE, size);
                     B.CreateBr(NullArray);
                 }
@@ -367,10 +366,10 @@ namespace lox {
             }
             B.SetInsertPoint(IsClassBlock);
             {
-                const auto klass = B.AsObj(value);
+                auto *const klass = B.AsObj(value);
                 // TODO: CreateFreeTable function.
-                const auto methods = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::CLASS, klass, 2));
-                const auto entries = B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getTableStructType(), methods, 2));
+                auto *const methods = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::CLASS, klass, 2));
+                auto *const entries = B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getTableStructType(), methods, 2));
                 B.IRBuilder::CreateFree(entries);
                 B.IRBuilder::CreateFree(methods);
                 B.CreateFree(klass, ObjType::CLASS);
@@ -378,9 +377,9 @@ namespace lox {
             }
             B.SetInsertPoint(IsInstanceBlock);
             {
-                const auto instance = B.AsObj(value);
-                const auto fields = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
-                const auto entries = B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getTableStructType(), fields, 2));
+                auto *const instance = B.AsObj(value);
+                auto *const fields = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
+                auto *const entries = B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getTableStructType(), fields, 2));
                 B.IRBuilder::CreateFree(entries);
                 B.IRBuilder::CreateFree(fields);
                 B.CreateFree(instance, ObjType::INSTANCE);
@@ -410,8 +409,8 @@ namespace lox {
     }
 
     void FreeObjects(LoxBuilder &Builder) {
-        static auto FreeObjectsFunction([&Builder] {
-            const auto F = Function::Create(
+        static auto *FreeObjectsFunction([&Builder] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
                     {},
@@ -424,28 +423,28 @@ namespace lox {
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
-            const auto objects = B.getModule().getObjects();
+            auto *const objects = B.getModule().getObjects();
 
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
-            const auto before = B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes());
+            auto *const before = B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes());
 
             if constexpr (DEBUG_LOG_GC) {
                 B.PrintF({B.CreateGlobalCachedString("--free objects (%p)--\n"), B.CreateLoad(B.getPtrTy(), objects)});
             }
 
-            const auto object = CreateEntryBlockAlloca(F, B.getPtrTy(), "object");
-            const auto next = CreateEntryBlockAlloca(F, B.getPtrTy(), "next");
+            auto *const object = CreateEntryBlockAlloca(F, B.getPtrTy(), "object");
+            auto *const next = CreateEntryBlockAlloca(F, B.getPtrTy(), "next");
             B.CreateStore(
                 B.CreateLoad(B.getPtrTy(), objects),
                 object
             );
             B.CreateStore(B.getNullPtr(), next);
 
-            const auto WhileCond = B.CreateBasicBlock("while.cond");
-            const auto WhileBody = B.CreateBasicBlock("while.body");
-            const auto WhileEnd = B.CreateBasicBlock("while.end");
+            auto *const WhileCond = B.CreateBasicBlock("while.cond");
+            auto *const WhileBody = B.CreateBasicBlock("while.body");
+            auto *const WhileEnd = B.CreateBasicBlock("while.end");
 
             B.CreateBr(WhileCond);
             B.SetInsertPoint(WhileCond);
@@ -453,27 +452,27 @@ namespace lox {
                 B.CreateCondBr(B.CreateIsNotNull(B.CreateLoad(B.getPtrTy(), object)), WhileBody, WhileEnd);
                 B.SetInsertPoint(WhileBody);
                 {
-                    const auto ptr = B.CreateLoad(B.getPtrTy(), object);
+                    auto *const ptr = B.CreateLoad(B.getPtrTy(), object);
                     B.CreateStore(
                         B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(Builder.getModule().getObjStructType(), ptr, 2, "next")),
                         next
                     );
 
-                    const auto objectPtr = B.AsObj(B.CreateLoad(B.getInt64Ty(), object));
-                    const auto value = B.ObjVal(objectPtr);
+                    auto *const objectPtr = B.AsObj(B.CreateLoad(B.getInt64Ty(), object));
+                    auto *const value = B.ObjVal(objectPtr);
 
                     if constexpr (ENABLE_RUNTIME_ASSERTS) {
                         // At this point all upvalues should be closed.
-                        const auto IsUpvalueBlock = B.CreateBasicBlock("is.upvalue");
-                        const auto NotUpvalueBlock = B.CreateBasicBlock("not.upvalue");
+                        auto *const IsUpvalueBlock = B.CreateBasicBlock("is.upvalue");
+                        auto *const NotUpvalueBlock = B.CreateBasicBlock("not.upvalue");
 
                         B.CreateCondBr(B.IsUpvalue(value), IsUpvalueBlock, NotUpvalueBlock);
                         B.SetInsertPoint(IsUpvalueBlock);
                         {
-                            const auto upvalue = objectPtr;
-                            const auto closed = B.CreateLoad(B.getInt64Ty(), B.CreateObjStructGEP(ObjType::UPVALUE, upvalue, 3));
+                            auto *const upvalue = objectPtr;
+                            auto *const closed = B.CreateLoad(B.getInt64Ty(), B.CreateObjStructGEP(ObjType::UPVALUE, upvalue, 3));
 
-                            const auto IsNotClosedBlock = B.CreateBasicBlock("notclosed");
+                            auto *const IsNotClosedBlock = B.CreateBasicBlock("notclosed");
 
                             B.CreateCondBr(B.IsNil(closed), IsNotClosedBlock, NotUpvalueBlock);
                             B.SetInsertPoint(IsNotClosedBlock);
@@ -496,15 +495,15 @@ namespace lox {
 
             if constexpr (DEBUG_LOG_GC) {
                 B.PrintF({B.CreateGlobalCachedString("--end free objects (%p)--\n"), (B.CreateLoad(B.getPtrTy(), objects))});
-                const auto current = B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes());
+                auto *const current = B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes());
                 B.PrintF({B.CreateGlobalCachedString("     collected %zu bytes (from %zu to %zu)\n"), B.CreateSub(before, current), before, current});
             }
 
             const auto &M = B.getModule();
-            M.getGrayStack()->CreateFree(B);
-            M.getLocalsStack()->CreateFree(B);
-            M.getGlobalsStack()->CreateFree(B);
-            const auto runtimeStringsTable = B.CreateLoad(B.getPtrTy(), M.getRuntimeStrings());
+            M.getGrayStack().CreateFree(B);
+            M.getLocalsStack().CreateFree(B);
+            M.getGlobalsStack().CreateFree(B);
+            auto *const runtimeStringsTable = B.CreateLoad(B.getPtrTy(), M.getRuntimeStrings());
             B.IRBuilder::CreateFree(B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getTableStructType(), runtimeStringsTable, 2)));
             B.IRBuilder::CreateFree(runtimeStringsTable);
 

@@ -186,7 +186,11 @@ namespace lox {
             nextGC->setAlignment(Align(8));
             nextGC->setConstant(false);
             nextGC->setInitializer(ConstantInt::get(IntegerType::getInt32Ty(getContext()), FIRST_GC_AT));
+
+            initialize();
         }
+
+        void initialize();
 
         StructType *getObjStructType() const {
             return ObjStructType;
@@ -245,29 +249,18 @@ namespace lox {
             return callstackpointer;
         }
 
-        std::shared_ptr<GlobalStack> getGrayStack() const {
-            return grayStack;
+        const GlobalStack &getGrayStack() const {
+            return *grayStack;
+        }
+        const GlobalStack &getGlobalsStack() const {
+            return *globalsStack;
         }
 
-        void setGrayStack(std::shared_ptr<GlobalStack> g) {
-            this->grayStack = std::move(g);
+
+        const GlobalStack &getLocalsStack() const {
+            return *localsStack;
         }
 
-        std::shared_ptr<GlobalStack> getGlobalsStack() const {
-            return globalsStack;
-        }
-
-        void setGlobalsStack(std::shared_ptr<GlobalStack> g) {
-            this->globalsStack = std::move(g);
-        }
-
-        std::shared_ptr<GlobalStack> getLocalsStack() const {
-            return localsStack;
-        }
-
-        void setLocalsStack(std::shared_ptr<GlobalStack> g) {
-            this->localsStack = std::move(g);
-        }
 
         GlobalVariable *getAllocatedBytes() const {
             return allocatedBytes;

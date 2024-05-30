@@ -14,7 +14,7 @@ constexpr uint64_t TAG_TRUE = 3;
 constexpr uint64_t FALSE_VAL = QNAN | TAG_FALSE;
 constexpr uint64_t TRUE_VAL = QNAN | TAG_TRUE;
 constexpr uint64_t NIL_VAL = QNAN | TAG_NIL;
-constexpr uint64_t UNITIALIZED_VAL = QNAN | TAG_UNINITIALIZED;
+constexpr uint64_t UNINITIALIZED_VAL = QNAN | TAG_UNINITIALIZED;
 
 namespace lox {
     enum class ObjType {

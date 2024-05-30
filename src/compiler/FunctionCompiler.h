@@ -55,7 +55,7 @@ namespace lox {
                 B.CreateLifetimeStart(value);
                 index = compiler.localsCount++;
                 if constexpr (DEBUG_STACK) {
-                    const auto stackOffset = B.CreateAdd(
+                    auto *const stackOffset = B.CreateAdd(
                         B.CreateLoad(B.getInt32Ty(), compiler.sp),
                         B.getInt32(index)
                     );
@@ -76,18 +76,18 @@ namespace lox {
 
                 B.CreateLifetimeEnd(value);
 
-                const auto locals = B.getModule().getLocalsStack();
-                const auto stackIndex = B.CreateAdd(
+                const auto &locals = B.getModule().getLocalsStack();
+                auto *const stackIndex = B.CreateAdd(
                     B.CreateLoad(B.getInt32Ty(), compiler.sp),
                     B.getInt32(index)
                 );
                 if constexpr (DEBUG_STACK) {
-                    B.PrintF({B.CreateGlobalCachedString("end local %d at %d %p sp: %d c: %d\n"), B.getInt32(index), stackIndex, value, B.CreateLoad(B.getInt32Ty(), compiler.sp), locals->CreateGetCount(B)});
+                    B.PrintF({B.CreateGlobalCachedString("end local %d at %d %p sp: %d c: %d\n"), B.getInt32(index), stackIndex, value, B.CreateLoad(B.getInt32Ty(), compiler.sp), locals.CreateGetCount(B)});
                 }
 
                 // At the end of the scope, clear the entry in the locals stack,
                 // so that it's no longer reachable by the GC.
-                locals->CreateSet(B, stackIndex, B.getNullPtr());
+                locals.CreateSet(B, stackIndex, B.getNullPtr());
             }
         };
 
@@ -145,7 +145,7 @@ namespace lox {
         }
 
         void endScope() {
-            const auto CurrentBlock = Builder.GetInsertBlock();
+            auto *const CurrentBlock = Builder.GetInsertBlock();
             const bool isEarlyReturn = predecessors(Builder.GetInsertBlock()).empty();
             if (isEarlyReturn) {
                 // If the scope is closed when there is an early return,
@@ -195,7 +195,7 @@ namespace lox {
             }
             if (const auto local = resolveLocal(this, assignable)) return local->value;
 
-            if (const auto upvalue = resolveUpvalue(this, assignable)) {
+            if (auto *const upvalue = resolveUpvalue(this, assignable)) {
                 // upvalue is a pointer to an upvalue object.
                 // We need to load the value at the pointer location in the upvalue struct,
                 // which points to the closed over value.
@@ -208,13 +208,13 @@ namespace lox {
             }
 
             // Lookup global.
-            const auto global = lookupGlobal(assignable.name.getLexeme());
+            auto *const global = lookupGlobal(assignable.name.getLexeme());
             // Globals are late bound, so we must check at runtime if
             // the global is defined and initialized.
-            const auto UndefinedBlock = Builder.CreateBasicBlock("undefined");
-            const auto EndBlock = Builder.CreateBasicBlock("end");
+            auto *const UndefinedBlock = Builder.CreateBasicBlock("undefined");
+            auto *const EndBlock = Builder.CreateBasicBlock("end");
 
-            const auto loadedValue = Builder.CreateLoad(Builder.getInt64Ty(), global);
+            auto *const loadedValue = Builder.CreateLoad(Builder.getInt64Ty(), global);
             Builder.CreateCondBr(Builder.IsUninitialized(loadedValue), UndefinedBlock, EndBlock);
             Builder.SetInsertPoint(UndefinedBlock);
             Builder.RuntimeError(
@@ -230,8 +230,8 @@ namespace lox {
         }
 
         GlobalVariable *lookupGlobal(const std::string_view name) {
-            auto global = Builder.getModule().getNamedGlobal(("g" + name).str());
-            if (!global) {
+            auto *global = Builder.getModule().getNamedGlobal(("g" + name).str());
+            if (global == nullptr) {
                 // Global was not yet defined, so define it already but with an uninitialized value.
                 global = cast<GlobalVariable>(Builder.getModule().getOrInsertGlobal(
                     ("g" + name).str(),
@@ -254,8 +254,8 @@ namespace lox {
         void insertVariable(const std::string_view key, Value *value) {
             assert(value->getType() == Builder.getInt64Ty());
             if (isGlobalScope()) {
-                const auto name = ("g" + key).str();// TODO: how to not call Twine.+?
-                const auto global = cast<GlobalVariable>(Builder.getModule().getOrInsertGlobal(
+                const auto &name = ("g" + key).str();// TODO: how to not call Twine.+?
+                auto *const global = cast<GlobalVariable>(Builder.getModule().getOrInsertGlobal(
                     name,
                     Builder.getInt64Ty()
                 ));
@@ -264,7 +264,7 @@ namespace lox {
                 global->setAlignment(Align(8));
                 global->setConstant(false);
 
-                if (const auto i = dyn_cast<ConstantInt>(value); i && i->getBitWidth() == 64) {
+                if (auto *const i = dyn_cast<ConstantInt>(value); i && i->getBitWidth() == 64) {
                     global->setInitializer(i);
                 } else {
                     global->setInitializer(cast<ConstantInt>(Builder.getNilVal()));
@@ -272,30 +272,30 @@ namespace lox {
                 }
                 PushGlobal(Builder, global, key);
             } else {
-                const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getPtrTy(), key);
+                auto *const alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getPtrTy(), key);
                 const auto local = std::make_shared<Local>(*this, key, alloca);
                 variables.insert(key, local);
                 Builder.CreateStore(value, alloca);
 
                 const auto locals = Builder.getModule().getLocalsStack();
-                const auto stackIndex = Builder.CreateAdd(Builder.CreateLoad(Builder.getInt32Ty(), sp), Builder.getInt32(local->index));
-                locals->CreateSet(Builder, stackIndex, alloca);
+                auto *const stackIndex = Builder.CreateAdd(Builder.CreateLoad(Builder.getInt32Ty(), sp), Builder.getInt32(local->index));
+                locals.CreateSet(Builder, stackIndex, alloca);
             }
         }
 
         Value *insertTemp(Value *value, const std::string_view what) {
             assert(value->getType() == Builder.getInt64Ty());
 
-            const auto name = "$temp";
-            const auto alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getPtrTy(), name);
+            const auto *const name = "$temp";
+            auto *const alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getPtrTy(), name);
 
             const auto local = std::make_shared<Local>(*this, name, alloca);
             variables.insert(name, local);
             Builder.CreateStore(value, alloca);
 
             const auto locals = Builder.getModule().getLocalsStack();
-            const auto stackIndex = Builder.CreateAdd(Builder.CreateLoad(Builder.getInt32Ty(), sp), Builder.getInt32(local->index));
-            locals->CreateSet(Builder, stackIndex, alloca);
+            auto *const stackIndex = Builder.CreateAdd(Builder.CreateLoad(Builder.getInt32Ty(), sp), Builder.getInt32(local->index));
+            locals.CreateSet(Builder, stackIndex, alloca);
 
             return value;
         }
@@ -311,7 +311,7 @@ namespace lox {
                 return addUpvalue(compiler, local->value, true);
             }
 
-            if (const auto upvalue = resolveUpvalue(compiler->enclosing, assignable)) {
+            if (auto *const upvalue = resolveUpvalue(compiler->enclosing, assignable)) {
                 return addUpvalue(compiler, upvalue, false);
             }
 
@@ -336,9 +336,9 @@ namespace lox {
             // Construct instruction sequence to load an upvalue from
             // the upvalue array which is the function's first argument,
             // in the *compiler*'s function.
-            const auto upvalues = Builder.getFunction()->arg_begin();
-            const auto upvalueIndex = Builder.CreateGEP(Builder.getPtrTy(), upvalues, {Builder.getInt32(upvalueArrayIndex)}, "arrayindex");
-            const auto upvaluePtr = Builder.CreateLoad(Builder.getPtrTy(), upvalueIndex, "upvaluePtr");
+            auto *const upvalues = Builder.getFunction()->arg_begin();
+            auto *const upvalueIndex = Builder.CreateGEP(Builder.getPtrTy(), upvalues, {Builder.getInt32(upvalueArrayIndex)}, "arrayindex");
+            auto *const upvaluePtr = Builder.CreateLoad(Builder.getPtrTy(), upvalueIndex, "upvaluePtr");
 
             if constexpr (DEBUG_UPVALUES) {
                 Builder.PrintF({Builder.CreateGlobalCachedString("addUpValue(%p, %d, %p, %p)\n"), upvalues, Builder.getInt32(upvalueArrayIndex), upvalueIndex, upvaluePtr});

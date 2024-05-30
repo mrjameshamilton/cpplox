@@ -31,25 +31,25 @@ using namespace llvm::sys;
 
 namespace lox {
 
+
     void ModuleCompiler::evaluate(const Program &program) const {
-        M->setGrayStack(std::make_shared<GlobalStack>(*M, "gray"));
-        M->setGlobalsStack(std::make_shared<GlobalStack>(*M, "globals"));
-        M->setLocalsStack(std::make_shared<GlobalStack>(*M, "locals"));
+        auto &M = this->getModule();
+
 
         // Native clock function.
         Function *Clock = Function::Create(
-            FunctionType::get(IntegerType::getInt64Ty(*Context), {Builder->getPtrTy(), Builder->getInt64Ty()}, false),
+            FunctionType::get(IntegerType::getInt64Ty(getContext()), {Builder->getPtrTy(), Builder->getInt64Ty()}, false),
             Function::InternalLinkage,
             "clock_native",
-            *M
+            M
         );
         Clock->addFnAttr(Attribute::NoRecurse);
 
-        LoxBuilder ClockBuilder(*Context, *M, *Clock);
-        const auto Entry = ClockBuilder.CreateBasicBlock("entry");
+        LoxBuilder ClockBuilder(getContext(), M, *Clock);
+        auto *const Entry = ClockBuilder.CreateBasicBlock("entry");
         ClockBuilder.SetInsertPoint(Entry);
 
-        const auto libcClock = M->getOrInsertFunction(
+        const auto libcClock = M.getOrInsertFunction(
             "clock",
             FunctionType::get(ClockBuilder.getInt64Ty(), false)
         );
@@ -69,13 +69,13 @@ namespace lox {
             FunctionType::get(Builder->getVoidTy(), {}, false),
             Function::InternalLinkage,
             "script",
-            *M
+            M
         );
 
         F->addFnAttr(Attribute::NoRecurse);
         Builder->getFunction()->addFnAttr(Attribute::NoRecurse);
 
-        FunctionCompiler ScriptCompiler(*Context, *M, *F, LoxFunctionType::NONE);
+        FunctionCompiler ScriptCompiler(getContext(), M, *F, LoxFunctionType::NONE);
 
         CreateGcFunction(*Builder);
 
@@ -85,14 +85,14 @@ namespace lox {
         });
 
         Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));
-        const auto runtimeStringsTable = Builder->AllocateTable();
-        Builder->CreateStore(runtimeStringsTable, M->getRuntimeStrings());
+        auto *const runtimeStringsTable = Builder->AllocateTable();
+        Builder->CreateStore(runtimeStringsTable, M.getRuntimeStrings());
         Builder->CreateCall(F);
 
         if constexpr (ENABLE_RUNTIME_ASSERTS) {
-            const auto locals = Builder->getModule().getLocalsStack()->CreateGetCount(*Builder);
-            const auto IsZeroBlock = Builder->CreateBasicBlock("is.empty");
-            const auto IsNotZeroBlock = Builder->CreateBasicBlock("is.notempty");
+            auto *const locals = Builder->getModule().getLocalsStack().CreateGetCount(*Builder);
+            auto *const IsZeroBlock = Builder->CreateBasicBlock("is.empty");
+            auto *const IsNotZeroBlock = Builder->CreateBasicBlock("is.notempty");
 
             Builder->CreateCondBr(Builder->CreateICmpEQ(Builder->getInt32(0), locals), IsZeroBlock, IsNotZeroBlock);
             Builder->SetInsertPoint(IsNotZeroBlock);
@@ -123,17 +123,18 @@ namespace lox {
 
         ModulePassManager MPM = PB.buildPerModuleDefaultPipeline(OptimizationLevel::O2);
 
-        MPM.run(*M, MAM);
+        MPM.run(getModule(), MAM);
     }
 
     bool ModuleCompiler::writeIR(const std::string_view Filename) const {
         std::error_code ec;
 
         const auto TargetTriple = getDefaultTargetTriple();
-        M->setTargetTriple(TargetTriple);
+        auto &M = getModule();
+        M.setTargetTriple(TargetTriple);
 
         auto out = raw_fd_ostream(Filename, ec);
-        M->print(out, nullptr);
+        M.print(out, nullptr);
         out.close();
         return ec.value() == 0;
     }
@@ -165,7 +166,7 @@ namespace lox {
             TargetTriple, CPU, Features, opt, Reloc::PIC_
         );
 
-        M->setDataLayout(TheTargetMachine->createDataLayout());
+        getModule().setDataLayout(TheTargetMachine->createDataLayout());
 
         std::error_code EC;
         raw_fd_ostream dest(Filename, EC, sys::fs::OF_None);
@@ -182,7 +183,7 @@ namespace lox {
             return false;
         }
 
-        pass.run(*M);
+        pass.run(getModule());
         dest.flush();
 
         std::cout << "Wrote " << Filename << "\n";

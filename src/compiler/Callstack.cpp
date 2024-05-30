@@ -3,8 +3,8 @@
 
 namespace lox {
     void PushCall(LoxBuilder &Builder, Value *line, Value *name) {
-        static auto PushFunction([&Builder] {
-            const auto F = Function::Create(
+        static auto *PushFunction([&Builder] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
                     {Builder.getInt32Ty(), Builder.getPtrTy()},
@@ -17,19 +17,19 @@ namespace lox {
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
-            const auto arguments = F->args().begin();
-            const auto line = arguments;
-            const auto name = arguments + 1;
+            auto *const arguments = F->args().begin();
+            auto *const line = arguments;
+            auto *const name = arguments + 1;
 
-            const auto $sp = B.getModule().getCallStackPointer();
-            const auto $cs = B.getModule().getCallStack();
+            auto *const $sp = B.getModule().getCallStackPointer();
+            auto *const $cs = B.getModule().getCallStack();
 
-            const auto sp = B.CreateLoad(B.getInt32Ty(), $sp);
+            auto *const sp = B.CreateLoad(B.getInt32Ty(), $sp);
 
-            const auto addr = B.CreateGEP($cs->getValueType(), $cs, {B.getInt32(0), sp});
+            auto *const addr = B.CreateGEP($cs->getValueType(), $cs, {B.getInt32(0), sp});
             B.CreateStore(line, B.CreateGEP(B.getModule().getCallStruct(), addr, {B.getInt32(0), B.getInt32(0)}));
             B.CreateStore(name, B.CreateGEP(B.getModule().getCallStruct(), addr, {B.getInt32(0), B.getInt32(1)}));
 
@@ -44,8 +44,8 @@ namespace lox {
     }
 
     void PopCall(LoxBuilder &Builder) {
-        static auto PopFunction([&Builder] {
-            const auto F = Function::Create(
+        static auto *PopFunction([&Builder] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
                     {},
@@ -58,11 +58,11 @@ namespace lox {
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
-            const auto $sp = B.getModule().getCallStackPointer();
-            const auto sp = B.CreateLoad(B.getInt32Ty(), $sp);
+            auto *const $sp = B.getModule().getCallStackPointer();
+            auto *const sp = B.CreateLoad(B.getInt32Ty(), $sp);
             B.CreateStore(B.CreateSub(sp, B.getInt32(1)), $sp);
 
             B.CreateRetVoid();
@@ -74,8 +74,8 @@ namespace lox {
     }
 
     void PrintStackTrace(LoxBuilder &Builder) {
-        static auto PrintStackTraceFunction([&Builder] {
-            const auto F = Function::Create(
+        static auto *PrintStackTraceFunction([&Builder] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
                     {},
@@ -88,36 +88,36 @@ namespace lox {
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
-            const auto $sp = B.getModule().getCallStackPointer();
-            const auto $cs = B.getModule().getCallStack();
+            auto *const $sp = B.getModule().getCallStackPointer();
+            auto *const $cs = B.getModule().getCallStack();
 
-            const auto sp = B.CreateLoad(B.getInt32Ty(), $sp);
+            auto *const sp = B.CreateLoad(B.getInt32Ty(), $sp);
 
-            const auto i = CreateEntryBlockAlloca(F, B.getInt32Ty(), "i");
+            auto *const i = CreateEntryBlockAlloca(F, B.getInt32Ty(), "i");
 
             B.CreateStore(B.getInt32(1), i);
 
-            const auto ForCond = B.CreateBasicBlock("for.cond");
-            const auto ForBody = B.CreateBasicBlock("for.body");
-            const auto ForInc = B.CreateBasicBlock("for.inc");
-            const auto ForEnd = B.CreateBasicBlock("for.end");
+            auto *const ForCond = B.CreateBasicBlock("for.cond");
+            auto *const ForBody = B.CreateBasicBlock("for.body");
+            auto *const ForInc = B.CreateBasicBlock("for.inc");
+            auto *const ForEnd = B.CreateBasicBlock("for.end");
 
             B.CreateBr(ForCond);
             B.SetInsertPoint(ForCond);
             B.CreateCondBr(B.CreateICmpSLE(B.CreateLoad(B.getInt32Ty(), i), sp), ForBody, ForEnd);
             B.SetInsertPoint(ForBody);
 
-            const auto top = B.CreateSub(B.CreateLoad(B.getInt32Ty(), $sp), B.CreateLoad(B.getInt32Ty(), i));
-            const auto addr = B.CreateGEP($cs->getValueType(), $cs, {B.getInt32(0), top});
+            auto *const top = B.CreateSub(B.CreateLoad(B.getInt32Ty(), $sp), B.CreateLoad(B.getInt32Ty(), i));
+            auto *const addr = B.CreateGEP($cs->getValueType(), $cs, {B.getInt32(0), top});
 
-            const auto line = B.CreateLoad(B.getInt32Ty(), B.CreateGEP(B.getModule().getCallStruct(), addr, {B.getInt32(0), B.getInt32(0)}));
-            const auto name = B.CreateLoad(B.getPtrTy(), B.CreateGEP(B.getModule().getCallStruct(), addr, {B.getInt32(0), B.getInt32(1)}));
+            auto *const line = B.CreateLoad(B.getInt32Ty(), B.CreateGEP(B.getModule().getCallStruct(), addr, {B.getInt32(0), B.getInt32(0)}));
+            auto *const name = B.CreateLoad(B.getPtrTy(), B.CreateGEP(B.getModule().getCallStruct(), addr, {B.getInt32(0), B.getInt32(1)}));
 
-            const auto IsScriptBlock = B.CreateBasicBlock("is.script");
-            const auto IsNotScriptBlock = B.CreateBasicBlock("isnot.script");
+            auto *const IsScriptBlock = B.CreateBasicBlock("is.script");
+            auto *const IsNotScriptBlock = B.CreateBasicBlock("isnot.script");
 
             B.CreateCondBr(B.CreateICmpEQ(sp, B.CreateLoad(B.getInt32Ty(), i)), IsScriptBlock, IsNotScriptBlock);
 
@@ -143,8 +143,8 @@ namespace lox {
     }
 
     void CheckStackOverflow(LoxBuilder &Builder, Value *line, Value *name) {
-        static auto CheckStackOverflowFunction([&Builder] {
-            const auto F = Function::Create(
+        static auto *CheckStackOverflowFunction([&Builder] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
                     {Builder.getInt32Ty(), Builder.getPtrTy()},
@@ -157,18 +157,18 @@ namespace lox {
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
-            const auto arguments = F->args().begin();
-            const auto line = arguments;
-            const auto name = arguments + 1;
+            auto *const arguments = F->args().begin();
+            auto *const line = arguments;
+            auto *const name = arguments + 1;
 
-            const auto $sp = B.getModule().getCallStackPointer();
+            auto *const $sp = B.getModule().getCallStackPointer();
 
-            const auto sp = B.CreateLoad(B.getInt32Ty(), $sp);
+            auto *const sp = B.CreateLoad(B.getInt32Ty(), $sp);
 
-            const auto IsStackOverFlow = B.CreateBasicBlock("is.stackoverflow");
-            const auto IsNotStackOverFlow = B.CreateBasicBlock("isnot.stackoverflow");
+            auto *const IsStackOverFlow = B.CreateBasicBlock("is.stackoverflow");
+            auto *const IsNotStackOverFlow = B.CreateBasicBlock("isnot.stackoverflow");
 
             B.CreateCondBr(B.CreateICmpSGE(sp, B.getInt32(MAX_CALL_STACK_SIZE - 1)), IsStackOverFlow, IsNotStackOverFlow);
 

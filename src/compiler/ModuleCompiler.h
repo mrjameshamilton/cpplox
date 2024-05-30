@@ -13,19 +13,29 @@ using namespace llvm::sys;
 
 namespace lox {
 
-    struct ModuleCompiler {
+    class ModuleCompiler {
         std::shared_ptr<LLVMContext> Context = std::make_shared<LLVMContext>();
-        std::shared_ptr<LoxModule> M = std::make_shared<LoxModule>(*Context);
-        Function *MainFunction =
-            Function::Create(FunctionType::get(IntegerType::getInt32Ty(*Context), false), Function::ExternalLinkage, "main", *M);
-        std::unique_ptr<LoxBuilder> Builder = std::make_unique<LoxBuilder>(*Context, *M, *MainFunction);
+        std::unique_ptr<LoxModule> M = std::make_unique<LoxModule>(*Context);
+        std::unique_ptr<LoxBuilder> Builder;
 
-        ModuleCompiler() = default;
+    public:
+        ModuleCompiler() {
+            Function *MainFunction = Function::Create(FunctionType::get(IntegerType::getInt32Ty(*Context), false), Function::ExternalLinkage, "main", *M);
+            Builder = std::make_unique<LoxBuilder>(*Context, *M, *MainFunction);
+        }
+
+        [[nodiscard]] LoxModule &getModule() const {
+            return *M;
+        }
+
+        [[nodiscard]] LLVMContext &getContext() const {
+            return *Context;
+        }
 
         void evaluate(const Program &program) const;
         void optimize() const;
-        bool writeIR(std::string_view Filename) const;
-        bool writeObject(std::string_view Filename) const;
+        [[nodiscard]] bool writeIR(std::string_view Filename) const;
+        [[nodiscard]] bool writeObject(std::string_view Filename) const;
     };
 
 }// namespace lox

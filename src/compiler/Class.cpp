@@ -9,9 +9,9 @@ using namespace std::string_view_literals;
 namespace lox {
 
     Value *LoxBuilder::AllocateClass(Value *name) {
-        const auto ptr = AllocateObj(ObjType::CLASS, "class");
+        auto *const ptr = AllocateObj(ObjType::CLASS, "class");
 
-        const auto methods = AllocateTable();
+        auto *const methods = AllocateTable();
 
         CreateStore(name, CreateObjStructGEP(ObjType::CLASS, ptr, 1));
         CreateStore(methods, CreateObjStructGEP(ObjType::CLASS, ptr, 2));
@@ -20,7 +20,7 @@ namespace lox {
     }
 
     Value *LoxBuilder::AllocateInstance(Value *klass) {
-        const auto ptr = AllocateObj(ObjType::INSTANCE, "instance");
+        auto *const ptr = AllocateObj(ObjType::INSTANCE, "instance");
 
         Value *fields = AllocateTable();
 
@@ -34,8 +34,8 @@ namespace lox {
         assert(klass->getType() == getPtrTy());
         assert(receiver->getType() == getPtrTy());
 
-        static auto BindMethodFunction([this] {
-            const auto F = Function::Create(
+        static auto *BindMethodFunction([this] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     getPtrTy(),
                     {getPtrTy(), getPtrTy(), getPtrTy(), getInt32Ty(), getPtrTy()},
@@ -48,55 +48,48 @@ namespace lox {
 
             LoxBuilder B(getContext(), getModule(), *F);
 
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
-            const auto arguments = F->args().begin();
-            const auto klass = arguments;
-            const auto receiver = arguments + 1;
-            const auto key = arguments + 2;
-            const auto line = arguments + 3;
-            const auto function = arguments + 4;
+            auto *const arguments = F->args().begin();
+            auto *const klass = arguments;
+            auto *const receiver = arguments + 1;
+            auto *const key = arguments + 2;
+            auto *const line = arguments + 3;
+            auto *const function = arguments + 4;
 
-            const auto methods = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::CLASS, klass, 2));
-            const auto method = B.TableGet(methods, key);
+            auto *const methods = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::CLASS, klass, 2));
+            auto *const method = B.TableGet(methods, key);
 
-            const auto IsMethodBlock = B.CreateBasicBlock("property.ismethod");
-            const auto IsUndefinedBlock = B.CreateBasicBlock("property.undefined");
-            const auto IsDefinedBlock = B.CreateBasicBlock("property.defined");
+            auto *const IsUndefinedBlock = B.CreateBasicBlock("property.undefined");
+            auto *const IsDefinedBlock = B.CreateBasicBlock("property.defined");
 
-            B.CreateCondBr(B.IsUninitialized(method), IsUndefinedBlock, IsMethodBlock);
-
-            B.SetInsertPoint(IsMethodBlock);
-
-            B.CreateBr(IsDefinedBlock);
+            B.CreateCondBr(B.IsUninitialized(method), IsUndefinedBlock, IsDefinedBlock);
 
             B.SetInsertPoint(IsUndefinedBlock);
-            B.RuntimeError(
-                line,
-                "Undefined property '%s'.\n"sv,
-                {B.AsCString(B.ObjVal(key))},
-                function
-            );
-            B.CreateUnreachable();
-
+            {
+                B.RuntimeError(
+                    line,
+                    "Undefined property '%s'.\n"sv,
+                    {B.AsCString(B.ObjVal(key))},
+                    function
+                );
+                B.CreateUnreachable();
+            }
             B.SetInsertPoint(IsDefinedBlock);
-
-            const auto ptr = B.AllocateObj(ObjType::BOUND_METHOD, "bound_method");
-
-            B.CreateStore(B.ObjVal(receiver), B.CreateObjStructGEP(ObjType::BOUND_METHOD, ptr, 1));
-            B.CreateStore(B.AsObj(method), B.CreateObjStructGEP(ObjType::BOUND_METHOD, ptr, 2));
-
-            B.CreateRet(ptr);
+            {
+                auto *const ptr = B.AllocateObj(ObjType::BOUND_METHOD, "bound_method");
+                B.CreateStore(B.ObjVal(receiver), B.CreateObjStructGEP(ObjType::BOUND_METHOD, ptr, 1));
+                B.CreateStore(B.AsObj(method), B.CreateObjStructGEP(ObjType::BOUND_METHOD, ptr, 2));
+                B.CreateRet(ptr);
+            }
 
             return F;
         }());
 
-        const auto boundMethodObj = CreateCall(
+        return CreateCall(
             BindMethodFunction,
             {klass, receiver, key, getInt32(line), CreateGlobalCachedString(pFunction == nullptr ? "script" : pFunction->getName())}
         );
-
-        return boundMethodObj;
     }
 }// namespace lox

@@ -16,7 +16,7 @@ using namespace llvm::sys;
 namespace lox {
 
     Value *LoxBuilder::getUninitializedVal() {
-        return getInt64(UNITIALIZED_VAL);
+        return getInt64(UNINITIALIZED_VAL);
     }
 
     Value *LoxBuilder::getNilVal() {
@@ -58,8 +58,8 @@ namespace lox {
 
     static Value *CheckType(LoxBuilder &Builder, Value *value, const ObjType type) {
         assert(value->getType() == Builder.getInt64Ty());
-        static auto CheckTypeFunction([&Builder] {
-            const auto F = Function::Create(
+        static auto *CheckTypeFunction([&Builder] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     Builder.getInt1Ty(),
                     {Builder.getInt64Ty(), Builder.getInt8Ty()},
@@ -74,15 +74,15 @@ namespace lox {
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
-            const auto arguments = F->args().begin();
-            const auto value = arguments;
-            const auto type = arguments + 1;
+            auto *const arguments = F->args().begin();
+            auto *const value = arguments;
+            auto *const type = arguments + 1;
 
-            const auto IsObjBlock = B.CreateBasicBlock("is.obj");
-            const auto IsNotObjectBlock = B.CreateBasicBlock("is.notobj");
+            auto *const IsObjBlock = B.CreateBasicBlock("is.obj");
+            auto *const IsNotObjectBlock = B.CreateBasicBlock("is.notobj");
 
             // The value is of the specified object type if the value is an object
             // and the object type field in the struct matches the type.
@@ -173,8 +173,8 @@ namespace lox {
     }
 
     Value *LoxBuilder::IsTruthy(Value *value) {
-        static auto IsTruthyFunction([this] {
-            const auto F = Function::Create(
+        static auto *IsTruthyFunction([this] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     getInt1Ty(),
                     getInt64Ty(),
@@ -187,24 +187,30 @@ namespace lox {
 
             LoxBuilder B(getContext(), getModule(), *F);
 
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
-            const auto IsNullBlock = B.CreateBasicBlock("if.null");
-            const auto IsNotNullBlock = B.CreateBasicBlock("if.not.bool");
-            const auto IsBoolBlock = B.CreateBasicBlock("if.bool");
-            const auto EndBlock = B.CreateBasicBlock("if.end");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const IsNullBlock = B.CreateBasicBlock("if.null");
+            auto *const IsNotNullBlock = B.CreateBasicBlock("if.not.bool");
+            auto *const IsBoolBlock = B.CreateBasicBlock("if.bool");
+            auto *const EndBlock = B.CreateBasicBlock("if.end");
 
             B.SetInsertPoint(EntryBasicBlock);
 
-            const auto p0 = F->args().begin();
+            auto *const p0 = F->args().begin();
             B.CreateCondBr(B.IsNil(p0), IsNullBlock, IsNotNullBlock);
             B.SetInsertPoint(IsNullBlock);
-            B.CreateRet(B.getFalse());
+            {
+                B.CreateRet(B.getFalse());
+            }
             B.SetInsertPoint(IsNotNullBlock);
-            B.CreateCondBr(B.IsBool(p0), IsBoolBlock, EndBlock);
-            B.SetInsertPoint(IsBoolBlock);
-            B.CreateRet(B.AsBool(p0));
+            {
+                B.CreateCondBr(B.IsBool(p0), IsBoolBlock, EndBlock);
+                B.SetInsertPoint(IsBoolBlock);
+                B.CreateRet(B.AsBool(p0));
+            }
             B.SetInsertPoint(EndBlock);
-            B.CreateRet(B.getTrue());
+            {
+                B.CreateRet(B.getTrue());
+            }
 
             return F;
         }());
@@ -214,8 +220,8 @@ namespace lox {
 
     void LoxBuilder::Print(Value *value) {
         assert(value->getType() == getInt64Ty());
-        static auto PrintFunction([this] {
-            const auto F = Function::Create(
+        static auto *PrintFunction([this] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     getVoidTy(),
                     getInt64Ty(),
@@ -228,48 +234,54 @@ namespace lox {
 
             LoxBuilder B(this->getContext(), this->getModule(), *F);
 
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
-            const auto value = F->args().begin();
+            auto *const value = F->args().begin();
 
-            const auto BoolBlock = B.CreateBasicBlock("if.print.bool");
-            const auto EndBoolBlock = B.CreateBasicBlock("if.print.bool.end");
-            const auto NilBlock = B.CreateBasicBlock("if.print.nil");
-            const auto EndNilBlock = B.CreateBasicBlock("if.print.nil.end");
-            const auto NumBlock = B.CreateBasicBlock("if.print.num");
-            const auto ObjBlock = B.CreateBasicBlock("if.print.obj");
-            const auto EndObjBlock = B.CreateBasicBlock("if.print.obj.end");
-            const auto OtherBlock = B.CreateBasicBlock("if.print.other");
-            const auto EndBlock = B.CreateBasicBlock("if.print.end");
+            auto *const BoolBlock = B.CreateBasicBlock("if.print.bool");
+            auto *const EndBoolBlock = B.CreateBasicBlock("if.print.bool.end");
+            auto *const NilBlock = B.CreateBasicBlock("if.print.nil");
+            auto *const EndNilBlock = B.CreateBasicBlock("if.print.nil.end");
+            auto *const NumBlock = B.CreateBasicBlock("if.print.num");
+            auto *const ObjBlock = B.CreateBasicBlock("if.print.obj");
+            auto *const EndObjBlock = B.CreateBasicBlock("if.print.obj.end");
+            auto *const OtherBlock = B.CreateBasicBlock("if.print.other");
+            auto *const EndBlock = B.CreateBasicBlock("if.print.end");
 
             B.CreateCondBr(B.IsBool(value), BoolBlock, EndBoolBlock);
             B.SetInsertPoint(BoolBlock);
-            B.PrintBool(value);
-            B.CreateBr(EndBlock);
+            {
+                B.PrintBool(value);
+                B.CreateBr(EndBlock);
+            }
             B.SetInsertPoint(EndBoolBlock);
 
             B.CreateCondBr(B.IsNil(value), NilBlock, EndNilBlock);
             B.SetInsertPoint(NilBlock);
-            B.PrintNil();
-            B.CreateBr(EndBlock);
+            {
+                B.PrintNil();
+                B.CreateBr(EndBlock);
+            }
             B.SetInsertPoint(EndNilBlock);
 
             B.CreateCondBr(B.IsNumber(value), NumBlock, EndObjBlock);
             B.SetInsertPoint(NumBlock);
-            B.PrintNumber(value);
-            B.CreateBr(EndBlock);
-            B.SetInsertPoint(EndObjBlock);
+            {
+                B.PrintNumber(value);
+                B.CreateBr(EndBlock);
+                B.SetInsertPoint(EndObjBlock);
+            }
 
             B.CreateCondBr(B.IsObj(value), ObjBlock, OtherBlock);
             B.SetInsertPoint(ObjBlock);
-            B.PrintObject(value);
-            B.CreateBr(EndBlock);
+            {
+                B.PrintObject(value);
+                B.CreateBr(EndBlock);
+            }
 
             B.SetInsertPoint(OtherBlock);
-            //B.PrintF({B.CreateGlobalCachedString("other %p\n"), value});
             B.CreateUnreachable();
-            //B.CreateBr(EndBlock);
 
             B.SetInsertPoint(EndBlock);
             B.CreateRetVoid();
@@ -289,7 +301,7 @@ namespace lox {
     }
 
     void LoxBuilder::PrintFErr(Value *message, const std::vector<Value *> &values) {
-        static const auto StdErr = getModule().getOrInsertGlobal("stderr", getPtrTy());
+        static auto *const StdErr = getModule().getOrInsertGlobal("stderr", getPtrTy());
         static const auto FPrintF = getModule().getOrInsertFunction(
             "fprintf",
             FunctionType::get(getInt8Ty(), {PointerType::get(Context, 0), PointerType::get(Context, 0)}, true)
@@ -315,19 +327,19 @@ namespace lox {
     }
 
     void LoxBuilder::PrintObject(Value *value) {
-        const auto IsStringBlock = CreateBasicBlock("print.string");
-        const auto IsClosureBlock = CreateBasicBlock("print.closure");
-        const auto IsFunctionBlock = CreateBasicBlock("print.function");
-        const auto IsUpvalueBlock = CreateBasicBlock("print.upvalue");
-        const auto IsClassBlock = CreateBasicBlock("print.class");
-        const auto IsInstanceBlock = CreateBasicBlock("print.instance");
-        const auto IsNativeFunctionBlock = CreateBasicBlock("print.native.function");
-        const auto IsNotNativeFunctionBlock = CreateBasicBlock("print.not.native.function");
-        const auto IsBoundMethod = CreateBasicBlock("print.boundmethod");
-        const auto DefaultBlock = CreateBasicBlock("print.default");
-        const auto EndBlock = CreateBasicBlock("print.end");
+        auto *const IsStringBlock = CreateBasicBlock("print.string");
+        auto *const IsClosureBlock = CreateBasicBlock("print.closure");
+        auto *const IsFunctionBlock = CreateBasicBlock("print.function");
+        auto *const IsUpvalueBlock = CreateBasicBlock("print.upvalue");
+        auto *const IsClassBlock = CreateBasicBlock("print.class");
+        auto *const IsInstanceBlock = CreateBasicBlock("print.instance");
+        auto *const IsNativeFunctionBlock = CreateBasicBlock("print.native.function");
+        auto *const IsNotNativeFunctionBlock = CreateBasicBlock("print.not.native.function");
+        auto *const IsBoundMethod = CreateBasicBlock("print.boundmethod");
+        auto *const DefaultBlock = CreateBasicBlock("print.default");
+        auto *const EndBlock = CreateBasicBlock("print.end");
 
-        const auto Switch = CreateSwitch(ObjType(value), DefaultBlock);
+        auto *const Switch = CreateSwitch(ObjType(value), DefaultBlock);
         Switch->addCase(ObjTypeInt(ObjType::STRING), IsStringBlock);
         Switch->addCase(ObjTypeInt(ObjType::CLOSURE), IsClosureBlock);
         Switch->addCase(ObjTypeInt(ObjType::FUNCTION), IsFunctionBlock);
@@ -344,10 +356,10 @@ namespace lox {
 
         SetInsertPoint(IsClosureBlock);
         {
-            const auto closure = AsObj(value);
-            const auto function = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::CLOSURE, closure, 1));
+            auto *const closure = AsObj(value);
+            auto *const function = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::CLOSURE, closure, 1));
 
-            const auto isNative = CreateLoad(getInt1Ty(), CreateObjStructGEP(ObjType::FUNCTION, function, 4));
+            auto *const isNative = CreateLoad(getInt1Ty(), CreateObjStructGEP(ObjType::FUNCTION, function, 4));
 
             CreateCondBr(isNative, IsNativeFunctionBlock, IsNotNativeFunctionBlock);
             SetInsertPoint(IsNativeFunctionBlock);
@@ -361,7 +373,7 @@ namespace lox {
         SetInsertPoint(IsFunctionBlock);
         {
             // Not usually printable, but useful for debugging.
-            const auto function = AsObj(value);
+            auto *const function = AsObj(value);
             PrintF({CreateGlobalCachedString("<fn %s>\n"), AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::FUNCTION, function, 3)))});
         }
         CreateBr(EndBlock);
@@ -369,10 +381,10 @@ namespace lox {
         SetInsertPoint(IsUpvalueBlock);
         {
             // Not usually printable, but useful for debugging.
-            const auto upvalue = AsObj(value);
-            const auto object = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 1));
-            const auto next = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 2));
-            const auto closed = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 3));
+            auto *const upvalue = AsObj(value);
+            auto *const object = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 1));
+            auto *const next = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 2));
+            auto *const closed = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 3));
             PrintF({CreateGlobalCachedString("Upvalue(%p, %p, next = %p, closed = %d) = "), upvalue, object, next, closed});
             CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("$print"), CreateLoad(getInt64Ty(), object));
         }
@@ -380,22 +392,22 @@ namespace lox {
 
         SetInsertPoint(IsClassBlock);
         {
-            const auto klass = AsObj(value);
+            auto *const klass = AsObj(value);
             PrintF({CreateGlobalCachedString("%s\n"), AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::CLASS, klass, 1)))});
             CreateBr(EndBlock);
 
             SetInsertPoint(IsInstanceBlock);
 
-            const auto instance = AsObj(value);
-            const auto instanceKlass = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
+            auto *const instance = AsObj(value);
+            auto *const instanceKlass = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
             PrintF({CreateGlobalCachedString("%s instance\n"), AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::CLASS, instanceKlass, 1)))});
         }
         CreateBr(EndBlock);
 
         SetInsertPoint(IsBoundMethod);
         {
-            const auto bound = AsObj(value);
-            const auto methodClosure = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::BOUND_METHOD, bound, 2));
+            auto *const bound = AsObj(value);
+            auto *const methodClosure = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::BOUND_METHOD, bound, 2));
             CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("$print"), ObjVal(methodClosure));
         }
         CreateBr(EndBlock);

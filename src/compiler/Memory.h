@@ -10,7 +10,7 @@
 using namespace llvm;
 
 namespace lox {
-    AllocaInst *CreateEntryBlockAlloca(Function *TheFunction, Type *type, const std::string_view VarName, const std::function<void(IRBuilder<> &, AllocaInst *)> &entryBuilder = nullptr);
+    AllocaInst *CreateEntryBlockAlloca(Function *TheFunction, Type *type, std::string_view VarName, const std::function<void(IRBuilder<> &, AllocaInst *)> &entryBuilder = nullptr);
     void FreeObject(LoxBuilder &Builder, Value *value);
     void FreeObjects(LoxBuilder &Builder);
 }// namespace lox

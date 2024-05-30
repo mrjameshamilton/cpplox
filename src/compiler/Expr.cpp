@@ -1,8 +1,6 @@
-#include "../Debug.h"
 #include "Callstack.h"
 #include "FunctionCompiler.h"
 #include "ModuleCompiler.h"
-#include "Table.h"
 
 #include <bit>
 #include <iostream>
@@ -21,8 +19,8 @@ namespace lox {
     }
 
     Value *FunctionCompiler::operator()(const AssignExprPtr &assignExpr) {
-        const auto value = evaluate(assignExpr->value);
-        const auto variable = lookupVariable(*assignExpr);
+        auto *const value = evaluate(assignExpr->value);
+        auto *const variable = lookupVariable(*assignExpr);
         Builder.CreateStore(value, variable);
         return value;
     }
@@ -75,7 +73,7 @@ namespace lox {
                 Builder.SetInsertPoint(IsMaybeStringBlock);
                 Builder.CreateCondBr(Builder.CreateAnd(Builder.IsString(left), Builder.IsString(right)), IsStringBlock, InvalidBlock);
                 Builder.SetInsertPoint(IsStringBlock);
-                const auto Y = insertTemp(Builder.ObjVal(Builder.Concat(left, right)), "string concat");
+                auto *const Y = insertTemp(Builder.ObjVal(Builder.Concat(left, right)), "string concat");
                 Builder.CreateBr(EndBlock);
 
                 Builder.SetInsertPoint(InvalidBlock);
@@ -228,16 +226,16 @@ namespace lox {
         Builder.SetInsertPoint(CheckClassBlock);
         Builder.CreateCondBr(Builder.IsClass(value), IsClassBlock, CheckMethodBlock);
         Builder.SetInsertPoint(IsClassBlock);
-        const auto klass = valuePtr;
-        const auto initString = Builder.AsObj(Builder.CreateLoad(Builder.getInt64Ty(), lookupGlobal("$initString")));
-        const auto initializer = Builder.TableGet(Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2)), initString);
+        auto *const klass = valuePtr;
+        auto *const initString = Builder.AsObj(Builder.CreateLoad(Builder.getInt64Ty(), lookupGlobal("$initString")));
+        auto *const initializer = Builder.TableGet(Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2)), initString);
 
-        const auto instance = Builder.AllocateInstance(klass);
-        const auto instanceVal = insertTemp(Builder.ObjVal(instance), "instance");
+        auto *const instance = Builder.AllocateInstance(klass);
+        auto *const instanceVal = insertTemp(Builder.ObjVal(instance), "instance");
 
-        const auto EndClassBlock = Builder.CreateBasicBlock("class.end");
-        const auto HasInitializerBlock = Builder.CreateBasicBlock("call.init");
-        const auto NoInitializerBlock = Builder.CreateBasicBlock("call.noinit");
+        auto *const EndClassBlock = Builder.CreateBasicBlock("class.end");
+        auto *const HasInitializerBlock = Builder.CreateBasicBlock("call.init");
+        auto *const NoInitializerBlock = Builder.CreateBasicBlock("call.noinit");
 
         Builder.CreateCondBr(Builder.IsUninitialized(initializer), NoInitializerBlock, HasInitializerBlock);
         Builder.SetInsertPoint(HasInitializerBlock);

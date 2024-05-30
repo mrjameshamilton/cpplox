@@ -3,7 +3,6 @@
 #include "LoxModule.h"
 #include "Value.h"
 #include <llvm/IR/IRBuilder.h>
-#include <llvm/IR/NoFolder.h>
 
 using namespace llvm;
 
@@ -101,7 +100,7 @@ namespace lox {
                 return strings.at(string);
             }
 
-            const auto ptr = CreateGlobalStringPtr(string);
+            auto *const ptr = CreateGlobalStringPtr(string);
             strings[string] = ptr;
             return ptr;
         }

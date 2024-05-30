@@ -15,49 +15,53 @@ namespace lox {
     static void MarkObject(LoxBuilder &B, Value *ObjectPtr) {
         assert(ObjectPtr->getType() == B.getPtrTy());
 
-        const auto IsNotNull = B.CreateBasicBlock("is.notnull");
-        const auto IsNotMarkedBlock = B.CreateBasicBlock("is.notmarked");
-        const auto IsMarkedBlock = DEBUG_LOG_GC ? B.CreateBasicBlock("is.marked") : nullptr;
-        const auto EndBlock = B.CreateBasicBlock("end.obj");
+        auto *const IsNotNull = B.CreateBasicBlock("is.notnull");
+        auto *const IsNotMarkedBlock = B.CreateBasicBlock("is.notmarked");
+        auto *const IsMarkedBlock = DEBUG_LOG_GC ? B.CreateBasicBlock("is.marked") : nullptr;
+        auto *const EndBlock = B.CreateBasicBlock("end.obj");
 
         B.CreateCondBr(B.CreateIsNull(ObjectPtr), EndBlock, IsNotNull);
         B.SetInsertPoint(IsNotNull);
+        {
+            auto *const isMarked = B.CreateLoad(
+                B.getInt1Ty(),
+                B.CreateStructGEP(B.getModule().getObjStructType(), ObjectPtr, 1, "isMarked")
+            );
 
-        const auto isMarked = B.CreateLoad(B.getInt1Ty(), B.CreateStructGEP(B.getModule().getObjStructType(), ObjectPtr, 1, "isMarked"));
-
-        if constexpr (DEBUG_LOG_GC) {
-            B.CreateCondBr(B.CreateICmpEQ(B.getTrue(), isMarked), IsMarkedBlock, IsNotMarkedBlock);
-            B.SetInsertPoint(IsMarkedBlock);
-            B.PrintF({B.CreateGlobalCachedString("already marked(%p) = "), ObjectPtr});
-            B.Print(B.ObjVal(ObjectPtr));
-            B.CreateBr(EndBlock);
-        } else {
-            B.CreateCondBr(B.CreateICmpEQ(B.getTrue(), isMarked), EndBlock, IsNotMarkedBlock);
+            if constexpr (DEBUG_LOG_GC) {
+                B.CreateCondBr(B.CreateICmpEQ(B.getTrue(), isMarked), IsMarkedBlock, IsNotMarkedBlock);
+                B.SetInsertPoint(IsMarkedBlock);
+                B.PrintF({B.CreateGlobalCachedString("already marked(%p) = "), ObjectPtr});
+                B.Print(B.ObjVal(ObjectPtr));
+                B.CreateBr(EndBlock);
+            } else {
+                B.CreateCondBr(B.CreateICmpEQ(B.getTrue(), isMarked), EndBlock, IsNotMarkedBlock);
+            }
         }
-
         B.SetInsertPoint(IsNotMarkedBlock);
+        {
+            if constexpr (DEBUG_LOG_GC) {
+                B.PrintF({B.CreateGlobalCachedString("mark(%p, type: %d) = "), ObjectPtr, B.ObjType(B.ObjVal(ObjectPtr))});
+                B.Print(B.ObjVal(ObjectPtr));
+            }
 
-        if constexpr (DEBUG_LOG_GC) {
-            B.PrintF({B.CreateGlobalCachedString("mark(%p, type: %d) = "), ObjectPtr, B.ObjType(B.ObjVal(ObjectPtr))});
-            B.Print(B.ObjVal(ObjectPtr));
+            B.getModule().getGrayStack().CreatePush(B.getModule(), B, ObjectPtr);
+
+            B.CreateStore(
+                B.getTrue(),
+                B.CreateStructGEP(B.getModule().getObjStructType(), ObjectPtr, 1, "isMarked")
+            );
+
+            B.CreateBr(EndBlock);
         }
-
-        B.getModule().getGrayStack()->CreatePush(B.getModule(), B, ObjectPtr);
-
-        B.CreateStore(
-            B.getTrue(),
-            B.CreateStructGEP(B.getModule().getObjStructType(), ObjectPtr, 1, "isMarked")
-        );
-
-        B.CreateBr(EndBlock);
         B.SetInsertPoint(EndBlock);
     }
 
     static void MarkValue(LoxBuilder &B, Value *value) {
         assert(value->getType() == B.getInt64Ty());
 
-        const auto IsObjBlock = B.CreateBasicBlock("is.obj");
-        const auto EndBlock = B.CreateBasicBlock("end.obj");
+        auto *const IsObjBlock = B.CreateBasicBlock("is.obj");
+        auto *const EndBlock = B.CreateBasicBlock("end.obj");
 
         B.CreateCondBr(B.IsObj(value), IsObjBlock, EndBlock);
         B.SetInsertPoint(IsObjBlock);
@@ -86,10 +90,10 @@ namespace lox {
             const auto EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
-            const auto arguments = F->arg_begin();
-            [[unused]] const auto table = arguments;
-            const auto key = arguments + 1;
-            const auto value = arguments + 2;
+            auto *const arguments = F->arg_begin();
+            [[unused]] auto *const table = arguments;
+            auto *const key = arguments + 1;
+            auto *const value = arguments + 2;
 
             if constexpr (DEBUG_LOG_GC) {
                 B.PrintF({B.CreateGlobalCachedString("mark table entry %p\n"), key});
@@ -110,8 +114,8 @@ namespace lox {
     static void BlackenObject(LoxBuilder &Builder, Value *ObjectPtr) {
         assert(ObjectPtr->getType() == Builder.getPtrTy());
 
-        static auto BlackObjectFunction([&Builder] {
-            const auto F = Function::Create(
+        static auto *BlackObjectFunction([&Builder] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
                     {Builder.getPtrTy()},
@@ -124,25 +128,25 @@ namespace lox {
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
-            const auto value = B.ObjVal(F->arg_begin());
+            auto *const value = B.ObjVal(F->arg_begin());
             if constexpr (DEBUG_LOG_GC) {
                 B.PrintF({B.CreateGlobalCachedString("blacken(%p, type: %d) = "), F->arg_begin(), B.ObjType(value)});
                 B.Print(value);
             }
 
-            const auto IsClosureBlock = B.CreateBasicBlock("print.closure");
-            const auto IsFunctionBlock = B.CreateBasicBlock("print.function");
-            const auto IsUpvalueBlock = B.CreateBasicBlock("print.upvalue");
-            const auto IsClassBlock = B.CreateBasicBlock("print.class");
-            const auto IsInstanceBlock = B.CreateBasicBlock("print.instance");
-            const auto IsBoundMethod = B.CreateBasicBlock("print.boundmethod");
-            const auto DefaultBlock = B.CreateBasicBlock("print.default");
-            const auto EndBlock = B.CreateBasicBlock("print.end");
+            auto *const IsClosureBlock = B.CreateBasicBlock("print.closure");
+            auto *const IsFunctionBlock = B.CreateBasicBlock("print.function");
+            auto *const IsUpvalueBlock = B.CreateBasicBlock("print.upvalue");
+            auto *const IsClassBlock = B.CreateBasicBlock("print.class");
+            auto *const IsInstanceBlock = B.CreateBasicBlock("print.instance");
+            auto *const IsBoundMethod = B.CreateBasicBlock("print.boundmethod");
+            auto *const DefaultBlock = B.CreateBasicBlock("print.default");
+            auto *const EndBlock = B.CreateBasicBlock("print.end");
 
-            const auto Switch = B.CreateSwitch(B.ObjType(value), DefaultBlock);
+            auto *const Switch = B.CreateSwitch(B.ObjType(value), DefaultBlock);
             Switch->addCase(B.ObjTypeInt(ObjType::STRING), EndBlock);
             Switch->addCase(B.ObjTypeInt(ObjType::CLOSURE), IsClosureBlock);
             Switch->addCase(B.ObjTypeInt(ObjType::FUNCTION), IsFunctionBlock);
@@ -153,47 +157,49 @@ namespace lox {
 
             B.SetInsertPoint(IsFunctionBlock);
             {
-                const auto function = B.AsObj(value);
-                const auto name = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::FUNCTION, function, 3));
+                auto *const function = B.AsObj(value);
+                auto *const name = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::FUNCTION, function, 3));
                 MarkObject(B, function);
                 MarkObject(B, name);
                 B.CreateBr(EndBlock);
             }
             B.SetInsertPoint(IsClosureBlock);
             {
-                const auto closure = B.AsObj(value);
-                const auto function = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::CLOSURE, closure, 1));
-                const auto name = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::FUNCTION, function, 3));
+                auto *const closure = B.AsObj(value);
+                auto *const function = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::CLOSURE, closure, 1));
+                auto *const name = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::FUNCTION, function, 3));
 
                 MarkObject(B, function);
                 MarkObject(B, name);
 
-                const auto i = CreateEntryBlockAlloca(F, B.getInt32Ty(), "i", [](auto &B, auto *alloca) {
+                auto *const i = CreateEntryBlockAlloca(F, B.getInt32Ty(), "i", [](auto &B, auto *alloca) {
                     B.CreateStore(B.getInt32(0), alloca);
                 });
-                const auto size = B.CreateLoad(B.getInt32Ty(), B.CreateStructGEP(B.getModule().getStructType(ObjType::CLOSURE), closure, 3));
-                const auto array = B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getStructType(ObjType::CLOSURE), closure, 2));
+                auto *const size = B.CreateLoad(B.getInt32Ty(), B.CreateStructGEP(B.getModule().getStructType(ObjType::CLOSURE), closure, 3));
+                auto *const array = B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getStructType(ObjType::CLOSURE), closure, 2));
 
-                const auto WhileCond = B.CreateBasicBlock("while.cond");
-                const auto WhileBody = B.CreateBasicBlock("while.body");
+                auto *const WhileCond = B.CreateBasicBlock("while.cond");
+                auto *const WhileBody = B.CreateBasicBlock("while.body");
 
                 B.CreateBr(WhileCond);
                 B.SetInsertPoint(WhileCond);
-                B.CreateCondBr(B.CreateICmpSLT(B.CreateLoad(B.getInt32Ty(), i), size), WhileBody, EndBlock);
-                B.SetInsertPoint(WhileBody);
+                {
+                    B.CreateCondBr(B.CreateICmpSLT(B.CreateLoad(B.getInt32Ty(), i), size), WhileBody, EndBlock);
+                    B.SetInsertPoint(WhileBody);
 
-                const auto addr = B.CreateGEP(B.getPtrTy(), array, B.CreateLoad(B.getInt32Ty(), i));
-                const auto object_ptr = B.CreateLoad(B.getPtrTy(), addr);
+                    auto *const addr = B.CreateGEP(B.getPtrTy(), array, B.CreateLoad(B.getInt32Ty(), i));
+                    auto *const object_ptr = B.CreateLoad(B.getPtrTy(), addr);
 
-                MarkObject(B, object_ptr);
+                    MarkObject(B, object_ptr);
 
-                B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
-                B.CreateBr(WhileCond);
+                    B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
+                    B.CreateBr(WhileCond);
+                }
             }
             B.SetInsertPoint(IsUpvalueBlock);
             {
-                const auto upvalue = B.AsObj(value);
-                const auto closed = B.CreateLoad(B.getInt64Ty(), B.CreateObjStructGEP(ObjType::UPVALUE, upvalue, 3));
+                auto *const upvalue = B.AsObj(value);
+                auto *const closed = B.CreateLoad(B.getInt64Ty(), B.CreateObjStructGEP(ObjType::UPVALUE, upvalue, 3));
                 if constexpr (DEBUG_LOG_GC) {
                     B.PrintF({B.CreateGlobalCachedString("upvalue.closed(%d, %p) = "), closed, B.AsObj(closed)});
                     B.Print(closed);
@@ -203,19 +209,18 @@ namespace lox {
             }
             B.SetInsertPoint(IsClassBlock);
             {
-                const auto klass = B.AsObj(value);
-                const auto className = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::CLASS, klass, 1));
+                auto *const klass = B.AsObj(value);
+                auto *const className = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::CLASS, klass, 1));
                 MarkObject(B, className);
-                const auto methods = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::CLASS, klass, 2));
+                auto *const methods = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::CLASS, klass, 2));
                 MarkTable(B, methods);
                 B.CreateBr(EndBlock);
             }
-
             B.SetInsertPoint(IsInstanceBlock);
             {
-                const auto instance = B.AsObj(value);
-                const auto instanceKlass = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
-                const auto fields = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
+                auto *const instance = B.AsObj(value);
+                auto *const instanceKlass = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
+                auto *const fields = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
                 if constexpr (DEBUG_LOG_GC) {
                     B.PrintF({B.CreateGlobalCachedString("black instance %s\n"), B.AsCString(B.CreateLoad(B.getInt64Ty(), B.CreateObjStructGEP(ObjType::CLASS, instanceKlass, 1)))});
                 }
@@ -226,9 +231,9 @@ namespace lox {
             }
             B.SetInsertPoint(IsBoundMethod);
             {
-                const auto bound = B.AsObj(value);
-                const auto receiver = B.CreateLoad(B.getInt64Ty(), B.CreateObjStructGEP(ObjType::BOUND_METHOD, bound, 1));
-                const auto methodClosure = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::BOUND_METHOD, bound, 2));
+                auto *const bound = B.AsObj(value);
+                auto *const receiver = B.CreateLoad(B.getInt64Ty(), B.CreateObjStructGEP(ObjType::BOUND_METHOD, bound, 1));
+                auto *const methodClosure = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::BOUND_METHOD, bound, 2));
                 if constexpr (DEBUG_LOG_GC) {
                     B.PrintF({B.CreateGlobalCachedString("black bound method(%p,%d,%p) = "), bound, receiver, methodClosure});
                     B.CreateCall(FunctionType::get(B.getVoidTy(), B.getInt64Ty(), false), B.getModule().getFunction("$print"), B.ObjVal(methodClosure));
@@ -255,8 +260,8 @@ namespace lox {
     }
 
     static void TraceReferences(LoxBuilder &Builder) {
-        static auto BlackenFunction([&Builder] {
-            const auto F = Function::Create(
+        static auto *BlackenFunction([&Builder] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
                     {Builder.getPtrTy()},
@@ -271,7 +276,7 @@ namespace lox {
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
             BlackenObject(B, F->arg_begin());
             B.CreateRetVoid();
@@ -283,12 +288,12 @@ namespace lox {
             Builder.PrintString("-- trace refs --");
         }
 
-        Builder.getModule().getGrayStack()->CreatePopAll(Builder, BlackenFunction);
+        Builder.getModule().getGrayStack().CreatePopAll(Builder, BlackenFunction);
     }
 
     static void MarkRoots(LoxBuilder &Builder) {
-        static auto MarkObjectFunction([&Builder] {
-            const auto F = Function::Create(
+        static auto *MarkObjectFunction([&Builder] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
                     {Builder.getPtrTy()},
@@ -301,7 +306,7 @@ namespace lox {
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
             MarkObject(B, F->arg_begin());
@@ -323,8 +328,8 @@ namespace lox {
     }
 
     static void Sweep(LoxBuilder &Builder) {
-        static auto TraceRefsFunction([&Builder] {
-            const auto F = Function::Create(
+        static auto *TraceRefsFunction([&Builder] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
                     {},
@@ -336,11 +341,11 @@ namespace lox {
             );
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
-            const auto object = CreateEntryBlockAlloca(F, B.getPtrTy(), "object");
-            const auto previous = CreateEntryBlockAlloca(F, B.getPtrTy(), "next");
+            auto *const object = CreateEntryBlockAlloca(F, B.getPtrTy(), "object");
+            auto *const previous = CreateEntryBlockAlloca(F, B.getPtrTy(), "next");
             B.CreateStore(
                 B.CreateLoad(B.getPtrTy(), B.getModule().getObjects()),
                 object
@@ -351,26 +356,26 @@ namespace lox {
                 B.PrintF({B.CreateGlobalCachedString("--sweep (objects @ %p)--\n"), B.CreateLoad(B.getPtrTy(), object)});
             }
 
-            const auto WhileCond = B.CreateBasicBlock("while.cond");
-            const auto WhileBody = B.CreateBasicBlock("while.body");
-            const auto WhileEnd = B.CreateBasicBlock("while.end");
+            auto *const WhileCond = B.CreateBasicBlock("while.cond");
+            auto *const WhileBody = B.CreateBasicBlock("while.body");
+            auto *const WhileEnd = B.CreateBasicBlock("while.end");
 
             B.CreateBr(WhileCond);
             B.SetInsertPoint(WhileCond);
             B.CreateCondBr(B.CreateIsNotNull(B.CreateLoad(B.getPtrTy(), object)), WhileBody, WhileEnd);
             B.SetInsertPoint(WhileBody);
             {
-                const auto IsNotMarkedBlock = B.CreateBasicBlock("is.notmarked");
-                const auto IsMarkedBlock = B.CreateBasicBlock("is.marked");
+                auto *const IsNotMarkedBlock = B.CreateBasicBlock("is.notmarked");
+                auto *const IsMarkedBlock = B.CreateBasicBlock("is.marked");
 
-                const auto isMarked = B.CreateLoad(B.getInt1Ty(), B.CreateStructGEP(B.getModule().getObjStructType(), B.CreateLoad(B.getPtrTy(), object), 1, "isMarked"));
+                auto *const isMarked = B.CreateLoad(B.getInt1Ty(), B.CreateStructGEP(B.getModule().getObjStructType(), B.CreateLoad(B.getPtrTy(), object), 1, "isMarked"));
                 B.CreateCondBr(B.CreateICmpEQ(B.getTrue(), isMarked), IsMarkedBlock, IsNotMarkedBlock);
 
                 B.SetInsertPoint(IsMarkedBlock);
                 {
                     B.CreateStore(B.getFalse(), B.CreateStructGEP(B.getModule().getObjStructType(), B.CreateLoad(B.getPtrTy(), object), 1, "isMarked"));
                     B.CreateStore(B.CreateLoad(B.getPtrTy(), object), previous);
-                    const auto nextptr = B.CreateLoad(
+                    auto *const nextptr = B.CreateLoad(
                         B.getPtrTy(),
                         B.CreateStructGEP(B.getModule().getObjStructType(), B.CreateLoad(B.getPtrTy(), object), 2, "next")
                     );
@@ -382,7 +387,7 @@ namespace lox {
                 }
                 B.SetInsertPoint(IsNotMarkedBlock);
                 {
-                    const auto unreached = CreateEntryBlockAlloca(F, B.getPtrTy(), "unreached");
+                    auto *const unreached = CreateEntryBlockAlloca(F, B.getPtrTy(), "unreached");
 
                     B.CreateStore(B.CreateLoad(B.getPtrTy(), object), unreached);
                     B.CreateStore(
@@ -393,9 +398,9 @@ namespace lox {
                         object
                     );
 
-                    const auto IsNull = B.CreateBasicBlock("is.notmarked.null");
-                    const auto IsNotNull = B.CreateBasicBlock("is.notmarked.notnull");
-                    const auto End = B.CreateBasicBlock("end");
+                    auto *const IsNull = B.CreateBasicBlock("is.notmarked.null");
+                    auto *const IsNotNull = B.CreateBasicBlock("is.notmarked.notnull");
+                    auto *const End = B.CreateBasicBlock("end");
 
                     B.CreateCondBr(B.CreateIsNull(B.CreateLoad(B.getPtrTy(), previous)), IsNull, IsNotNull);
                     B.SetInsertPoint(IsNull);
@@ -437,8 +442,8 @@ namespace lox {
     }
 
     static void RemoveWhiteStrings(LoxBuilder &Builder) {
-        static auto RemoveWhiteFunction([&Builder] {
-            const auto F = Function::Create(
+        static auto *RemoveWhiteFunction([&Builder] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
                     {Builder.getPtrTy(), Builder.getPtrTy(), Builder.getInt64Ty()},
@@ -451,18 +456,18 @@ namespace lox {
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
-            const auto arguments = F->arg_begin();
-            const auto table = arguments;
-            const auto key = arguments + 1;
+            auto *const arguments = F->arg_begin();
+            auto *const table = arguments;
+            auto *const key = arguments + 1;
 
 
-            const auto ShouldDeleteBlock = B.CreateBasicBlock("should.delete");
-            const auto EndBlock = B.CreateBasicBlock("end");
+            auto *const ShouldDeleteBlock = B.CreateBasicBlock("should.delete");
+            auto *const EndBlock = B.CreateBasicBlock("end");
 
-            const auto isMarked = B.CreateStructGEP(B.getModule().getObjStructType(), key, 1, "isMarked");
+            auto *const isMarked = B.CreateStructGEP(B.getModule().getObjStructType(), key, 1, "isMarked");
             B.CreateCondBr(B.CreateAnd(B.CreateIsNotNull(key), B.CreateNot(B.CreateLoad(B.getInt1Ty(), isMarked))), ShouldDeleteBlock, EndBlock);
             B.SetInsertPoint(ShouldDeleteBlock);
             {
@@ -485,8 +490,8 @@ namespace lox {
 
     Function *CreateGcFunction(LoxBuilder &Builder) {
         // TODO: shrink stacks as well
-        static auto GCFunction([&Builder] {
-            const auto F = Function::Create(
+        static auto *GCFunction([&Builder] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
                     {},
@@ -499,14 +504,14 @@ namespace lox {
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
             if constexpr (DEBUG_LOG_GC) {
                 B.PrintString("-- start GC ---");
             }
 
-            const auto before = B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes());
+            auto *const before = B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes());
 
             MarkRoots(B);
             TraceReferences(B);

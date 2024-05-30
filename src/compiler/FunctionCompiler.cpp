@@ -16,7 +16,7 @@ namespace lox {
 
         beginScope();
         {
-            // The default return value is nil.
+            // The default return value is nil except for the script and initializers.
             if (type != LoxFunctionType::NONE && type != LoxFunctionType::INITIALIZER) {
                 insertVariable("$returnVal", Builder.getNilVal());
             }
@@ -29,7 +29,7 @@ namespace lox {
                     Builder.PrintF({Builder.CreateGlobalCachedString("## start function inner scope %s (sp %d)\n"), Builder.CreateGlobalCachedString(Builder.getFunction()->getName()), Builder.CreateLoad(Builder.getInt32Ty(), sp)});
                 }
                 // Declare parameters and store them in local variables.
-                auto arg = Builder.getFunction()->arg_begin() + 2 /* second arg is receiver, first is upvalues array */;
+                auto *arg = Builder.getFunction()->arg_begin() + 2 /* second arg is receiver, first is upvalues array */;
                 for (auto &p: parameters) {
                     insertVariable(p.getLexeme(), arg++);
                 }
@@ -38,7 +38,7 @@ namespace lox {
                     evaluate(stmt);
                 }
 
-                if (!Builder.GetInsertBlock()->getTerminator()) {
+                if (Builder.GetInsertBlock()->getTerminator() == nullptr) {
                     // In the case where there was no return statement in the Lox code,
                     // then the current block at this point will be unterminated.
                     Builder.CreateBr(ExitBasicBlock);
@@ -55,7 +55,7 @@ namespace lox {
                 Builder.PrintF({Builder.CreateGlobalCachedString("## end function inner scope %s (sp %d)\n"), Builder.CreateGlobalCachedString(Builder.getFunction()->getName()), Builder.CreateLoad(Builder.getInt32Ty(), sp)});
             }
 
-            const auto ReturnBlock = Builder.CreateBasicBlock("exit");
+            auto *const ReturnBlock = Builder.CreateBasicBlock("exit");
             Builder.CreateBr(ReturnBlock);
             Builder.SetInsertPoint(ReturnBlock);
         }
@@ -74,16 +74,15 @@ namespace lox {
 
         // At the beginning of the function, remember the current local variable stack pointer.
         IRBuilder EntryBlockBuilder(&Builder.getFunction()->getEntryBlock(), Builder.getFunction()->getEntryBlock().begin());
-        auto &M = Builder.getModule();
-        const auto locals = M.getLocalsStack();
+        const auto locals = Builder.getModule().getLocalsStack();
         // Ensure the alloca for the sp comes before any of its uses.
-        sp->moveBefore(EntryBlockBuilder.CreateStore(locals->CreateGetCount(EntryBlockBuilder), sp));
+        sp->moveBefore(EntryBlockBuilder.CreateStore(locals.CreateGetCount(EntryBlockBuilder), sp));
         // Create new slots for the required number of locals.
-        locals->CreatePushN(M, EntryBlockBuilder, Constant::getNullValue(EntryBlockBuilder.getPtrTy()), EntryBlockBuilder.getInt32(localsCount));
+        locals.CreatePushN(Builder.getModule(), EntryBlockBuilder, Constant::getNullValue(EntryBlockBuilder.getPtrTy()), EntryBlockBuilder.getInt32(localsCount));
 
         // At the end of the function, reset the stack pointer then any variables allocated
         // in the function are no longer accessible as GC roots and can be freed.
-        locals->CreatePopN(Builder, Builder.getInt32(localsCount));
+        locals.CreatePopN(Builder, Builder.getInt32(localsCount));
 
         if constexpr (DEBUG_LOG_GC) {
             Builder.PrintF({Builder.CreateGlobalCachedString("# end function scope %s (sp %d)\n"), Builder.CreateGlobalCachedString(Builder.getFunction()->getName()), Builder.CreateLoad(Builder.getInt32Ty(), sp)});
