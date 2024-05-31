@@ -272,7 +272,7 @@ namespace lox {
                 }
                 PushGlobal(Builder, global, key);
             } else {
-                auto *const alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getPtrTy(), key);
+                auto *const alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), key);
                 const auto local = std::make_shared<Local>(*this, key, alloca);
                 variables.insert(key, local);
                 Builder.CreateStore(value, alloca);
@@ -287,7 +287,7 @@ namespace lox {
             assert(value->getType() == Builder.getInt64Ty());
 
             const auto *const name = "$temp";
-            auto *const alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getPtrTy(), name);
+            auto *const alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), name);
 
             const auto local = std::make_shared<Local>(*this, name, alloca);
             variables.insert(name, local);
