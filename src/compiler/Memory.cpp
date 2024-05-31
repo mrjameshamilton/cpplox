@@ -79,7 +79,7 @@ namespace lox {
             auto *const newSize = arguments + 2;
 
             B.CreateStore(
-                B.CreateAdd(B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes()), B.CreateSub(newSize, oldSize)),
+                B.CreateNSWAdd(B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes()), B.CreateSub(newSize, oldSize)),
                 B.getModule().getAllocatedBytes()
             );
 

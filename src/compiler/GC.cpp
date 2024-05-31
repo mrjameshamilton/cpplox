@@ -192,7 +192,7 @@ namespace lox {
 
                     MarkObject(B, object_ptr);
 
-                    B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
+                    B.CreateStore(B.CreateNSWAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
                     B.CreateBr(WhileCond);
                 }
             }

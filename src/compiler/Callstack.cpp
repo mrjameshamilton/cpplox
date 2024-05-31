@@ -33,7 +33,7 @@ namespace lox {
             B.CreateStore(line, B.CreateGEP(B.getModule().getCallStruct(), addr, {B.getInt32(0), B.getInt32(0)}));
             B.CreateStore(name, B.CreateGEP(B.getModule().getCallStruct(), addr, {B.getInt32(0), B.getInt32(1)}));
 
-            B.CreateStore(B.CreateAdd(sp, B.getInt32(1)), $sp);
+            B.CreateStore(B.CreateNSWAdd(sp, B.getInt32(1)), $sp);
 
             B.CreateRetVoid();
 
@@ -129,7 +129,7 @@ namespace lox {
             B.CreateBr(ForInc);
 
             B.SetInsertPoint(ForInc);
-            B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
+            B.CreateStore(B.CreateNSWAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
             B.CreateBr(ForCond);
 
             B.SetInsertPoint(ForEnd);

@@ -165,7 +165,7 @@ namespace lox {
 
             B.CreateBr(ForInc);
             B.SetInsertPoint(ForInc);
-            B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
+            B.CreateStore(B.CreateNSWAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
             B.CreateBr(ForCond);
 
             B.SetInsertPoint(ForEnd);
@@ -206,7 +206,7 @@ namespace lox {
 
             auto *const count = B.CreateLoad(B.getInt32Ty(), $count);
 
-            ensureCapacity(M, B, stackGlobal, StackStruct, B.CreateAdd(B.getInt32(1), count));
+            ensureCapacity(M, B, stackGlobal, StackStruct, B.CreateNSWAdd(B.getInt32(1), count));
 
             auto *const ptr = B.CreateLoad(B.getPtrTy(), $stack);
             auto *const addr = B.CreateInBoundsGEP(B.getPtrTy(), ptr, count);
@@ -215,7 +215,7 @@ namespace lox {
             }
             B.CreateStore(objPtr, addr);
 
-            auto *const newCount = B.CreateAdd(B.getInt32(1), count);
+            auto *const newCount = B.CreateNSWAdd(B.getInt32(1), count);
             B.CreateStore(newCount, $count);
 
             B.CreateRetVoid();
@@ -417,7 +417,7 @@ namespace lox {
             B.CreateBr(ForInc);
 
             B.SetInsertPoint(ForInc);
-            B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
+            B.CreateStore(B.CreateNSWAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
             B.CreateBr(ForCond);
 
             B.SetInsertPoint(ForEnd);

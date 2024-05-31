@@ -55,7 +55,7 @@ namespace lox {
                 B.CreateLifetimeStart(value);
                 index = compiler.localsCount++;
                 if constexpr (DEBUG_STACK) {
-                    auto *const stackOffset = B.CreateAdd(
+                    auto *const stackOffset = B.CreateNSWAdd(
                         B.CreateLoad(B.getInt32Ty(), compiler.sp),
                         B.getInt32(index)
                     );
@@ -77,7 +77,7 @@ namespace lox {
                 B.CreateLifetimeEnd(value);
 
                 const auto &locals = B.getModule().getLocalsStack();
-                auto *const stackIndex = B.CreateAdd(
+                auto *const stackIndex = B.CreateNSWAdd(
                     B.CreateLoad(B.getInt32Ty(), compiler.sp),
                     B.getInt32(index)
                 );
@@ -278,7 +278,7 @@ namespace lox {
                 Builder.CreateStore(value, alloca);
 
                 const auto locals = Builder.getModule().getLocalsStack();
-                auto *const stackIndex = Builder.CreateAdd(Builder.CreateLoad(Builder.getInt32Ty(), sp), Builder.getInt32(local->index));
+                auto *const stackIndex = Builder.CreateNSWAdd(Builder.CreateLoad(Builder.getInt32Ty(), sp), Builder.getInt32(local->index));
                 locals.CreateSet(Builder, stackIndex, alloca);
             }
         }
@@ -294,7 +294,7 @@ namespace lox {
             Builder.CreateStore(value, alloca);
 
             const auto locals = Builder.getModule().getLocalsStack();
-            auto *const stackIndex = Builder.CreateAdd(Builder.CreateLoad(Builder.getInt32Ty(), sp), Builder.getInt32(local->index));
+            auto *const stackIndex = Builder.CreateNSWAdd(Builder.CreateLoad(Builder.getInt32Ty(), sp), Builder.getInt32(local->index));
             locals.CreateSet(Builder, stackIndex, alloca);
 
             return value;

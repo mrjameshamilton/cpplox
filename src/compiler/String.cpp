@@ -103,7 +103,7 @@ namespace lox {
 
             // index = (index + 1) & (capacity - 1) === index = index % capacity
             B.CreateStore(
-                B.CreateAnd(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), index), B.getInt32(1)), B.CreateSub(capacity, B.getInt32(1))),
+                B.CreateAnd(B.CreateNSWAdd(B.CreateLoad(B.getInt32Ty(), index), B.getInt32(1)), B.CreateSub(capacity, B.getInt32(1))),
                 index
             );
 
@@ -164,7 +164,7 @@ namespace lox {
 
             B.CreateBr(ForInc);
             B.SetInsertPoint(ForInc);
-            B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
+            B.CreateStore(B.CreateNSWAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
             B.CreateBr(ForCond);
 
             B.SetInsertPoint(ForEnd);
