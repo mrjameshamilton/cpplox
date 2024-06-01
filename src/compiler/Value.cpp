@@ -3,6 +3,7 @@
 #include "Callstack.h"
 #include "LoxBuilder.h"
 #include "Memory.h"
+#include "Upvalue.h"
 
 #include <llvm/ADT/StringExtras.h>
 #include <llvm/IR/Constants.h>
@@ -330,7 +331,7 @@ namespace lox {
         auto *const IsStringBlock = CreateBasicBlock("print.string");
         auto *const IsClosureBlock = CreateBasicBlock("print.closure");
         auto *const IsFunctionBlock = CreateBasicBlock("print.function");
-        auto *const IsUpvalueBlock = CreateBasicBlock("print.upvalue");
+        auto *const IsUpvalueBlock = DEBUG_UPVALUES ? CreateBasicBlock("print.upvalue") : nullptr;
         auto *const IsClassBlock = CreateBasicBlock("print.class");
         auto *const IsInstanceBlock = CreateBasicBlock("print.instance");
         auto *const IsNativeFunctionBlock = CreateBasicBlock("print.native.function");
@@ -343,7 +344,9 @@ namespace lox {
         Switch->addCase(ObjTypeInt(ObjType::STRING), IsStringBlock);
         Switch->addCase(ObjTypeInt(ObjType::CLOSURE), IsClosureBlock);
         Switch->addCase(ObjTypeInt(ObjType::FUNCTION), IsFunctionBlock);
-        Switch->addCase(ObjTypeInt(ObjType::UPVALUE), IsUpvalueBlock);
+        if constexpr (DEBUG_UPVALUES) {
+            Switch->addCase(ObjTypeInt(ObjType::UPVALUE), IsUpvalueBlock);
+        }
         Switch->addCase(ObjTypeInt(ObjType::CLASS), IsClassBlock);
         Switch->addCase(ObjTypeInt(ObjType::INSTANCE), IsInstanceBlock);
         Switch->addCase(ObjTypeInt(ObjType::BOUND_METHOD), IsBoundMethod);
@@ -378,17 +381,19 @@ namespace lox {
         }
         CreateBr(EndBlock);
 
-        SetInsertPoint(IsUpvalueBlock);
-        {
-            // Not usually printable, but useful for debugging.
-            auto *const upvalue = AsObj(value);
-            auto *const object = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 1));
-            auto *const next = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 2));
-            auto *const closed = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 3));
-            PrintF({CreateGlobalCachedString("Upvalue(%p, %p, next = %p, closed = %d) = "), upvalue, object, next, closed});
-            CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("$print"), CreateLoad(getInt64Ty(), object));
+        if constexpr (DEBUG_UPVALUES) {
+            SetInsertPoint(IsUpvalueBlock);
+            {
+                // Not usually printable, but useful for debugging.
+                auto *const upvalue = AsObj(value);
+                auto *const object = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 1));
+                auto *const next = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 2));
+                auto *const closed = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 3));
+                PrintF({CreateGlobalCachedString("Upvalue(%p, %p, next = %p, closed = %d) = "), upvalue, object, next, closed});
+                CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("$print"), CreateLoad(getInt64Ty(), object));
+            }
+            CreateBr(EndBlock);
         }
-        CreateBr(EndBlock);
 
         SetInsertPoint(IsClassBlock);
         {
@@ -414,7 +419,9 @@ namespace lox {
 
         SetInsertPoint(DefaultBlock);
         {
-            if constexpr (DEBUG_LOG_GC) PrintF({CreateGlobalCachedString("{{object %d}}\n"), ObjType(value)});
+            if constexpr (DEBUG_LOG_GC) {
+                PrintF({CreateGlobalCachedString("{{object %d}}\n"), ObjType(value)});
+            }
             CreateUnreachable();
         }
 
