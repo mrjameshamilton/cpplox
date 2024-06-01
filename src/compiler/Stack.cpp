@@ -1,7 +1,10 @@
 #include "Stack.h"
 
 #include "../Debug.h"
+#include "GC.h"
 #include "Memory.h"
+
+#include <llvm/Transforms/Utils/BasicBlockUtils.h>
 
 namespace lox {
 
@@ -431,17 +434,6 @@ namespace lox {
 
     void GlobalStack::CreateFree(LoxBuilder &Builder) const {
         Builder.IRBuilder::CreateFree(Builder.CreateLoad(Builder.getPtrTy(), stack));
-    }
-
-    void PushGlobal(LoxBuilder &Builder, GlobalVariable *global, const std::string_view name) {
-        Builder.getModule().getGlobalsStack().CreatePush(Builder.getModule(), Builder, global);
-    }
-
-    void IterateGlobals(LoxBuilder &Builder, Function *FunctionPointer) {
-        if constexpr (DEBUG_LOG_GC) {
-            Builder.PrintString("--iterate globals--");
-        }
-        Builder.getModule().getGlobalsStack().CreateIterateObjectValues(Builder, FunctionPointer);
     }
 
     void IterateLocals(LoxBuilder &Builder, Function *FunctionPointer) {

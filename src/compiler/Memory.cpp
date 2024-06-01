@@ -502,7 +502,6 @@ namespace lox {
             const auto &M = B.getModule();
             M.getGrayStack().CreateFree(B);
             M.getLocalsStack().CreateFree(B);
-            M.getGlobalsStack().CreateFree(B);
             auto *const runtimeStringsTable = B.CreateLoad(B.getPtrTy(), M.getRuntimeStrings());
             B.IRBuilder::CreateFree(B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getTableStructType(), runtimeStringsTable, 2)));
             B.IRBuilder::CreateFree(runtimeStringsTable);

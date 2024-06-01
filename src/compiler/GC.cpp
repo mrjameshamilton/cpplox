@@ -8,53 +8,14 @@
 #include "Stack.h"
 #include "Table.h"
 
-#include <memory>
+#include <llvm/Transforms/Utils/BasicBlockUtils.h>
 
 namespace lox {
 
-    static void MarkObject(LoxBuilder &B, Value *ObjectPtr) {
-        assert(ObjectPtr->getType() == B.getPtrTy());
-
-        auto *const IsNotNull = B.CreateBasicBlock("is.notnull");
-        auto *const IsNotMarkedBlock = B.CreateBasicBlock("is.notmarked");
-        auto *const IsMarkedBlock = DEBUG_LOG_GC ? B.CreateBasicBlock("is.marked") : nullptr;
-        auto *const EndBlock = B.CreateBasicBlock("end.obj");
-
-        B.CreateCondBr(B.CreateIsNull(ObjectPtr), EndBlock, IsNotNull);
-        B.SetInsertPoint(IsNotNull);
-        {
-            auto *const isMarked = B.CreateLoad(
-                B.getInt1Ty(),
-                B.CreateStructGEP(B.getModule().getObjStructType(), ObjectPtr, 1, "isMarked")
-            );
-
-            if constexpr (DEBUG_LOG_GC) {
-                B.CreateCondBr(B.CreateICmpEQ(B.getTrue(), isMarked), IsMarkedBlock, IsNotMarkedBlock);
-                B.SetInsertPoint(IsMarkedBlock);
-                B.PrintF({B.CreateGlobalCachedString("already marked(%p) = "), ObjectPtr});
-                B.Print(B.ObjVal(ObjectPtr));
-                B.CreateBr(EndBlock);
-            } else {
-                B.CreateCondBr(B.CreateICmpEQ(B.getTrue(), isMarked), EndBlock, IsNotMarkedBlock);
-            }
-        }
-        B.SetInsertPoint(IsNotMarkedBlock);
-        {
-            if constexpr (DEBUG_LOG_GC) {
-                B.PrintF({B.CreateGlobalCachedString("mark(%p, type: %d) = "), ObjectPtr, B.ObjType(B.ObjVal(ObjectPtr))});
-                B.Print(B.ObjVal(ObjectPtr));
-            }
-
-            B.getModule().getGrayStack().CreatePush(B.getModule(), B, ObjectPtr);
-
-            B.CreateStore(
-                B.getTrue(),
-                B.CreateStructGEP(B.getModule().getObjStructType(), ObjectPtr, 1, "isMarked")
-            );
-
-            B.CreateBr(EndBlock);
-        }
-        B.SetInsertPoint(EndBlock);
+    void MarkObject(LoxBuilder &Builder, Value *ObjectPtr) {
+        assert(ObjectPtr->getType() == Builder.getPtrTy());
+        static auto *const MarkObjectFunction = Builder.getModule().getFunction("$markObject");
+        Builder.CreateCall(MarkObjectFunction, {ObjectPtr});
     }
 
     static void MarkValue(LoxBuilder &B, Value *value) {
@@ -73,8 +34,8 @@ namespace lox {
     static void MarkTable(LoxBuilder &Builder, Value *Table) {
         assert(Table->getType() == Builder.getPtrTy());
 
-        static auto MarkTableEntryFunction([&Builder] {
-            const auto F = Function::Create(
+        static auto *MarkTableEntryFunction([&Builder] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
                     {Builder.getPtrTy(), Builder.getPtrTy(), Builder.getInt64Ty()},
@@ -87,7 +48,7 @@ namespace lox {
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
             auto *const arguments = F->arg_begin();
@@ -291,36 +252,48 @@ namespace lox {
         Builder.getModule().getGrayStack().CreatePopAll(Builder, BlackenFunction);
     }
 
-    static void MarkRoots(LoxBuilder &Builder) {
-        static auto *MarkObjectFunction([&Builder] {
+    static void MarkGlobalRoots(LoxBuilder &Builder) {
+        if constexpr (DEBUG_LOG_GC) {
+            Builder.PrintString("--iterate globals--");
+        }
+
+        static auto *const MarkGlobalRootsFunction = [&Builder] {
             auto *const F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
-                    {Builder.getPtrTy()},
+                    {},
                     false
                 ),
                 Function::InternalLinkage,
-                "$markObject",
+                "$markGlobalRoots",
                 Builder.getModule()
             );
-
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
             auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
-
-            MarkObject(B, F->arg_begin());
-
+            // The body of the function will be added to everytime
+            // a global is created with code that will call the MarkObject
+            // function.
             B.CreateRetVoid();
 
             return F;
-        }());
+        }();
 
+        Builder.CreateCall(MarkGlobalRootsFunction);
+
+        if constexpr (DEBUG_LOG_GC) {
+            Builder.PrintString("--end iterate globals--");
+        }
+    }
+
+    static void MarkRoots(LoxBuilder &Builder) {
+        static auto *const MarkObjectFunction = Builder.getModule().getFunction("$markObject");
         if constexpr (DEBUG_LOG_GC) {
             Builder.PrintString("--mark roots--");
         }
         IterateLocals(Builder, MarkObjectFunction);
-        IterateGlobals(Builder, MarkObjectFunction);
+        MarkGlobalRoots(Builder);
         IterateUpvalues(Builder, MarkObjectFunction);
         if constexpr (DEBUG_LOG_GC) {
             Builder.PrintString("--end mark roots--");
@@ -488,21 +461,90 @@ namespace lox {
         IterateTable(Builder, Builder.CreateLoad(Builder.getPtrTy(), Builder.getModule().getRuntimeStrings()), RemoveWhiteFunction);
     }
 
+    /**
+     * Creates the $gc and $markObject functions.
+     *
+     * @return the $gc function.
+     */
     Function *CreateGcFunction(LoxBuilder &Builder) {
-        // TODO: shrink stacks as well
-        static auto *GCFunction([&Builder] {
+        static auto *const GCFunction = Function::Create(
+            FunctionType::get(
+                Builder.getVoidTy(),
+                {},
+                false
+            ),
+            Function::InternalLinkage,
+            "$gc",
+            Builder.getModule()
+        );
+
+        static auto *MarkObjectFunction([&Builder] {
             auto *const F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
-                    {},
+                    {Builder.getPtrTy()},
                     false
                 ),
                 Function::InternalLinkage,
-                "$gc",
+                "$markObject",
                 Builder.getModule()
             );
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
+
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
+            B.SetInsertPoint(EntryBasicBlock);
+
+            auto *const arguments = F->arg_begin();
+            auto *const ObjectPtr = arguments;
+
+            auto *const IsNotNull = B.CreateBasicBlock("is.notnull");
+            auto *const IsNotMarkedBlock = B.CreateBasicBlock("is.notmarked");
+            auto *const IsMarkedBlock = DEBUG_LOG_GC ? B.CreateBasicBlock("is.marked") : nullptr;
+            auto *const EndBlock = B.CreateBasicBlock("end.obj");
+
+            B.CreateCondBr(B.CreateIsNull(ObjectPtr), EndBlock, IsNotNull);
+            B.SetInsertPoint(IsNotNull);
+            {
+                auto *const isMarked = B.CreateLoad(
+                    B.getInt1Ty(),
+                    B.CreateStructGEP(B.getModule().getObjStructType(), ObjectPtr, 1, "isMarked")
+                );
+
+                if constexpr (DEBUG_LOG_GC) {
+                    B.CreateCondBr(B.CreateICmpEQ(B.getTrue(), isMarked), IsMarkedBlock, IsNotMarkedBlock);
+                    B.SetInsertPoint(IsMarkedBlock);
+                    B.PrintF({B.CreateGlobalCachedString("already marked(%p) = "), ObjectPtr});
+                    B.Print(B.ObjVal(ObjectPtr));
+                    B.CreateBr(EndBlock);
+                } else {
+                    B.CreateCondBr(B.CreateICmpEQ(B.getTrue(), isMarked), EndBlock, IsNotMarkedBlock);
+                }
+            }
+            B.SetInsertPoint(IsNotMarkedBlock);
+            {
+                if constexpr (DEBUG_LOG_GC) {
+                    B.PrintF({B.CreateGlobalCachedString("mark(%p, type: %d) = "), ObjectPtr, B.ObjType(B.ObjVal(ObjectPtr))});
+                    B.Print(B.ObjVal(ObjectPtr));
+                }
+
+                B.getModule().getGrayStack().CreatePush(B.getModule(), B, ObjectPtr);
+
+                B.CreateStore(
+                    B.getTrue(),
+                    B.CreateStructGEP(B.getModule().getObjStructType(), ObjectPtr, 1, "isMarked")
+                );
+
+                B.CreateBr(EndBlock);
+            }
+            B.SetInsertPoint(EndBlock);
+            B.CreateRetVoid();
+
+            return F;
+        }());
+
+        static auto *GCFunctionBuilder([&Builder] {
+            LoxBuilder B(Builder.getContext(), Builder.getModule(), *GCFunction);
 
             auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
@@ -530,13 +572,33 @@ namespace lox {
 
             B.CreateRetVoid();
 
-            return F;
+            return GCFunction;
         }());
 
         return GCFunction;
     }
 
     void LoxBuilder::CollectGarbage() {
-        CreateCall(getModule().getOrInsertFunction("$gc", FunctionType::get(getVoidTy(), {}, false)));
+        CreateCall(getModule().getFunction("$gc"));
+    }
+
+    /**
+     * Each call to this function will append code to the $markGlobalRoots
+     * function to mark the value in the global as a root, if it's an object.
+     */
+    void AddGlobalGCRoot(LoxModule &Module, GlobalVariable *global) {
+        auto *const F = Module.getFunction("$markGlobalRoots");
+        auto *const EntryBlock = &F->getEntryBlock();
+        auto *const TerminatorInstruction = EntryBlock->getTerminator();
+
+        LoxBuilder B(Module.getContext(), Module, *F);
+        B.SetInsertPoint(EntryBlock->begin());
+        auto *const value = B.CreateLoad(B.getInt64Ty(), global);
+
+        BasicBlock *IsObjBlock = nullptr;
+        SplitBlockAndInsertIfThenElse(B.IsObj(value), TerminatorInstruction, &IsObjBlock, nullptr);
+
+        B.SetInsertPoint(IsObjBlock->begin());
+        MarkObject(B, B.AsObj(value));
     }
 }// namespace lox

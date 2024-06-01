@@ -146,7 +146,6 @@ namespace lox {
             IntegerType::getInt32Ty(getContext())
         ));
         std::shared_ptr<GlobalStack> grayStack;
-        std::shared_ptr<GlobalStack> globalsStack;
         std::shared_ptr<GlobalStack> localsStack;
         llvm::StringMap<Constant *> strings;
 
@@ -252,15 +251,10 @@ namespace lox {
         const GlobalStack &getGrayStack() const {
             return *grayStack;
         }
-        const GlobalStack &getGlobalsStack() const {
-            return *globalsStack;
-        }
-
 
         const GlobalStack &getLocalsStack() const {
             return *localsStack;
         }
-
 
         GlobalVariable *getAllocatedBytes() const {
             return allocatedBytes;

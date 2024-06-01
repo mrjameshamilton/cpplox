@@ -54,9 +54,6 @@ namespace lox {
         void CreateFree(LoxBuilder &Builder) const;
     };
 
-    void PushGlobal(LoxBuilder &Builder, GlobalVariable *global, std::string_view name);
-    void IterateGlobals(LoxBuilder &Builder, Function *FunctionPointer);
-
     void IterateLocals(LoxBuilder &Builder, Function *FunctionPointer);
 }// namespace lox
 #endif//STACK_H

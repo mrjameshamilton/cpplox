@@ -2,6 +2,7 @@
 #define LOXFUNCTIONCOMPILER_H
 #include "../Debug.h"
 #include "../frontend/AST.h"
+#include "GC.h"
 #include "LoxBuilder.h"
 #include "Memory.h"
 #include "ModuleCompiler.h"
@@ -243,7 +244,7 @@ namespace lox {
                 global->setConstant(false);
                 global->setInitializer(cast<ConstantInt>(Builder.getUninitializedVal()));
 
-                PushGlobal(Builder, global, name);
+                AddGlobalGCRoot(Builder.getModule(), global);
             }
 
             assert(global->getValueType() == Builder.getInt64Ty());
@@ -270,7 +271,8 @@ namespace lox {
                     global->setInitializer(cast<ConstantInt>(Builder.getNilVal()));
                     Builder.CreateStore(value, global);
                 }
-                PushGlobal(Builder, global, key);
+
+                AddGlobalGCRoot(Builder.getModule(), global);
             } else {
                 auto *const alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), key);
                 const auto local = std::make_shared<Local>(*this, key, alloca);
