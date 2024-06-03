@@ -53,7 +53,7 @@ namespace lox {
             unsigned int index;
             Local(FunctionCompiler &compiler, const std::string_view name, Value *value, const bool isCaptured = false) : compiler{compiler}, name{name}, value{value}, isCaptured{isCaptured} {
                 auto &B = compiler.Builder;
-                B.CreateLifetimeStart(value);
+                B.CreateLifetimeStart(value, B.getInt64(64));
                 index = compiler.localsCount++;
                 if constexpr (DEBUG_STACK) {
                     auto *const stackOffset = B.CreateAdd(
@@ -78,7 +78,7 @@ namespace lox {
                     closeUpvalues(B, value);
                 }
 
-                B.CreateLifetimeEnd(value);
+                B.CreateLifetimeEnd(value, B.getInt64(64));
 
                 const auto &locals = B.getModule().getLocalsStack();
                 auto *const stackIndex = B.CreateAdd(
