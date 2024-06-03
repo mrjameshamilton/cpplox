@@ -25,7 +25,7 @@ namespace lox {
         // https://mukulrathi.com/create-your-own-programming-language/concurrency-runtime-language-tutorial/#malloc
         Constant *allocsize = ConstantExpr::getSizeOf(type);
         allocsize = ConstantExpr::getTruncOrBitCast(allocsize, IntPtrTy);
-        return arraySize != nullptr ? CreateMul(allocsize, arraySize) : allocsize;
+        return arraySize != nullptr ? CreateMul(allocsize, arraySize, "size", true, true) : allocsize;
     }
 
     Constant *LoxBuilder::getSizeOf(Type *type, const unsigned int arraySize) {
@@ -79,7 +79,7 @@ namespace lox {
             auto *const newSize = arguments + 2;
 
             B.CreateStore(
-                B.CreateNSWAdd(B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes()), B.CreateSub(newSize, oldSize)),
+                B.CreateAdd(B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes()), B.CreateSub(newSize, oldSize, "diff", true, true), "allocatedBytes", true, true),
                 B.getModule().getAllocatedBytes()
             );
 

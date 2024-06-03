@@ -33,7 +33,7 @@ namespace lox {
             B.CreateStore(line, B.CreateGEP(B.getModule().getCallStruct(), addr, {B.getInt32(0), B.getInt32(0)}));
             B.CreateStore(name, B.CreateGEP(B.getModule().getCallStruct(), addr, {B.getInt32(0), B.getInt32(1)}));
 
-            B.CreateStore(B.CreateNSWAdd(sp, B.getInt32(1)), $sp);
+            B.CreateStore(B.CreateAdd(sp, B.getInt32(1), "call+1", true, true), $sp);
 
             B.CreateRetVoid();
 
@@ -63,7 +63,7 @@ namespace lox {
 
             auto *const $sp = B.getModule().getCallStackPointer();
             auto *const sp = B.CreateLoad(B.getInt32Ty(), $sp);
-            B.CreateStore(B.CreateSub(sp, B.getInt32(1)), $sp);
+            B.CreateStore(B.CreateSub(sp, B.getInt32(1), "sp", true, true), $sp);
 
             B.CreateRetVoid();
 
@@ -110,7 +110,7 @@ namespace lox {
             B.CreateCondBr(B.CreateICmpSLE(B.CreateLoad(B.getInt32Ty(), i), sp), ForBody, ForEnd);
             B.SetInsertPoint(ForBody);
 
-            auto *const top = B.CreateSub(B.CreateLoad(B.getInt32Ty(), $sp), B.CreateLoad(B.getInt32Ty(), i));
+            auto *const top = B.CreateSub(B.CreateLoad(B.getInt32Ty(), $sp), B.CreateLoad(B.getInt32Ty(), i), "top", true, true);
             auto *const addr = B.CreateGEP($cs->getValueType(), $cs, {B.getInt32(0), top});
 
             auto *const line = B.CreateLoad(B.getInt32Ty(), B.CreateGEP(B.getModule().getCallStruct(), addr, {B.getInt32(0), B.getInt32(0)}));
@@ -129,7 +129,7 @@ namespace lox {
             B.CreateBr(ForInc);
 
             B.SetInsertPoint(ForInc);
-            B.CreateStore(B.CreateNSWAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
+            B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1), "i+1", true, true), i);
             B.CreateBr(ForCond);
 
             B.SetInsertPoint(ForEnd);

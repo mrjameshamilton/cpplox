@@ -134,7 +134,7 @@ namespace lox {
                 {
                     // index = (index + 1) & (capacity - 1) === index = index % capacity
                     B.CreateStore(
-                        B.CreateAnd(B.CreateNSWAdd(B.CreateLoad(B.getInt32Ty(), index), B.getInt32(1)), B.CreateSub(capacity, B.getInt32(1))),
+                        B.CreateAnd(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), index), B.getInt32(1), "index+1", true, true), B.CreateSub(capacity, B.getInt32(1), "capacity-1", true, true)),
                         index
                     );
 
@@ -215,7 +215,7 @@ namespace lox {
 
             B.CreateBr(ForInc);
             B.SetInsertPoint(ForInc);
-            B.CreateStore(B.CreateNSWAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
+            B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1), "i+1", true, true), i);
             B.CreateBr(ForCond);
 
             B.SetInsertPoint(ForEnd);
@@ -272,11 +272,11 @@ namespace lox {
             );
 
             auto *const count = B.CreateStructGEP(B.getModule().getTableStructType(), table, 0);
-            B.CreateStore(B.CreateNSWAdd(B.CreateLoad(B.getInt32Ty(), count), B.getInt32(1)), count);
+            B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), count), B.getInt32(1), "count+1", true, true), count);
 
             B.CreateBr(ForInc2);
             B.SetInsertPoint(ForInc2);
-            B.CreateStore(B.CreateNSWAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
+            B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1), "i+1", true, true), i);
             B.CreateBr(ForCond2);
 
             B.SetInsertPoint(ForEnd2);
@@ -320,7 +320,7 @@ namespace lox {
 
             B.CreateCondBr(
                 B.CreateICmpSGT(
-                    B.CreateNSWAdd(count, B.getInt32(1)),
+                    B.CreateAdd(count, B.getInt32(1), "count+1", true, true),
                     B.CreateFPToSI(B.CreateFMul(B.CreateSIToFP(initialCapacity, B.getDoubleTy()), ConstantFP::get(B.getDoubleTy(), 0.75)), B.getInt32Ty())
                 ),
                 CheckCapacityBlock,
@@ -331,7 +331,7 @@ namespace lox {
             auto *const newCapacity = B.CreateSelect(
                 B.CreateICmpSLT(initialCapacity, B.getInt32(8)),
                 B.getInt32(8),
-                B.CreateMul(initialCapacity, B.getInt32(2))
+                B.CreateMul(initialCapacity, B.getInt32(2), "newcapacity", true, true)
             );
 
             B.CreateCall(AdjustCapacityFunction, {table, newCapacity});
@@ -357,7 +357,7 @@ namespace lox {
             B.SetInsertPoint(IsNewEntryBlock);
 
             B.CreateStore(
-                B.CreateNSWAdd(B.getInt32(1), B.CreateLoad(B.getInt32Ty(), B.CreateStructGEP(B.getModule().getTableStructType(), table, 0))),
+                B.CreateAdd(B.getInt32(1), B.CreateLoad(B.getInt32Ty(), B.CreateStructGEP(B.getModule().getTableStructType(), table, 0)), "count", true, true),
                 B.CreateStructGEP(B.getModule().getTableStructType(), table, 0)
             );
 
@@ -511,7 +511,7 @@ namespace lox {
 
             B.CreateBr(ForInc);
             B.SetInsertPoint(ForInc);
-            B.CreateStore(B.CreateNSWAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
+            B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1), "i+1", true, true), i);
             B.CreateBr(ForCond);
 
             B.SetInsertPoint(ForEnd);
@@ -647,7 +647,7 @@ namespace lox {
             B.CreateBr(ForInc);
             B.SetInsertPoint(ForInc);
 
-            B.CreateStore(B.CreateNSWAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
+            B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1), "i+1", true, true), i);
 
             B.CreateBr(ForCond);
 

@@ -55,7 +55,7 @@ namespace lox {
             auto *const newCapacity = B.CreateSelect(
                 B.CreateICmpSLT(size, B.getInt32(8)),
                 B.getInt32(8),
-                B.CreateMul(size, B.getInt32(GROWTH_FACTOR))
+                B.CreateMul(size, B.getInt32(GROWTH_FACTOR), "newcapacity", true, true)
             );
             B.CreateStore(newCapacity, $capacity);
 
@@ -168,7 +168,7 @@ namespace lox {
 
             B.CreateBr(ForInc);
             B.SetInsertPoint(ForInc);
-            B.CreateStore(B.CreateNSWAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
+            B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1), "i+1", true, true), i);
             B.CreateBr(ForCond);
 
             B.SetInsertPoint(ForEnd);
@@ -209,7 +209,7 @@ namespace lox {
 
             auto *const count = B.CreateLoad(B.getInt32Ty(), $count);
 
-            ensureCapacity(M, B, stackGlobal, StackStruct, B.CreateNSWAdd(B.getInt32(1), count));
+            ensureCapacity(M, B, stackGlobal, StackStruct, B.CreateAdd(B.getInt32(1), count, "count+1", true, true));
 
             auto *const ptr = B.CreateLoad(B.getPtrTy(), $stack);
             auto *const addr = B.CreateInBoundsGEP(B.getPtrTy(), ptr, count);
@@ -218,7 +218,7 @@ namespace lox {
             }
             B.CreateStore(objPtr, addr);
 
-            auto *const newCount = B.CreateNSWAdd(B.getInt32(1), count);
+            auto *const newCount = B.CreateAdd(B.getInt32(1), count, "newcount", true, true);
             B.CreateStore(newCount, $count);
 
             B.CreateRetVoid();
@@ -253,7 +253,7 @@ namespace lox {
 
             auto *const count = B.CreateLoad(B.getInt32Ty(), $count);
 
-            B.CreateStore(B.CreateSub(count, N), $count);
+            B.CreateStore(B.CreateSub(count, N, "count", true, true), $count);
 
             B.CreateRetVoid();
 
@@ -305,7 +305,7 @@ namespace lox {
             B.CreateCondBr(B.CreateICmpSGT(B.CreateLoad(B.getInt32Ty(), $count), B.getInt32(0)), WhileBody, WhileEnd);
             B.SetInsertPoint(WhileBody);
             {
-                auto *const newCount = B.CreateSub(B.CreateLoad(B.getInt32Ty(), $count), B.getInt32(1));
+                auto *const newCount = B.CreateSub(B.CreateLoad(B.getInt32Ty(), $count), B.getInt32(1), "newCount", true, true);
                 B.CreateStore(newCount, $count);
                 auto *const addr = B.CreateInBoundsGEP(B.getPtrTy(), B.CreateLoad(B.getPtrTy(), $stack), newCount);
                 auto *const ptr = B.CreateLoad(B.getPtrTy(), addr);
@@ -420,7 +420,7 @@ namespace lox {
             B.CreateBr(ForInc);
 
             B.SetInsertPoint(ForInc);
-            B.CreateStore(B.CreateNSWAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
+            B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1), "i+1", true, true), i);
             B.CreateBr(ForCond);
 
             B.SetInsertPoint(ForEnd);

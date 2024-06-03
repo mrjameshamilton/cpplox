@@ -103,7 +103,7 @@ namespace lox {
 
             // index = (index + 1) & (capacity - 1) === index = index % capacity
             B.CreateStore(
-                B.CreateAnd(B.CreateNSWAdd(B.CreateLoad(B.getInt32Ty(), index), B.getInt32(1)), B.CreateSub(capacity, B.getInt32(1))),
+                B.CreateAnd(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), index), B.getInt32(1), "index+1", true, true), B.CreateSub(capacity, B.getInt32(1), "capacity-1", true, true)),
                 index
             );
 
@@ -158,13 +158,13 @@ namespace lox {
             auto *const char_index = B.CreateInBoundsGEP(B.getInt8Ty(), str, B.CreateLoad(B.getInt32Ty(), i));
             auto *const char_ = B.CreateLoad(B.getInt8Ty(), char_index);
             auto *const xor_ = B.CreateXor(B.CreateZExt(char_, B.getInt32Ty()), B.CreateLoad(B.getInt32Ty(), hash));
-            auto *const mul = B.CreateMul(xor_, B.getInt32(16777619));
+            auto *const mul = B.CreateMul(xor_, B.getInt32(16777619), "xor", true, true);
 
             B.CreateStore(mul, hash);
 
             B.CreateBr(ForInc);
             B.SetInsertPoint(ForInc);
-            B.CreateStore(B.CreateNSWAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
+            B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1), "i+1", true, true), i);
             B.CreateBr(ForCond);
 
             B.SetInsertPoint(ForEnd);
@@ -304,15 +304,18 @@ namespace lox {
             auto *const String0String = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::STRING, a, 1), "string");
             auto *const String1String = B.CreateLoad(B.getPtrTy(), B.CreateObjStructGEP(ObjType::STRING, b, 1), "string");
 
-            auto *const NewLength = B.CreateNSWAdd(
+            auto *const NewLength = B.CreateAdd(
                 String0Length,
                 String1Length,
-                "NewLength"
+                "NewLength",
+                true,
+                true
             );
 
             auto *const StringMalloc = B.CreateRealloc(
                 B.getNullPtr(),
-                B.CreateSExt(B.CreateNSWAdd(B.getInt32(1), NewLength), B.getInt64Ty()), "concat string");
+                B.CreateSExt(B.CreateAdd(B.getInt32(1), NewLength, "NewLength", true, true), B.getInt64Ty()), "concat string"
+            );
 
             B.CreateMemCpy(
                 StringMalloc,
@@ -332,9 +335,12 @@ namespace lox {
                 String1String,
                 Align(8),
                 B.CreateSExt(
-                    B.CreateNSWAdd(
+                    B.CreateAdd(
                         String1Length,
-                        B.getInt32(1)
+                        B.getInt32(1),
+                        "size",
+                        true,
+                        true
                     ),
                     B.getInt64Ty()
                 )

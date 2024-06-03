@@ -153,7 +153,7 @@ namespace lox {
 
                     MarkObject(B, object_ptr);
 
-                    B.CreateStore(B.CreateNSWAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1)), i);
+                    B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1), "i+1", true, true), i);
                     B.CreateBr(WhileCond);
                 }
             }
@@ -561,13 +561,13 @@ namespace lox {
             Sweep(B);
 
             B.CreateStore(
-                B.CreateMul(B.getInt32(GC_GROWTH_FACTOR), B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes())),
+                B.CreateMul(B.getInt32(GC_GROWTH_FACTOR), B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes()), "nextGC", true, true),
                 B.getModule().getNextGC()
             );
 
             if constexpr (DEBUG_LOG_GC) {
                 B.PrintString("-- end GC ---");
-                B.PrintF({B.CreateGlobalCachedString("     collected %zu bytes (from %zu to %zu) next at %zu\n"), B.CreateSub(before, B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes())), before, B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes()), B.CreateLoad(B.getInt32Ty(), B.getModule().getNextGC())});
+                B.PrintF({B.CreateGlobalCachedString("     collected %zu bytes (from %zu to %zu) next at %zu\n"), B.CreateSub(before, B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes()), "from", true, true), before, B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes()), B.CreateLoad(B.getInt32Ty(), B.getModule().getNextGC())});
             }
 
             B.CreateRetVoid();
