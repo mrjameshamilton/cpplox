@@ -357,7 +357,7 @@ namespace lox {
             // the upvalue array which is the function's first argument,
             // in the *compiler*'s function.
             auto *const upvalues = Builder.getFunction()->arg_begin();
-            auto *const upvalueIndex = Builder.CreateGEP(Builder.getPtrTy(), upvalues, {Builder.getInt32(upvalueArrayIndex)}, "arrayindex");
+            auto *const upvalueIndex = Builder.CreateInBoundsGEP(Builder.getPtrTy(), upvalues, {Builder.getInt32(upvalueArrayIndex)}, "arrayindex");
             auto *const upvaluePtr = Builder.CreateLoad(Builder.getPtrTy(), upvalueIndex, "upvaluePtr");
 
             if constexpr (DEBUG_UPVALUES) {

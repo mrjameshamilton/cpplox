@@ -63,7 +63,7 @@ namespace lox {
             if constexpr (DEBUG_UPVALUES) {
                 Builder.PrintF({Builder.CreateGlobalCachedString("capture variables\n")});
             }
-            const auto upvaluesArrayPtr = Builder.CreateReallocate(
+            auto *const upvaluesArrayPtr = Builder.CreateReallocate(
                 Builder.getNullPtr(),
                 Builder.getInt32(0),
                 Builder.getSizeOf(Builder.getModule().getStructType(ObjType::UPVALUE), C.upvalues.size())
@@ -71,7 +71,7 @@ namespace lox {
 
             // Initialize upvalues to nullptr.
             for (const auto &upvalue: C.upvalues) {
-                auto *const upvalueIndex = Builder.CreateGEP(Builder.getPtrTy(), upvaluesArrayPtr, Builder.getInt32(upvalue->index), "upvalueIndex");
+                auto *const upvalueIndex = Builder.CreateInBoundsGEP(Builder.getPtrTy(), upvaluesArrayPtr, Builder.getInt32(upvalue->index), "upvalueIndex");
                 Builder.CreateStore(Builder.getNullPtr(), upvalueIndex);
             }
 
@@ -84,7 +84,7 @@ namespace lox {
                 Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closurePtr, 3, "closure.upvaluesCount")
             );
             for (const auto &upvalue: C.upvalues) {
-                auto *const upvalueIndex = Builder.CreateGEP(Builder.getPtrTy(), upvaluesArrayPtr, Builder.getInt32(upvalue->index), "upvalueIndex");
+                auto *const upvalueIndex = Builder.CreateInBoundsGEP(Builder.getPtrTy(), upvaluesArrayPtr, Builder.getInt32(upvalue->index), "upvalueIndex");
                 Builder.CreateStore(upvalue->isLocal ? captureLocal(upvalue->value) : upvalue->value, upvalueIndex);
             }
         } else {

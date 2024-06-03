@@ -148,7 +148,7 @@ namespace lox {
                     B.CreateCondBr(B.CreateICmpSLT(B.CreateLoad(B.getInt32Ty(), i), size), WhileBody, EndBlock);
                     B.SetInsertPoint(WhileBody);
 
-                    auto *const addr = B.CreateGEP(B.getPtrTy(), array, B.CreateLoad(B.getInt32Ty(), i));
+                    auto *const addr = B.CreateInBoundsGEP(B.getPtrTy(), array, B.CreateLoad(B.getInt32Ty(), i));
                     auto *const object_ptr = B.CreateLoad(B.getPtrTy(), addr);
 
                     MarkObject(B, object_ptr);
