@@ -26,8 +26,8 @@ namespace lox {
     }
 
     Value *FunctionCompiler::operator()(const BinaryExprPtr &binaryExpr) {
-        const auto left = evaluate(binaryExpr->left);
-        const auto right = evaluate(binaryExpr->right);
+        auto *const left = evaluate(binaryExpr->left);
+        auto *const right = evaluate(binaryExpr->right);
 
         switch (binaryExpr->op) {
             case BinaryOp::MINUS:
@@ -37,8 +37,8 @@ namespace lox {
             case BinaryOp::GREATER_EQUAL:
             case BinaryOp::LESS:
             case BinaryOp::LESS_EQUAL: {
-                const auto InvalidNumBlock = Builder.CreateBasicBlock("if.num");
-                const auto EndBlock = Builder.CreateBasicBlock("if.end");
+                auto *const InvalidNumBlock = Builder.CreateBasicBlock("if.num");
+                auto *const EndBlock = Builder.CreateBasicBlock("if.end");
 
                 Builder.CreateCondBr(Builder.CreateAnd(Builder.IsNumber(left), Builder.IsNumber(right)), EndBlock, InvalidNumBlock);
                 Builder.SetInsertPoint(InvalidNumBlock);
@@ -60,14 +60,14 @@ namespace lox {
 
         switch (binaryExpr->op) {
             case BinaryOp::PLUS: {
-                const auto IsMaybeStringBlock = Builder.CreateBasicBlock("if.string");
-                const auto IsStringBlock = Builder.CreateBasicBlock("is.string");
-                const auto IsNumBlock = Builder.CreateBasicBlock("if.num");
-                const auto InvalidBlock = Builder.CreateBasicBlock("invalid");
-                const auto EndBlock = Builder.CreateBasicBlock("if.end");
+                auto *const IsMaybeStringBlock = Builder.CreateBasicBlock("if.string");
+                auto *const IsStringBlock = Builder.CreateBasicBlock("is.string");
+                auto *const IsNumBlock = Builder.CreateBasicBlock("if.num");
+                auto *const InvalidBlock = Builder.CreateBasicBlock("invalid");
+                auto *const EndBlock = Builder.CreateBasicBlock("if.end");
                 Builder.CreateCondBr(Builder.CreateAnd(Builder.IsNumber(left), Builder.IsNumber(right)), IsNumBlock, IsMaybeStringBlock);
                 Builder.SetInsertPoint(IsNumBlock);
-                const auto X = Builder.NumberVal(Builder.CreateFAdd(Builder.AsNumber(left), Builder.AsNumber(right)));
+                auto *const X = Builder.NumberVal(Builder.CreateFAdd(Builder.AsNumber(left), Builder.AsNumber(right)));
                 Builder.CreateBr(EndBlock);
 
                 Builder.SetInsertPoint(IsMaybeStringBlock);
@@ -84,12 +84,12 @@ namespace lox {
                     Builder.getFunction()
                 );
 
-                const auto Z = Builder.getNilVal();
+                auto *const Z = Builder.getNilVal();
                 Builder.CreateBr(EndBlock);
 
                 Builder.SetInsertPoint(EndBlock);
 
-                const auto Result = Builder.CreatePHI(Builder.getInt64Ty(), 2);
+                auto *const Result = Builder.CreatePHI(Builder.getInt64Ty(), 2);
                 Result->addIncoming(X, IsNumBlock);
                 Result->addIncoming(Y, IsStringBlock);
                 Result->addIncoming(Z, InvalidBlock);
@@ -115,20 +115,20 @@ namespace lox {
                 // A == B if both are numbers and they're equal as fp numbers or they're both equal int64 values.
                 // All strings are interned, so we don't need to check characters for equality: strings
                 // that have the same character sequence will have the same address.
-                const auto IsNumBlock = Builder.CreateBasicBlock("if.num");
-                const auto NotNumBlock = Builder.CreateBasicBlock("not.num");
-                const auto EndBlock = Builder.CreateBasicBlock("end");
+                auto *const IsNumBlock = Builder.CreateBasicBlock("if.num");
+                auto *const NotNumBlock = Builder.CreateBasicBlock("not.num");
+                auto *const EndBlock = Builder.CreateBasicBlock("end");
 
                 Builder.CreateCondBr(Builder.CreateAnd(Builder.IsNumber(left), Builder.IsNumber(right)), IsNumBlock, NotNumBlock);
                 Builder.SetInsertPoint(IsNumBlock);
-                const auto X = Builder.CreateFCmpOEQ(Builder.AsNumber(left), Builder.AsNumber(right));
+                auto *const X = Builder.CreateFCmpOEQ(Builder.AsNumber(left), Builder.AsNumber(right));
                 Builder.CreateBr(EndBlock);
                 Builder.SetInsertPoint(NotNumBlock);
-                const auto Y = Builder.CreateICmpEQ(left, right);
+                auto *const Y = Builder.CreateICmpEQ(left, right);
                 Builder.CreateBr(EndBlock);
                 Builder.SetInsertPoint(EndBlock);
 
-                const auto Result = Builder.CreatePHI(Builder.getInt1Ty(), 2);
+                auto *const Result = Builder.CreatePHI(Builder.getInt1Ty(), 2);
                 Result->addIncoming(X, IsNumBlock);
                 Result->addIncoming(Y, NotNumBlock);
 
@@ -141,7 +141,7 @@ namespace lox {
     void CheckArity(FunctionCompiler &Compiler, BasicBlock *CallBlock, Value *arity, const unsigned int actual, const unsigned int line) {
         LoxBuilder &Builder = Compiler.getBuilder();
 
-        const auto WrongArityBlock = Builder.CreateBasicBlock("wrong.arity");
+        auto *const WrongArityBlock = Builder.CreateBasicBlock("wrong.arity");
 
         Builder.CreateCondBr(Builder.CreateICmpEQ(arity, Builder.getInt32(actual)), CallBlock, WrongArityBlock);
 
@@ -162,8 +162,8 @@ namespace lox {
 
         CheckStackOverflow(Builder, Builder.getInt32(line), Builder.CreateGlobalCachedString(Builder.getFunction()->getName()));
 
-        const auto function = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 1));
-        const auto upvalues = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 2));
+        auto *const function = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 1));
+        auto *const upvalues = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 2));
 
         std::vector<Type *> paramTypes(paramValues.size(), Builder.getInt64Ty());
 
@@ -174,7 +174,7 @@ namespace lox {
 
         FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
 
-        const auto functionPtr = Builder.CreateLoad(
+        auto *const functionPtr = Builder.CreateLoad(
             Builder.getPtrTy(),
             Builder.CreateStructGEP(
                 Builder.getModule().getStructType(ObjType::FUNCTION),
@@ -184,20 +184,20 @@ namespace lox {
         );
 
         // Check arity.
-        const auto arity = Builder.CreateLoad(
+        auto *const arity = Builder.CreateLoad(
             Builder.getInt32Ty(),
             Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::FUNCTION), function, 1),
             "arity"
         );
 
-        const auto CallBlock = Builder.CreateBasicBlock("call");
+        auto *const CallBlock = Builder.CreateBasicBlock("call");
 
         CheckArity(*this, CallBlock, arity, paramValues.size() - 2, line);
 
         Builder.SetInsertPoint(CallBlock);
 
         PushCall(Builder, Builder.getInt32(line), Builder.CreateGlobalCachedString(Builder.getFunction()->getName()));
-        const auto result = Builder.CreateCall(FT, functionPtr, paramValues);
+        auto *const result = Builder.CreateCall(FT, functionPtr, paramValues);
         PopCall(Builder);
 
         return result;
@@ -209,17 +209,17 @@ namespace lox {
                 return evaluate(p);
             })
         );
-        const auto value = evaluate(callExpr->callee);
-        const auto valuePtr = Builder.AsObj(value);
+        auto *const value = evaluate(callExpr->callee);
+        auto *const valuePtr = Builder.AsObj(value);
 
-        const auto IsClosureBlock = Builder.CreateBasicBlock("is.closure");
-        const auto CheckMethodBlock = Builder.CreateBasicBlock("check.method");
-        const auto CheckClassBlock = Builder.CreateBasicBlock("check.class");
-        const auto IsClassBlock = Builder.CreateBasicBlock("is.class");
-        const auto IsMethodBlock = Builder.CreateBasicBlock("is.method");
-        const auto NotCallableBlock = Builder.CreateBasicBlock("not.callable");
-        const auto ExecuteBlock = Builder.CreateBasicBlock("execute");
-        const auto EndBlock = Builder.CreateBasicBlock("end.block");
+        auto *const IsClosureBlock = Builder.CreateBasicBlock("is.closure");
+        auto *const CheckMethodBlock = Builder.CreateBasicBlock("check.method");
+        auto *const CheckClassBlock = Builder.CreateBasicBlock("check.class");
+        auto *const IsClassBlock = Builder.CreateBasicBlock("is.class");
+        auto *const IsMethodBlock = Builder.CreateBasicBlock("is.method");
+        auto *const NotCallableBlock = Builder.CreateBasicBlock("not.callable");
+        auto *const ExecuteBlock = Builder.CreateBasicBlock("execute");
+        auto *const EndBlock = Builder.CreateBasicBlock("end.block");
 
         Builder.CreateCondBr(Builder.IsClosure(value), IsClosureBlock, CheckClassBlock);
 
@@ -252,8 +252,8 @@ namespace lox {
         Builder.SetInsertPoint(CheckMethodBlock);
         Builder.CreateCondBr(Builder.IsBoundMethod(value), IsMethodBlock, NotCallableBlock);
         Builder.SetInsertPoint(IsMethodBlock);
-        const auto receiverObjVal = Builder.CreateLoad(Builder.getInt64Ty(), Builder.CreateObjStructGEP(ObjType::BOUND_METHOD, valuePtr, 1));
-        const auto methodPtr = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::BOUND_METHOD, valuePtr, 2));
+        auto *const receiverObjVal = Builder.CreateLoad(Builder.getInt64Ty(), Builder.CreateObjStructGEP(ObjType::BOUND_METHOD, valuePtr, 1));
+        auto *const methodPtr = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::BOUND_METHOD, valuePtr, 2));
         Builder.CreateBr(ExecuteBlock);
 
         Builder.SetInsertPoint(NotCallableBlock);
@@ -266,32 +266,32 @@ namespace lox {
         Builder.CreateUnreachable();
 
         Builder.SetInsertPoint(IsClosureBlock);
-        const auto closurePtr = valuePtr;
+        auto *const closurePtr = valuePtr;
         Builder.CreateBr(ExecuteBlock);
 
         Builder.SetInsertPoint(ExecuteBlock);
 
         // The function is wrapped in a closure.
-        const auto closure = Builder.CreatePHI(Builder.getPtrTy(), 2);
+        auto *const closure = Builder.CreatePHI(Builder.getPtrTy(), 2);
         closure->addIncoming(closurePtr, IsClosureBlock);
         closure->addIncoming(methodPtr, IsMethodBlock);
-        const auto receiver = Builder.CreatePHI(Builder.getInt64Ty(), 2);
+        auto *const receiver = Builder.CreatePHI(Builder.getInt64Ty(), 2);
         receiver->addIncoming(receiverObjVal, IsMethodBlock);
         receiver->addIncoming(Builder.getNilVal(), IsClosureBlock);
 
-        const auto functionReturnVal = call(receiver, closure, paramValues, callExpr->keyword.getLine());
+        auto *const functionReturnVal = call(receiver, closure, paramValues, callExpr->keyword.getLine());
 
 
-        const auto EndCall = Builder.GetInsertBlock();
+        auto *const EndCall = Builder.GetInsertBlock();
 
         Builder.CreateBr(EndBlock);
         Builder.SetInsertPoint(EndBlock);
-        const auto result = Builder.CreatePHI(Builder.getInt64Ty(), 2);
+        auto *const result = Builder.CreatePHI(Builder.getInt64Ty(), 2);
         result->addIncoming(instanceVal, EndClassBlock);
         result->addIncoming(functionReturnVal, EndCall);
 
-        const auto IsObjBlock = Builder.CreateBasicBlock("is.obj");
-        const auto ReturnBlock = Builder.CreateBasicBlock("return");
+        auto *const IsObjBlock = Builder.CreateBasicBlock("is.obj");
+        auto *const ReturnBlock = Builder.CreateBasicBlock("return");
         Builder.CreateCondBr(Builder.IsObj(result), IsObjBlock, ReturnBlock);
         Builder.SetInsertPoint(IsObjBlock);
         {
@@ -330,8 +330,8 @@ namespace lox {
     }
 
     void CheckInstance(LoxBuilder &Builder, const std::string_view message, const unsigned int line, Value *instance) {
-        const auto NotInstanceBlock = Builder.CreateBasicBlock("not.instance");
-        const auto EndBlock = Builder.CreateBasicBlock("end");
+        auto *const NotInstanceBlock = Builder.CreateBasicBlock("not.instance");
+        auto *const EndBlock = Builder.CreateBasicBlock("end");
 
         Builder.CreateCondBr(Builder.IsInstance(instance), EndBlock, NotInstanceBlock);
 
@@ -346,29 +346,29 @@ namespace lox {
         Value *object = evaluate(getExpr->object);
         CheckInstance(Builder, "Only instances have properties.\n"sv, getExpr->name.getLine(), object);
 
-        const auto instance = Builder.AsObj(object);
-        const auto fields = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
+        auto *const instance = Builder.AsObj(object);
+        auto *const fields = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
 
-        const auto key = Builder.AllocateString(getExpr->name.getLexeme(), getExpr->name.getLexeme());
-        const auto result = Builder.TableGet(fields, key);
+        auto *const key = Builder.AllocateString(getExpr->name.getLexeme(), getExpr->name.getLexeme());
+        auto *const result = Builder.TableGet(fields, key);
 
-        const auto IsMethodBlock = Builder.CreateBasicBlock("property.ismethod");
-        const auto IsDefinedBlock = Builder.CreateBasicBlock("property.defined");
+        auto *const IsMethodBlock = Builder.CreateBasicBlock("property.ismethod");
+        auto *const IsDefinedBlock = Builder.CreateBasicBlock("property.defined");
 
-        const auto BeforeBlock = Builder.GetInsertBlock();
+        auto *const BeforeBlock = Builder.GetInsertBlock();
 
         Builder.CreateCondBr(Builder.IsUninitialized(result), IsMethodBlock, IsDefinedBlock);
 
         Builder.SetInsertPoint(IsMethodBlock);
 
-        const auto klass = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
-        const auto bound =
+        auto *const klass = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
+        auto *const bound =
             insertTemp(Builder.ObjVal(Builder.BindMethod(klass, instance, key, getExpr->name.getLine(), enclosing == nullptr ? nullptr : Builder.getFunction())), "bound method");
 
         Builder.CreateBr(IsDefinedBlock);
 
         Builder.SetInsertPoint(IsDefinedBlock);
-        const auto R = Builder.CreatePHI(Builder.getInt64Ty(), 2);
+        auto *const R = Builder.CreatePHI(Builder.getInt64Ty(), 2);
         R->addIncoming(result, BeforeBlock);
         R->addIncoming(bound, IsMethodBlock);
 
@@ -376,12 +376,12 @@ namespace lox {
     }
 
     Value *FunctionCompiler::operator()(const SetExprPtr &setExpr) {
-        const auto object = evaluate(setExpr->object);
+        auto *const object = evaluate(setExpr->object);
         CheckInstance(Builder, "Only instances have fields.\n"sv, setExpr->name.getLine(), object);
 
-        const auto instance = Builder.AsObj(object);
-        const auto value = evaluate(setExpr->value);
-        const auto fields = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
+        auto *const instance = Builder.AsObj(object);
+        auto *const value = evaluate(setExpr->value);
+        auto *const fields = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
 
         Builder.TableSet(fields, Builder.AllocateString(setExpr->name.getLexeme(), "key"), value);
 
@@ -394,10 +394,10 @@ namespace lox {
 
     Value *FunctionCompiler::operator()(const SuperExprPtr &superExpr) {
         static auto assignable = Assignable{Token(THIS, "this"sv, nullptr, superExpr->name.getLine())};
-        const auto instance = Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(assignable));
-        const auto klass = Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(*superExpr));
-        const auto key = insertTemp(Builder.ObjVal(Builder.AllocateString(superExpr->method.getLexeme())), "super method name");
-        const auto method = Builder.BindMethod(
+        auto *const instance = Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(assignable));
+        auto *const klass = Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(*superExpr));
+        auto *const key = insertTemp(Builder.ObjVal(Builder.AllocateString(superExpr->method.getLexeme())), "super method name");
+        auto *const method = Builder.BindMethod(
             Builder.AsObj(klass),
             Builder.AsObj(instance),
             Builder.AsObj(key),
@@ -408,7 +408,7 @@ namespace lox {
     }
 
     Value *FunctionCompiler::operator()(const VarExprPtr &varExpr) {
-        const auto value = lookupVariable(*varExpr);
+        auto *const value = lookupVariable(*varExpr);
         return Builder.CreateLoad(Builder.getInt64Ty(), value);
     }
 
@@ -436,54 +436,54 @@ namespace lox {
     }
 
     Value *FunctionCompiler::operator()(const LogicalExprPtr &logicalExpr) {
-        const auto left = evaluate(logicalExpr->left);
+        auto *const left = evaluate(logicalExpr->left);
 
         switch (logicalExpr->op) {
             case LogicalOp::AND: {
-                const auto LeftIsTruthyBlock = Builder.CreateBasicBlock("if.left.truthy");
-                const auto LeftNotTruthyBlock = Builder.CreateBasicBlock("if.left.nottruthy");
-                const auto EndBlock = Builder.CreateBasicBlock("end");
+                auto *const LeftIsTruthyBlock = Builder.CreateBasicBlock("if.left.truthy");
+                auto *const LeftNotTruthyBlock = Builder.CreateBasicBlock("if.left.nottruthy");
+                auto *const EndBlock = Builder.CreateBasicBlock("end");
                 Builder.CreateCondBr(
                     Builder.IsTruthy(left),
                     LeftIsTruthyBlock,
                     LeftNotTruthyBlock
                 );
                 Builder.SetInsertPoint(LeftNotTruthyBlock);
-                const auto Y = left;
-                const auto EndLeftNotTruthyBlock = Builder.GetInsertBlock();
+                auto *const Y = left;
+                auto *const EndLeftNotTruthyBlock = Builder.GetInsertBlock();
                 Builder.CreateBr(EndBlock);
                 Builder.SetInsertPoint(LeftIsTruthyBlock);
-                const auto X = evaluate(logicalExpr->right);
-                const auto EndLeftTruthyBlock = Builder.GetInsertBlock();
+                auto *const X = evaluate(logicalExpr->right);
+                auto *const EndLeftTruthyBlock = Builder.GetInsertBlock();
                 Builder.CreateBr(EndBlock);
                 Builder.SetInsertPoint(EndBlock);
 
-                const auto Result = Builder.CreatePHI(Builder.getInt64Ty(), 2);
+                auto *const Result = Builder.CreatePHI(Builder.getInt64Ty(), 2);
                 Result->addIncoming(X, EndLeftTruthyBlock);
                 Result->addIncoming(Y, EndLeftNotTruthyBlock);
 
                 return Result;
             }
             case LogicalOp::OR: {
-                const auto LeftIsTruthyBlock = Builder.CreateBasicBlock("if.left.truthy");
-                const auto LeftNotTruthyBlock = Builder.CreateBasicBlock("if.left.nottruthy");
-                const auto EndBlock = Builder.CreateBasicBlock("end");
+                auto *const LeftIsTruthyBlock = Builder.CreateBasicBlock("if.left.truthy");
+                auto *const LeftNotTruthyBlock = Builder.CreateBasicBlock("if.left.nottruthy");
+                auto *const EndBlock = Builder.CreateBasicBlock("end");
                 Builder.CreateCondBr(
                     Builder.IsTruthy(left),
                     LeftIsTruthyBlock,
                     LeftNotTruthyBlock
                 );
                 Builder.SetInsertPoint(LeftNotTruthyBlock);
-                const auto right = evaluate(logicalExpr->right);
-                const auto Y = Builder.CreateSelect(Builder.IsTruthy(right), right, left);
-                const auto EndLeftNotTruthyBlock = Builder.GetInsertBlock();
+                auto *const right = evaluate(logicalExpr->right);
+                auto *const Y = Builder.CreateSelect(Builder.IsTruthy(right), right, left);
+                auto *const EndLeftNotTruthyBlock = Builder.GetInsertBlock();
                 Builder.CreateBr(EndBlock);
                 Builder.SetInsertPoint(LeftIsTruthyBlock);
-                const auto X = left;
+                auto *const X = left;
                 Builder.CreateBr(EndBlock);
                 Builder.SetInsertPoint(EndBlock);
 
-                const auto Result = Builder.CreatePHI(Builder.getInt64Ty(), 2);
+                auto *const Result = Builder.CreatePHI(Builder.getInt64Ty(), 2);
                 Result->addIncoming(X, LeftIsTruthyBlock);
                 Result->addIncoming(Y, EndLeftNotTruthyBlock);
 
@@ -494,14 +494,14 @@ namespace lox {
     }
 
     Value *FunctionCompiler::operator()(const UnaryExprPtr &unaryExpr) {
-        const auto left = evaluate(unaryExpr->expression);
+        auto *const left = evaluate(unaryExpr->expression);
 
         switch (unaryExpr->op) {
             case UnaryOp::BANG:
                 return Builder.BoolVal(Builder.CreateSelect(Builder.IsTruthy(left), Builder.getFalse(), Builder.getTrue()));
             case UnaryOp::MINUS: {
-                const auto InvalidNumBlock = Builder.CreateBasicBlock("if.num");
-                const auto EndBlock = Builder.CreateBasicBlock("if.end");
+                auto *const InvalidNumBlock = Builder.CreateBasicBlock("if.num");
+                auto *const EndBlock = Builder.CreateBasicBlock("if.end");
 
                 Builder.CreateCondBr(Builder.IsNumber(left), EndBlock, InvalidNumBlock);
                 Builder.SetInsertPoint(InvalidNumBlock);
