@@ -230,7 +230,7 @@ namespace lox {
                 {Builder.CreateGlobalCachedString(assignable.name.getLexeme())},
                 Builder.getFunction()
             );
-            Builder.CreateBr(EndBlock);
+
             Builder.SetInsertPoint(EndBlock);
 
             return global;

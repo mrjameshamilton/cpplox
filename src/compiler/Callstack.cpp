@@ -174,7 +174,6 @@ namespace lox {
 
             B.SetInsertPoint(IsStackOverFlow);
             B.RuntimeError(line, "Stack overflow.\n", {}, name);
-            B.CreateUnreachable();
 
             B.SetInsertPoint(IsNotStackOverFlow);
             B.CreateRetVoid();

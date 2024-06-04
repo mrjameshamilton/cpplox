@@ -450,5 +450,6 @@ namespace lox {
         if (freeObjects) FreeObjects(*this);
 
         CreateCall(Exit, getInt32(70));
+        CreateUnreachable();
     }
 }// namespace lox

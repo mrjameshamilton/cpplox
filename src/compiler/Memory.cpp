@@ -478,7 +478,6 @@ namespace lox {
                             B.SetInsertPoint(IsNotClosedBlock);
                             {
                                 B.RuntimeError(B.getInt32(0), "upvalue not closed %p\n", {upvalue}, B.CreateGlobalCachedString("assert"), false);
-                                B.CreateUnreachable();
                             }
                         }
                         B.SetInsertPoint(NotUpvalueBlock);

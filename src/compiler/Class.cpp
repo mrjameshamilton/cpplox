@@ -74,7 +74,6 @@ namespace lox {
                     {B.AsCString(B.ObjVal(key))},
                     function
                 );
-                B.CreateUnreachable();
             }
             B.SetInsertPoint(IsDefinedBlock);
             {

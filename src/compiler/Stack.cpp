@@ -74,7 +74,6 @@ namespace lox {
             B.SetInsertPoint(IsNullBlock);
             {
                 B.RuntimeError(B.getInt32(0), "Could not reallocate %d for %p\n", {newSize, stack}, B.CreateGlobalCachedString("ensureCapacity"));
-                B.CreateUnreachable();
             }
             B.SetInsertPoint(OkBlock);
             {

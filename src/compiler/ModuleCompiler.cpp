@@ -97,7 +97,6 @@ namespace lox {
             Builder->CreateCondBr(Builder->CreateICmpEQ(Builder->getInt32(0), locals), IsZeroBlock, IsNotZeroBlock);
             Builder->SetInsertPoint(IsNotZeroBlock);
             Builder->RuntimeError(Builder->getInt32(0), "locals not zero (%d)\n", {locals}, Builder->CreateGlobalCachedString("assert"));
-            Builder->CreateUnreachable();
 
             Builder->SetInsertPoint(IsZeroBlock);
         }

@@ -48,7 +48,6 @@ namespace lox {
                     {},
                     Builder.getFunction()
                 );
-                Builder.CreateBr(EndBlock);
 
                 Builder.SetInsertPoint(EndBlock);
                 break;
@@ -84,15 +83,11 @@ namespace lox {
                     Builder.getFunction()
                 );
 
-                auto *const Z = Builder.getNilVal();
-                Builder.CreateBr(EndBlock);
-
                 Builder.SetInsertPoint(EndBlock);
 
                 auto *const Result = Builder.CreatePHI(Builder.getInt64Ty(), 2);
                 Result->addIncoming(X, IsNumBlock);
                 Result->addIncoming(Y, IsStringBlock);
-                Result->addIncoming(Z, InvalidBlock);
 
                 return Result;
             }
@@ -153,7 +148,6 @@ namespace lox {
             {arity, Builder.getInt32(actual)},
             Builder.getFunction()
         );
-        Builder.CreateUnreachable();
     }
 
     Value *FunctionCompiler::call(Value *receiver, Value *closure, std::vector<Value *> paramValues, const unsigned int line) {
@@ -263,7 +257,6 @@ namespace lox {
             {},
             Builder.getFunction()
         );
-        Builder.CreateUnreachable();
 
         Builder.SetInsertPoint(IsClosureBlock);
         auto *const closurePtr = valuePtr;
@@ -337,7 +330,6 @@ namespace lox {
 
         Builder.SetInsertPoint(NotInstanceBlock);
         Builder.RuntimeError(line, message, {}, Builder.getFunction());
-        Builder.CreateUnreachable();
 
         Builder.SetInsertPoint(EndBlock);
     }
@@ -511,7 +503,7 @@ namespace lox {
                     {},
                     Builder.getFunction()
                 );
-                Builder.CreateBr(EndBlock);
+
                 Builder.SetInsertPoint(EndBlock);
 
                 return Builder.NumberVal(Builder.CreateFNeg(Builder.AsNumber(left)));

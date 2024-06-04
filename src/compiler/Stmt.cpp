@@ -202,7 +202,6 @@ namespace lox {
                 {},
                 Builder.getFunction()
             );
-            Builder.CreateUnreachable();
 
             Builder.SetInsertPoint(EndBlock);
         }
