@@ -266,7 +266,7 @@ namespace lox {
             return Builder.getModule().getNamedGlobal(("g" + name).str());
         }
 
-        void insertVariable(const std::string_view key, Value *value) {
+        Value *insertVariable(const std::string_view key, Value *value, const bool isConstant = false) {
             assert(value->getType() == Builder.getInt64Ty());
 
             if (isGlobalScope()) {
@@ -288,6 +288,8 @@ namespace lox {
                 }
 
                 AddGlobalGCRoot(Builder.getModule(), global);
+
+                return global;
             } else {
                 auto *const alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), key);
                 const auto local = std::make_shared<Local>(*this, key, alloca);
@@ -303,6 +305,8 @@ namespace lox {
                     true
                 );
                 locals.CreateSet(Builder, stackIndex, alloca);
+
+                return alloca;
             }
         }
 

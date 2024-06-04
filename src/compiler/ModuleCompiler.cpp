@@ -80,8 +80,14 @@ namespace lox {
         CreateGcFunction(*Builder);
 
         ScriptCompiler.compile(program, {}, [&ScriptCompiler, &Clock](LoxBuilder &B) {
-            ScriptCompiler.insertVariable("$initString", B.ObjVal(B.AllocateString("init")));
-            ScriptCompiler.insertVariable("clock", B.ObjVal(B.AllocateClosure(ScriptCompiler, Clock, "clock", true)));
+            auto *const initStringString = B.AllocateString("init");
+            B.CreateInvariantStart(initStringString);
+            auto *const initString =ScriptCompiler.insertVariable("$initString", B.ObjVal(initStringString));
+            B.CreateInvariantStart(initString, B.getInt64(64));
+
+            auto *const clockClosure = B.AllocateClosure(ScriptCompiler, Clock, "clock", true);
+            B.CreateInvariantStart(clockClosure);
+            ScriptCompiler.insertVariable("clock", B.ObjVal(clockClosure));
         });
 
         Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));
