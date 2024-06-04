@@ -216,22 +216,25 @@ namespace lox {
 
             // Lookup global.
             auto *const global = lookupGlobal(assignable.name.getLexeme());
-            // Globals are late bound, so we must check at runtime if
-            // the global is defined and initialized.
-            auto *const UndefinedBlock = Builder.CreateBasicBlock("undefined");
-            auto *const EndBlock = Builder.CreateBasicBlock("end");
 
-            auto *const loadedValue = Builder.CreateLoad(Builder.getInt64Ty(), global);
-            Builder.CreateCondBr(Builder.IsUninitialized(loadedValue), UndefinedBlock, EndBlock);
-            Builder.SetInsertPoint(UndefinedBlock);
-            Builder.RuntimeError(
-                assignable.name.getLine(),
-                "Undefined variable '%s'.\n",
-                {Builder.CreateGlobalCachedString(assignable.name.getLexeme())},
-                Builder.getFunction()
-            );
+            if (auto const *c = dyn_cast<ConstantInt>(global->getInitializer()); c->getValue() == UNINITIALIZED_VAL) {
+                // Globals are late bound, so we must check at runtime if
+                // a global created as uninitialized is now initialized.
+                auto *const UndefinedBlock = Builder.CreateBasicBlock("undefined");
+                auto *const EndBlock = Builder.CreateBasicBlock("end");
 
-            Builder.SetInsertPoint(EndBlock);
+                auto *const loadedValue = Builder.CreateLoad(Builder.getInt64Ty(), global);
+                Builder.CreateCondBr(Builder.IsUninitialized(loadedValue), UndefinedBlock, EndBlock);
+                Builder.SetInsertPoint(UndefinedBlock);
+                Builder.RuntimeError(
+                    assignable.name.getLine(),
+                    "Undefined variable '%s'.\n",
+                    {Builder.CreateGlobalCachedString(assignable.name.getLexeme())},
+                    Builder.getFunction()
+                );
+
+                Builder.SetInsertPoint(EndBlock);
+            }
 
             return global;
         }
