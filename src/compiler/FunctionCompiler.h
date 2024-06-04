@@ -215,7 +215,7 @@ namespace lox {
             }
 
             // Lookup global.
-            auto *const global = lookupGlobal(assignable.name.getLexeme());
+            auto *const global = lookupOrCreateGlobal(assignable.name.getLexeme());
 
             if (auto const *c = dyn_cast<ConstantInt>(global->getInitializer()); c->getValue() == UNINITIALIZED_VAL) {
                 // Globals are late bound, so we must check at runtime if
@@ -239,8 +239,9 @@ namespace lox {
             return global;
         }
 
-        GlobalVariable *lookupGlobal(const std::string_view name) {
-            auto *global = Builder.getModule().getNamedGlobal(("g" + name).str());
+        GlobalVariable *lookupOrCreateGlobal(const std::string_view name) {
+            auto *global = lookupGlobal(name);
+
             if (global == nullptr) {
                 // Global was not yet defined, so define it already but with an uninitialized value.
                 global = cast<GlobalVariable>(Builder.getModule().getOrInsertGlobal(
@@ -261,8 +262,13 @@ namespace lox {
             return global;
         }
 
+        [[nodiscard]] GlobalVariable *lookupGlobal(const std::string_view name) const {
+            return Builder.getModule().getNamedGlobal(("g" + name).str());
+        }
+
         void insertVariable(const std::string_view key, Value *value) {
             assert(value->getType() == Builder.getInt64Ty());
+
             if (isGlobalScope()) {
                 const auto &name = ("g" + key).str();// TODO: how to not call Twine.+?
                 auto *const global = cast<GlobalVariable>(Builder.getModule().getOrInsertGlobal(
