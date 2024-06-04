@@ -6,8 +6,8 @@
 namespace lox {
 
     static Value *AllocateFunction(LoxBuilder &Builder, llvm::Function *Function, Value *name, const bool isNative) {
-        static auto AllocateFunctionFunction([&Builder] {
-            const auto F = Function::Create(
+        static auto *AllocateFunctionFunction([&Builder] {
+            auto *const F = Function::Create(
                 FunctionType::get(
                     Builder.getPtrTy(),
                     {Builder.getPtrTy(), Builder.getPtrTy(), Builder.getInt32Ty(), Builder.getInt1Ty()},
@@ -20,22 +20,22 @@ namespace lox {
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
-            const auto EntryBasicBlock = B.CreateBasicBlock("entry");
+            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
-            const auto arguments = F->args().begin();
+            auto *const arguments = F->args().begin();
 
-            const auto functionPtr = arguments;
-            const auto name = arguments + 1;
-            const auto argSize = arguments + 2;
-            const auto isNative = arguments + 3;
+            auto *const functionPtr = arguments;
+            auto *const name = arguments + 1;
+            auto *const argSize = arguments + 2;
+            auto *const isNative = arguments + 3;
 
-            const auto ptr = B.AllocateObj(ObjType::FUNCTION, "function");
+            auto *const ptr = B.AllocateObj(ObjType::FUNCTION, "function");
 
-            B.CreateStore(argSize, B.CreateObjStructGEP(ObjType::FUNCTION, ptr, 1), "argSize");
+            B.CreateStore(argSize, B.CreateObjStructGEP(ObjType::FUNCTION, ptr, 1, "argSize"));
             B.CreateStore(functionPtr, B.CreateObjStructGEP(ObjType::FUNCTION, ptr, 2, "funcPtr"));
-            B.CreateStore(name, B.CreateObjStructGEP(ObjType::FUNCTION, ptr, 3), "name");
-            B.CreateStore(isNative, B.CreateObjStructGEP(ObjType::FUNCTION, ptr, 4), "isNative");
+            B.CreateStore(name, B.CreateObjStructGEP(ObjType::FUNCTION, ptr, 3, "name"));
+            B.CreateStore(isNative, B.CreateObjStructGEP(ObjType::FUNCTION, ptr, 4, "isNative"));
 
             B.CreateRet(ptr);
 
