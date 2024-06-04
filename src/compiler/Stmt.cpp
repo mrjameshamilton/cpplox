@@ -42,7 +42,7 @@ namespace lox {
 
         if (type == LoxFunctionType::FUNCTION) {
             // Methods aren't stored as variables.
-            insertVariable(functionStmt->name.getLexeme(), Builder.ObjVal(closurePtr));
+            insertVariable(functionStmt->name.getLexeme(), Builder.ObjVal(closurePtr), true);
         } else if (type == LoxFunctionType::METHOD || type == LoxFunctionType::INITIALIZER) {
             insertTemp(Builder.ObjVal(closurePtr), "method closure");
         }
@@ -50,7 +50,7 @@ namespace lox {
         FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, type, this);
         C.compile(functionStmt->body, functionStmt->parameters, [&, &C](const LoxBuilder &B) {
             if (C.type == LoxFunctionType::METHOD || C.type == LoxFunctionType::INITIALIZER) {
-                C.insertVariable("this", B.getFunction()->arg_begin() + 1);
+                C.insertVariable("this", B.getFunction()->arg_begin() + 1, true);
             }
         });
 
@@ -150,17 +150,17 @@ namespace lox {
 
     void FunctionCompiler::operator()(const IfStmtPtr &ifStmt) {
         auto *const TrueBlock = Builder.CreateBasicBlock("if.true");
-        auto *const FalseBlock = Builder.CreateBasicBlock("else");
         auto *const EndBlock = Builder.CreateBasicBlock("if.end");
+        auto *const FalseBlock = ifStmt->elseBranch.has_value() ? Builder.CreateBasicBlock("else") : EndBlock;
         Builder.CreateCondBr(Builder.IsTruthy(evaluate(ifStmt->condition)), TrueBlock, FalseBlock);
         Builder.SetInsertPoint(TrueBlock);
         evaluate(ifStmt->thenBranch);
         Builder.CreateBr(EndBlock);
-        Builder.SetInsertPoint(FalseBlock);
         if (ifStmt->elseBranch.has_value()) {
+            Builder.SetInsertPoint(FalseBlock);
             evaluate(ifStmt->elseBranch.value());
+            Builder.CreateBr(EndBlock);
         }
-        Builder.CreateBr(EndBlock);
         Builder.SetInsertPoint(EndBlock);
     }
 
@@ -171,7 +171,7 @@ namespace lox {
         auto *const klass = Builder.AllocateClass(nameObj);
         auto *const methods = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2));
 
-        insertVariable(className, Builder.ObjVal(klass));
+        insertVariable(className, Builder.ObjVal(klass), true);
 
         if (classStmt->super_class.has_value()) {
             // Copy all methods from the superclass methods table, to the subclass
@@ -188,7 +188,7 @@ namespace lox {
 
             beginScope();// Create a new scope since the "super" variable
                          // could be declared multiple times, for different classes.
-            insertVariable("super", value);
+            insertVariable("super", value, true);
 
             auto *const superklass = Builder.AsObj(value);
             auto *const supermethods = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, superklass, 2));

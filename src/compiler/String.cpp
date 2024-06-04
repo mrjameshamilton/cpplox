@@ -259,6 +259,8 @@ namespace lox {
             B.CreateStore(hash, B.CreateObjStructGEP(ObjType::STRING, ptr, 3));
             B.CreateStore(B.getFalse(), B.CreateObjStructGEP(ObjType::STRING, ptr, 4));
 
+            B.CreateInvariantStart(ptr);
+
             B.TableSet(B.CreateLoad(B.getPtrTy(), B.getModule().getRuntimeStrings()), ptr, B.getNilVal());
 
             B.CreateRet(ptr);

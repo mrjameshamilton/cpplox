@@ -80,9 +80,7 @@ namespace lox {
         CreateGcFunction(*Builder);
 
         ScriptCompiler.compile(program, {}, [&ScriptCompiler, &Clock](LoxBuilder &B) {
-            auto *const initStringString = B.AllocateString("init");
-            B.CreateInvariantStart(initStringString);
-            auto *const initString =ScriptCompiler.insertVariable("$initString", B.ObjVal(initStringString));
+            auto *const initString = ScriptCompiler.insertVariable("$initString", B.ObjVal(B.AllocateString("init")));
             B.CreateInvariantStart(initString, B.getInt64(64));
 
             auto *const clockClosure = B.AllocateClosure(ScriptCompiler, Clock, "clock", true);

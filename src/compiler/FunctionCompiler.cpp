@@ -67,6 +67,7 @@ namespace lox {
             // local goes out of scope.
             if (const auto value = variables.lookup("$returnVal")) {
                 Builder.CreateStore(Builder.CreateLoad(Builder.getInt64Ty(), value->value), returnVal);
+                Builder.CreateInvariantStart(returnVal, Builder.getInt64(64));
             }
         }
 

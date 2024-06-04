@@ -296,6 +296,10 @@ namespace lox {
                 variables.insert(key, local);
                 Builder.CreateStore(value, alloca);
 
+                if (isConstant) {
+                    Builder.CreateInvariantStart(alloca, Builder.getInt64(64));
+                }
+
                 const auto locals = Builder.getModule().getLocalsStack();
                 auto *const stackIndex = Builder.CreateAdd(
                     Builder.CreateLoad(Builder.getInt32Ty(), sp),
@@ -319,6 +323,7 @@ namespace lox {
             const auto local = std::make_shared<Local>(*this, name, alloca);
             variables.insert(name, local);
             Builder.CreateStore(value, alloca);
+            Builder.CreateInvariantStart(alloca, Builder.getInt64(64));
 
             const auto locals = Builder.getModule().getLocalsStack();
             auto *const stackIndex = Builder.CreateAdd(
