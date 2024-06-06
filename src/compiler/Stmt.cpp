@@ -41,14 +41,19 @@ namespace lox {
         auto *const closurePtr = Builder.AllocateClosure(*this, F, functionStmt->name.getLexeme(), false);
 
         if (type == LoxFunctionType::FUNCTION) {
-            // Methods aren't stored as variables.
-            insertVariable(functionStmt->name.getLexeme(), Builder.ObjVal(closurePtr), true);
+            auto *const variable = insertVariable(functionStmt->name.getLexeme(), Builder.ObjVal(closurePtr), true);
+            if (isa<Instruction>(variable)) {
+                auto *const instruction = cast<Instruction>(variable);
+                instruction->setMetadata("lox-function", MDNode::get(Builder.getContext(), MDString::get(Builder.getContext(), name)));
+            }
         } else if (type == LoxFunctionType::METHOD || type == LoxFunctionType::INITIALIZER) {
+            // Methods aren't stored as variables.
             insertTemp(Builder.ObjVal(closurePtr), "method closure");
         }
 
         FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, type, this);
-        C.compile(functionStmt->body, functionStmt->parameters, [&, &C](const LoxBuilder &B) {
+        C.compile(functionStmt->body, functionStmt->parameters, [&, &C](LoxBuilder &B) {
+            // TODO: add closure itself as first parameter?
             if (C.type == LoxFunctionType::METHOD || C.type == LoxFunctionType::INITIALIZER) {
                 C.insertVariable("this", B.getFunction()->arg_begin() + 1, true);
             }

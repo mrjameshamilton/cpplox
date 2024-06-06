@@ -16,6 +16,7 @@
 #include <llvm/IR/Value.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 #include <stack>
+#include <unordered_set>
 
 template<>
 struct llvm::DenseMapInfo<std::string_view> {
@@ -109,6 +110,7 @@ namespace lox {
         BasicBlock *ExitBasicBlock = Builder.CreateBasicBlock("epilogue");
         AllocaInst *sp;
         unsigned int localsCount = 0;
+        std::unordered_set<Value *> functionLocals;
 
     public:
         explicit FunctionCompiler(LLVMContext &Context, LoxModule &Module, Function &F, const LoxFunctionType type = LoxFunctionType::FUNCTION, FunctionCompiler *enclosing = nullptr)
@@ -196,13 +198,31 @@ namespace lox {
             return Builder;
         }
 
-        [[nodiscard]] Value *lookupVariable(Assignable &assignable) {
-            if constexpr (DEBUG_UPVALUES) {
-                Builder.PrintF({Builder.CreateGlobalCachedString("lookupVariable(%s)\n"), Builder.CreateGlobalCachedString(assignable.name.getLexeme())});
-            }
-            if (const auto local = resolveLocal(this, assignable)) return local->value;
+        [[nodiscard]] Value *lookupLocalVariable(const Token &token) {
+            return lookupLocalVariable(token.getLexeme());
+        }
 
-            if (auto *const upvalue = resolveUpvalue(this, assignable)) {
+        [[nodiscard]] Value *lookupLocalVariable(const StringRef name) {
+            if (const auto local = resolveLocal(this, name)) {
+                return local->value;
+            }
+
+            return nullptr;
+        }
+
+        [[nodiscard]] Value *lookupVariable(const Assignable &assignable) {
+            return lookupVariable(assignable.name);
+        }
+
+        [[nodiscard]] Value *lookupVariable(const Token &token) {
+            const auto &name = token.getLexeme();
+            if constexpr (DEBUG_UPVALUES) {
+                Builder.PrintF({Builder.CreateGlobalCachedString("lookupVariable(%s)\n"), Builder.CreateGlobalCachedString(name)});
+            }
+
+            if (auto *const local = lookupLocalVariable(token)) return local;
+
+            if (auto *const upvalue = resolveUpvalue(this, name)) {
                 // upvalue is a pointer to an upvalue object.
                 // We need to load the value at the pointer location in the upvalue struct,
                 // which points to the closed over value.
@@ -215,7 +235,7 @@ namespace lox {
             }
 
             // Lookup global.
-            auto *const global = lookupOrCreateGlobal(assignable.name.getLexeme());
+            auto *const global = lookupOrCreateGlobal(name);
 
             if (auto const *c = dyn_cast<ConstantInt>(global->getInitializer()); c->getValue() == UNINITIALIZED_VAL) {
                 // Globals are late bound, so we must check at runtime if
@@ -227,9 +247,9 @@ namespace lox {
                 Builder.CreateCondBr(Builder.IsUninitialized(loadedValue), UndefinedBlock, EndBlock);
                 Builder.SetInsertPoint(UndefinedBlock);
                 Builder.RuntimeError(
-                    assignable.name.getLine(),
+                    token.getLine(),
                     "Undefined variable '%s'.\n",
-                    {Builder.CreateGlobalCachedString(assignable.name.getLexeme())},
+                    {Builder.CreateGlobalCachedString(name)},
                     Builder.getFunction()
                 );
 
@@ -239,7 +259,7 @@ namespace lox {
             return global;
         }
 
-        GlobalVariable *lookupOrCreateGlobal(const std::string_view name) {
+        GlobalVariable *lookupOrCreateGlobal(const StringRef name) {
             auto *global = lookupGlobal(name);
 
             if (global == nullptr) {
@@ -262,7 +282,7 @@ namespace lox {
             return global;
         }
 
-        [[nodiscard]] GlobalVariable *lookupGlobal(const std::string_view name) const {
+        [[nodiscard]] GlobalVariable *lookupGlobal(const StringRef name) const {
             return Builder.getModule().getNamedGlobal(("g" + name).str());
         }
 
@@ -294,6 +314,9 @@ namespace lox {
                 auto *const alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), key);
                 const auto local = std::make_shared<Local>(*this, key, alloca);
                 variables.insert(key, local);
+                if (isa<Instruction>(alloca) && isa<Instruction>(value)) {
+                    cast<Instruction>(alloca)->copyMetadata(*cast<Instruction>(value));
+                }
                 Builder.CreateStore(value, alloca);
 
                 if (isConstant) {
@@ -341,15 +364,15 @@ namespace lox {
         Value *captureLocal(Value *local);
 
     private:
-        static Value *resolveUpvalue(FunctionCompiler *compiler, Assignable &assignable) {
+        static Value *resolveUpvalue(FunctionCompiler *compiler, const std::string_view name) {
             if (compiler->enclosing == nullptr) return nullptr;
 
-            if (const auto local = resolveLocal(compiler->enclosing, assignable)) {
+            if (const auto local = resolveLocal(compiler->enclosing, name)) {
                 local->isCaptured = true;
                 return addUpvalue(compiler, local->value, true);
             }
 
-            if (auto *const upvalue = resolveUpvalue(compiler->enclosing, assignable)) {
+            if (auto *const upvalue = resolveUpvalue(compiler->enclosing, name)) {
                 return addUpvalue(compiler, upvalue, false);
             }
 
@@ -386,8 +409,7 @@ namespace lox {
             return upvaluePtr;
         }
 
-        static std::shared_ptr<Local> resolveLocal(FunctionCompiler *compiler, const Assignable &assignable) {
-            const std::string_view &name = assignable.name.getLexeme();
+        static std::shared_ptr<Local> resolveLocal(FunctionCompiler *compiler, const std::string_view &name) {
             if (const auto local = compiler->variables.lookup(name)) {
 
                 if constexpr (DEBUG_UPVALUES) {

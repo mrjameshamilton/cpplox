@@ -21,6 +21,12 @@ namespace lox {
     Value *FunctionCompiler::operator()(const AssignExprPtr &assignExpr) {
         auto *const value = evaluate(assignExpr->value);
         auto *const variable = lookupVariable(*assignExpr);
+        // Copy metadata from the value to the variable.
+        if (isa<Instruction>(value) && isa<Instruction>(variable)) {
+            const auto left = cast<Instruction>(variable);
+            left->eraseMetadataIf([](unsigned, auto *) { return true; });
+            left->copyMetadata(*cast<Instruction>(value));
+        }
         Builder.CreateStore(value, variable);
         return value;
     }
@@ -203,7 +209,31 @@ namespace lox {
                 return evaluate(p);
             })
         );
+
         auto *const value = evaluate(callExpr->callee);
+
+        if (isa<Instruction>(value) && cast<Instruction>(value)->hasMetadata("lox-function")) {
+            // Handle a common case where the function local is known
+            // which does not require runtime checks to check if the value is a function e.g.
+
+            /*
+             {
+                fun foo() { }
+                foo(); <-- foo can be found in the locals; locals can't be redefined, so
+                           if foo was declared as a function then it must be the function.
+             }
+             */
+            const auto &metadataName = cast<Instruction>(value)->getMetadata("lox-function")->getOperand(0);
+            if (auto *local = lookupLocalVariable(cast<MDString>(metadataName)->getString()); local != nullptr) {
+                auto *const closure = Builder.AsObj(Builder.CreateLoad(Builder.getInt64Ty(), local));
+                auto *const result = call(Builder.getNilVal(), closure, paramValues, callExpr->keyword.getLine());
+                // std::cout << "function local found: " << cast<MDString>(metadataName)->getString().str() << std::endl;
+                return insertTemp(result, "function return value");
+            } else {
+                // std::cout << "function local not found: " << name << std::endl;
+            }
+        }
+
         auto *const valuePtr = Builder.AsObj(value);
 
         auto *const IsClosureBlock = Builder.CreateBasicBlock("is.closure");
@@ -401,7 +431,11 @@ namespace lox {
 
     Value *FunctionCompiler::operator()(const VarExprPtr &varExpr) {
         auto *const value = lookupVariable(*varExpr);
-        return Builder.CreateLoad(Builder.getInt64Ty(), value);
+        auto *inst = Builder.CreateLoad(Builder.getInt64Ty(), value);
+        if (isa<Instruction>(value)) {
+            inst->copyMetadata(*cast<Instruction>(value));
+        }
+        return inst;
     }
 
     Value *FunctionCompiler::operator()(const GroupingExprPtr &groupingExpr) {
