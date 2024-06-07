@@ -43,8 +43,8 @@ namespace lox {
             case BinaryOp::GREATER_EQUAL:
             case BinaryOp::LESS:
             case BinaryOp::LESS_EQUAL: {
-                auto *const InvalidNumBlock = Builder.CreateBasicBlock("if.num");
-                auto *const EndBlock = Builder.CreateBasicBlock("if.end");
+                auto *const InvalidNumBlock = Builder.CreateBasicBlock("if.not.num");
+                auto *const EndBlock = Builder.CreateBasicBlock("if.num");
 
                 Builder.CreateCondBr(Builder.CreateAnd(Builder.IsNumber(left), Builder.IsNumber(right)), EndBlock, InvalidNumBlock);
                 Builder.SetInsertPoint(InvalidNumBlock);
@@ -526,8 +526,8 @@ namespace lox {
             case UnaryOp::BANG:
                 return Builder.BoolVal(Builder.CreateSelect(Builder.IsTruthy(left), Builder.getFalse(), Builder.getTrue()));
             case UnaryOp::MINUS: {
-                auto *const InvalidNumBlock = Builder.CreateBasicBlock("if.num");
-                auto *const EndBlock = Builder.CreateBasicBlock("if.end");
+                auto *const InvalidNumBlock = Builder.CreateBasicBlock("if.not.num");
+                auto *const EndBlock = Builder.CreateBasicBlock("if.num");
 
                 Builder.CreateCondBr(Builder.IsNumber(left), EndBlock, InvalidNumBlock);
                 Builder.SetInsertPoint(InvalidNumBlock);
