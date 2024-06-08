@@ -13,7 +13,7 @@ with the main implementation difference being the language and the use of `std::
 $ bin/cpplox examples/helloworld.lox
 ```
 
-The following additional native functions are implemented to allow running [Lox.lox](https://github.com/mrjameshamilton/loxlox), an Lox interpreter written in Lox:
+The following additional native functions are implemented in the interpreter to allow running [Lox.lox](https://github.com/mrjameshamilton/loxlox), an Lox interpreter written in Lox:
 
 - `read()` reads a byte from `stdin` or `nil` if end of stream
 - `utf(byte, byte, byte, byte)` converts 1, 2, 3, or 4 bytes into a UTF string
