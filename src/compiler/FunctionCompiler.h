@@ -81,6 +81,12 @@ namespace lox {
 
                 B.CreateLifetimeEnd(value, B.getInt64(64));
 
+                if (compiler.scopes.size() <= 1) {
+                    // Since we'll end the function scope anyway,
+                    // no need to emit any locals stack clearing instructions.
+                    return;
+                }
+
                 const auto &locals = B.getModule().getLocalsStack();
                 auto *const stackIndex = B.CreateAdd(
                     B.CreateLoad(B.getInt32Ty(), compiler.sp),
