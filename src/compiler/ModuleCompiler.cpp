@@ -132,9 +132,31 @@ namespace lox {
     bool ModuleCompiler::writeIR(const std::string_view Filename) const {
         std::error_code ec;
 
+        // TODO: set this in one place.
         const auto TargetTriple = getDefaultTargetTriple();
+        InitializeAllTargetInfos();
+        InitializeAllTargets();
+        InitializeAllTargetMCs();
+        InitializeAllAsmParsers();
+        InitializeAllAsmPrinters();
         auto &M = getModule();
+
+        std::string Error;
+        const auto *const Target = TargetRegistry::lookupTarget(TargetTriple, Error);
+        if (!Target) {
+            std::cerr << Error;
+            return false;
+        }
+        const auto *const CPU = "generic";
+        const auto *const Features = "";
+
+        const TargetOptions opt;
+        const auto *const TheTargetMachine = Target->createTargetMachine(
+            TargetTriple, CPU, Features, opt, Reloc::PIC_
+        );
+
         M.setTargetTriple(TargetTriple);
+        M.setDataLayout(TheTargetMachine->createDataLayout());
 
         auto out = raw_fd_ostream(Filename, ec);
         M.print(out, nullptr);
