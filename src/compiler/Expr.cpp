@@ -207,6 +207,10 @@ namespace lox {
                 );
             }
         } else {
+            auto *const function = Builder.CreateLoad(
+                Builder.getPtrTy(),
+                Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 1)
+            );
             // Check arity.
             auto *const arity = Builder.CreateLoad(
                 Builder.getInt32Ty(),
