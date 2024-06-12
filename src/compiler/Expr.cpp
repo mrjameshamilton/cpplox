@@ -23,7 +23,7 @@ namespace lox {
         auto *const variable = lookupVariable(*assignExpr);
         // Copy metadata from the value to the variable.
         if (isa<Instruction>(value) && isa<Instruction>(variable)) {
-            const auto left = cast<Instruction>(variable);
+            auto *const left = cast<Instruction>(variable);
             left->eraseMetadataIf([](unsigned, auto *) { return true; });
             left->copyMetadata(*cast<Instruction>(value));
         }
@@ -174,17 +174,13 @@ namespace lox {
 
         FunctionType *FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
 
-        auto *const functionPtr = Builder.CreateLoad(
-            Builder.getPtrTy(),
-            Builder.CreateStructGEP(
-                Builder.getModule().getStructType(ObjType::FUNCTION),
-                function, 2
-            ),
-            "func"
-        );
+        Value *functionPtr;
 
         if (const auto *const ins = dyn_cast<Instruction>(closure); ins && ins->hasMetadata("lox-function")) {
-            auto *const expectedArity = mdconst::extract<ConstantInt>(ins->getMetadata("lox-function")->getOperand(1));
+            const auto *const metadata = ins->getMetadata("lox-function");
+            functionPtr = Builder.getModule().getFunction(cast<MDString>(metadata->getOperand(0))->getString());
+
+            auto *const expectedArity = mdconst::extract<ConstantInt>(metadata->getOperand(1));
             if (!expectedArity->equalsInt(paramValues.size() - 2)) {
                 Builder.RuntimeError(
                     line,
@@ -206,6 +202,15 @@ namespace lox {
             CheckArity(*this, CallBlock, arity, paramValues.size() - 2, line);
 
             Builder.SetInsertPoint(CallBlock);
+
+            functionPtr = Builder.CreateLoad(
+                Builder.getPtrTy(),
+                Builder.CreateStructGEP(
+                    Builder.getModule().getStructType(ObjType::FUNCTION),
+                    function, 2
+                ),
+                "func"
+            );
         }
 
         PushCall(Builder, Builder.getInt32(line), Builder.CreateGlobalCachedString(Builder.getFunction()->getName()));
