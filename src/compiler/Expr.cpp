@@ -1,5 +1,6 @@
 #include "Callstack.h"
 #include "FunctionCompiler.h"
+#include "MDBuilderUtil.h"
 #include "ModuleCompiler.h"
 
 #include <bit>
@@ -46,7 +47,12 @@ namespace lox {
                 auto *const InvalidNumBlock = Builder.CreateBasicBlock("if.not.num");
                 auto *const EndBlock = Builder.CreateBasicBlock("if.num");
 
-                Builder.CreateCondBr(Builder.CreateAnd(Builder.IsNumber(left), Builder.IsNumber(right)), EndBlock, InvalidNumBlock);
+                Builder.CreateCondBr(
+                    Builder.CreateAnd(Builder.IsNumber(left), Builder.IsNumber(right)),
+                    EndBlock,
+                    InvalidNumBlock,
+                    createLikelyBranchWeights(mdBuilder)
+                );
                 Builder.SetInsertPoint(InvalidNumBlock);
                 Builder.RuntimeError(
                     binaryExpr->token.getLine(),
@@ -70,13 +76,21 @@ namespace lox {
                 auto *const IsNumBlock = Builder.CreateBasicBlock("if.num");
                 auto *const InvalidBlock = Builder.CreateBasicBlock("invalid");
                 auto *const EndBlock = Builder.CreateBasicBlock("if.end");
-                Builder.CreateCondBr(Builder.CreateAnd(Builder.IsNumber(left), Builder.IsNumber(right)), IsNumBlock, IsMaybeStringBlock);
+                Builder.CreateCondBr(
+                    Builder.CreateAnd(Builder.IsNumber(left), Builder.IsNumber(right)),
+                    IsNumBlock, IsMaybeStringBlock, createLikelyBranchWeights(mdBuilder)
+                );
                 Builder.SetInsertPoint(IsNumBlock);
                 auto *const X = Builder.NumberVal(Builder.CreateFAdd(Builder.AsNumber(left), Builder.AsNumber(right)));
                 Builder.CreateBr(EndBlock);
 
                 Builder.SetInsertPoint(IsMaybeStringBlock);
-                Builder.CreateCondBr(Builder.CreateAnd(Builder.IsString(left), Builder.IsString(right)), IsStringBlock, InvalidBlock);
+                Builder.CreateCondBr(
+                    Builder.CreateAnd(Builder.IsString(left), Builder.IsString(right)),
+                    IsStringBlock,
+                    InvalidBlock,
+                    createLikelyBranchWeights(mdBuilder)
+                );
                 Builder.SetInsertPoint(IsStringBlock);
                 auto *const Y = insertTemp(Builder.ObjVal(Builder.Concat(left, right)), "string concat");
                 Builder.CreateBr(EndBlock);
@@ -142,9 +156,12 @@ namespace lox {
     void CheckArity(FunctionCompiler &Compiler, BasicBlock *CallBlock, Value *arity, const unsigned int actual, const unsigned int line) {
         LoxBuilder &Builder = Compiler.getBuilder();
 
+        auto mdBuilder = MDBuilder(Builder.getContext());
         auto *const WrongArityBlock = Builder.CreateBasicBlock("wrong.arity");
 
-        Builder.CreateCondBr(Builder.CreateICmpEQ(arity, Builder.getInt32(actual)), CallBlock, WrongArityBlock);
+        Builder.CreateCondBr(
+            Builder.CreateICmpEQ(arity, Builder.getInt32(actual)),
+            CallBlock, WrongArityBlock, createLikelyBranchWeights(mdBuilder));
 
         Builder.SetInsertPoint(WrongArityBlock);
 

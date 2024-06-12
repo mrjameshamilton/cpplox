@@ -52,6 +52,7 @@ add_executable(cpplox src/main.cpp
         src/compiler/Stack.h
         src/compiler/Stack.cpp
         src/compiler/LoxModule.cpp
+        src/compiler/MDBuilderUtil.h
 )
 
 target_compile_options(cpplox PRIVATE

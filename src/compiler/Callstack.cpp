@@ -1,4 +1,6 @@
 #include "Callstack.h"
+
+#include "MDBuilderUtil.h"
 #include "Memory.h"
 
 namespace lox {
@@ -171,10 +173,12 @@ namespace lox {
 
             auto *const sp = B.CreateLoad(B.getInt32Ty(), $sp);
 
+            auto mdBuilder = MDBuilder(Builder.getContext());
             auto *const IsStackOverFlow = B.CreateBasicBlock("is.stackoverflow");
             auto *const IsNotStackOverFlow = B.CreateBasicBlock("isnot.stackoverflow");
 
-            B.CreateCondBr(B.CreateICmpSGE(sp, B.getInt32(MAX_CALL_STACK_SIZE - 1)), IsStackOverFlow, IsNotStackOverFlow);
+            B.CreateCondBr(B.CreateICmpSLT(sp, B.getInt32(MAX_CALL_STACK_SIZE - 1)),
+                IsNotStackOverFlow, IsStackOverFlow, createLikelyBranchWeights(mdBuilder));
 
             B.SetInsertPoint(IsStackOverFlow);
             B.RuntimeError(line, "Stack overflow.\n", {}, name);
