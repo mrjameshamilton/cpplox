@@ -36,6 +36,7 @@ namespace lox {
         auto *const left = evaluate(binaryExpr->left);
         auto *const right = evaluate(binaryExpr->right);
 
+        auto mdBuilder = MDBuilder(Builder.getContext());
         switch (binaryExpr->op) {
             case BinaryOp::MINUS:
             case BinaryOp::SLASH:
