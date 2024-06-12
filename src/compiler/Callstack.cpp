@@ -30,8 +30,8 @@ namespace lox {
             auto *const sp = B.CreateLoad(B.getInt32Ty(), $sp);
 
             auto *const addr = B.CreateInBoundsGEP($cs->getValueType(), $cs, {B.getInt32(0), sp});
-            B.CreateStore(line, B.CreateInBoundsGEP(B.getModule().getCallStruct(), addr, {B.getInt32(0), B.getInt32(0)}));
-            B.CreateStore(name, B.CreateInBoundsGEP(B.getModule().getCallStruct(), addr, {B.getInt32(0), B.getInt32(1)}));
+            B.CreateStore(line, B.CreateStructGEP(B.getModule().getCallStruct(), addr, 0));
+            B.CreateStore(name, B.CreateStructGEP(B.getModule().getCallStruct(), addr, 1));
 
             B.CreateStore(B.CreateAdd(sp, B.getInt32(1), "call+1", true, true), $sp);
 
@@ -113,8 +113,8 @@ namespace lox {
             auto *const top = B.CreateSub(B.CreateLoad(B.getInt32Ty(), $sp), B.CreateLoad(B.getInt32Ty(), i), "top", true, true);
             auto *const addr = B.CreateInBoundsGEP($cs->getValueType(), $cs, {B.getInt32(0), top});
 
-            auto *const line = B.CreateLoad(B.getInt32Ty(), B.CreateInBoundsGEP(B.getModule().getCallStruct(), addr, {B.getInt32(0), B.getInt32(0)}));
-            auto *const name = B.CreateLoad(B.getPtrTy(), B.CreateInBoundsGEP(B.getModule().getCallStruct(), addr, {B.getInt32(0), B.getInt32(1)}));
+            auto *const line = B.CreateLoad(B.getInt32Ty(), B.CreateStructGEP(B.getModule().getCallStruct(), addr, 0));
+            auto *const name = B.CreateLoad(B.getPtrTy(), B.CreateStructGEP(B.getModule().getCallStruct(), addr, 1));
 
             auto *const IsScriptBlock = B.CreateBasicBlock("is.script");
             auto *const IsNotScriptBlock = B.CreateBasicBlock("isnot.script");
