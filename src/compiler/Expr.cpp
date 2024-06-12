@@ -180,7 +180,6 @@ namespace lox {
 
         CheckStackOverflow(Builder, Builder.getInt32(line), Builder.CreateGlobalCachedString(Builder.getFunction()->getName()));
 
-        auto *const function = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 1));
         auto *const upvalues = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 2));
 
         std::vector<Type *> paramTypes(paramValues.size(), Builder.getInt64Ty());
