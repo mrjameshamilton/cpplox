@@ -183,18 +183,30 @@ namespace lox {
             "func"
         );
 
-        // Check arity.
-        auto *const arity = Builder.CreateLoad(
-            Builder.getInt32Ty(),
-            Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::FUNCTION), function, 1),
-            "arity"
-        );
+        if (const auto *const ins = dyn_cast<Instruction>(closure); ins && ins->hasMetadata("lox-function")) {
+            auto *const expectedArity = mdconst::extract<ConstantInt>(ins->getMetadata("lox-function")->getOperand(1));
+            if (!expectedArity->equalsInt(paramValues.size() - 2)) {
+                Builder.RuntimeError(
+                    line,
+                    "Expected %d arguments but got %d.\n",
+                    {expectedArity, Builder.getInt32(paramValues.size() - 2)},
+                    Builder.getFunction()
+                );
+            }
+        } else {
+            // Check arity.
+            auto *const arity = Builder.CreateLoad(
+                Builder.getInt32Ty(),
+                Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::FUNCTION), function, 1),
+                "arity"
+            );
 
-        auto *const CallBlock = Builder.CreateBasicBlock("call");
+            auto *const CallBlock = Builder.CreateBasicBlock("call");
 
-        CheckArity(*this, CallBlock, arity, paramValues.size() - 2, line);
+            CheckArity(*this, CallBlock, arity, paramValues.size() - 2, line);
 
-        Builder.SetInsertPoint(CallBlock);
+            Builder.SetInsertPoint(CallBlock);
+        }
 
         PushCall(Builder, Builder.getInt32(line), Builder.CreateGlobalCachedString(Builder.getFunction()->getName()));
         auto *const result = Builder.CreateCall(FT, functionPtr, paramValues);
@@ -227,6 +239,11 @@ namespace lox {
             if (auto *local = lookupLocalVariable(cast<MDString>(metadataName)->getString()); local != nullptr) {
                 auto *const closure = Builder.AsObj(Builder.CreateLoad(Builder.getInt64Ty(), local));
                 auto *const result = call(Builder.getNilVal(), closure, paramValues, callExpr->keyword.getLine());
+            const auto &funMD = cast<MDTuple>(cast<Instruction>(value)->getMetadata("lox-function"));
+            if (auto *local = lookupLocalVariable(cast<MDString>(funMD->getOperand(0))->getString()); local != nullptr) {
+                auto *const closureValue = Builder.CreateLoad(Builder.getInt64Ty(), local);
+                auto *const closure = Builder.AsObj(closureValue);
+                cast<Instruction>(closure)->copyMetadata(*cast<Instruction>(value));
                 // std::cout << "function local found: " << cast<MDString>(metadataName)->getString().str() << std::endl;
                 return insertTemp(result, "function return value");
             } else {

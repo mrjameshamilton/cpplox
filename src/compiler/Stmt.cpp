@@ -44,7 +44,9 @@ namespace lox {
             auto *const variable = insertVariable(functionStmt->name.getLexeme(), Builder.ObjVal(closurePtr), true);
             if (isa<Instruction>(variable)) {
                 auto *const instruction = cast<Instruction>(variable);
-                instruction->setMetadata("lox-function", MDNode::get(Builder.getContext(), MDString::get(Builder.getContext(), name)));
+                auto *nameNode = MDString::get(Builder.getContext(), name);
+                auto *arityNode = ValueAsMetadata::get(Builder.getInt32(functionStmt->parameters.size()));
+                instruction->setMetadata("lox-function", MDTuple::get(Builder.getContext(), {nameNode, arityNode}));
             }
         } else if (type == LoxFunctionType::METHOD || type == LoxFunctionType::INITIALIZER) {
             // Methods aren't stored as variables.
