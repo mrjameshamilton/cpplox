@@ -15,6 +15,8 @@ namespace lox {
                 Builder.getModule()
             );
 
+            F->addFnAttr(Attribute::AlwaysInline);
+
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
             auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
@@ -55,6 +57,8 @@ namespace lox {
                 "$pop",
                 Builder.getModule()
             );
+
+            F->addFnAttr(Attribute::AlwaysInline);
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
 
