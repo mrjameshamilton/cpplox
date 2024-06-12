@@ -20,7 +20,8 @@ namespace lox {
 
     Value *FunctionCompiler::CreateFunction(const LoxFunctionType type, const FunctionStmtPtr &functionStmt, const std::string_view name) {
         std::vector<Type *> paramTypes(functionStmt->parameters.size(), Builder.getInt64Ty());
-        // The second parameter is for the receiver instance.
+        // The second parameter is for the receiver instance for methods
+        // or the function object value itself for functions.
         paramTypes.insert(paramTypes.begin(), Builder.getInt64Ty());
         // The first parameter is the upvalues.
         paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
@@ -55,9 +56,17 @@ namespace lox {
 
         FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, type, this);
         C.compile(functionStmt->body, functionStmt->parameters, [&, &C](LoxBuilder &B) {
-            // TODO: add closure itself as first parameter?
             if (C.type == LoxFunctionType::METHOD || C.type == LoxFunctionType::INITIALIZER) {
                 C.insertVariable("this", B.getFunction()->arg_begin() + 1, true);
+            } else if (C.type == LoxFunctionType::FUNCTION) {
+                // For functions, use the 2nd parameter for the function itself.
+                // This improves recursive calling performance since there is no
+                // need for an upvalue any longer.
+                auto *const variable = C.insertVariable(name, B.getFunction()->arg_begin() + 1);
+                auto *const instruction = cast<Instruction>(variable);
+                auto *nameNode = MDString::get(Builder.getContext(), name);
+                auto *arityNode = ValueAsMetadata::get(Builder.getInt32(functionStmt->parameters.size()));
+                instruction->setMetadata("lox-function", MDTuple::get(Builder.getContext(), {nameNode, arityNode}));
             }
         });
 

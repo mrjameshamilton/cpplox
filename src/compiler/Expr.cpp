@@ -235,15 +235,12 @@ namespace lox {
                            if foo was declared as a function then it must be the function.
              }
              */
-            const auto &metadataName = cast<Instruction>(value)->getMetadata("lox-function")->getOperand(0);
-            if (auto *local = lookupLocalVariable(cast<MDString>(metadataName)->getString()); local != nullptr) {
-                auto *const closure = Builder.AsObj(Builder.CreateLoad(Builder.getInt64Ty(), local));
-                auto *const result = call(Builder.getNilVal(), closure, paramValues, callExpr->keyword.getLine());
             const auto &funMD = cast<MDTuple>(cast<Instruction>(value)->getMetadata("lox-function"));
             if (auto *local = lookupLocalVariable(cast<MDString>(funMD->getOperand(0))->getString()); local != nullptr) {
                 auto *const closureValue = Builder.CreateLoad(Builder.getInt64Ty(), local);
                 auto *const closure = Builder.AsObj(closureValue);
                 cast<Instruction>(closure)->copyMetadata(*cast<Instruction>(value));
+                auto *const result = call(closureValue, closure, paramValues, callExpr->keyword.getLine());
                 // std::cout << "function local found: " << cast<MDString>(metadataName)->getString().str() << std::endl;
                 return insertTemp(result, "function return value");
             } else {
@@ -317,7 +314,7 @@ namespace lox {
         closure->addIncoming(methodPtr, IsMethodBlock);
         auto *const receiver = Builder.CreatePHI(Builder.getInt64Ty(), 2);
         receiver->addIncoming(receiverObjVal, IsMethodBlock);
-        receiver->addIncoming(Builder.getNilVal(), IsClosureBlock);
+        receiver->addIncoming(value, IsClosureBlock);
 
         auto *const functionReturnVal = call(receiver, closure, paramValues, callExpr->keyword.getLine());
 
