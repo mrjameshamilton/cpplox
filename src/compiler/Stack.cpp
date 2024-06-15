@@ -136,14 +136,6 @@ namespace lox {
         return B.CreateLoad(B.getInt32Ty(), B.CreateStructGEP(StackStruct, stack, 1));
     }
 
-    Value *GlobalStack::CreateGet(LoxBuilder &B, Value *index) const {
-        auto *const $stack = B.CreateStructGEP(StackStruct, stack, 0);
-        auto *const stack = B.CreateLoad(B.getPtrTy(), $stack);
-        auto *const addr = B.CreateInBoundsGEP(B.getPtrTy(), stack, index);
-
-        return B.CreateLoad(B.getPtrTy(), addr);
-    }
-
     void GlobalStack::CreateSet(LoxBuilder &B, Value *index, Value *value) const {
         auto *const $stack = B.CreateStructGEP(StackStruct, stack, 0);
         auto *const stack = B.CreateLoad(B.getPtrTy(), $stack);
@@ -248,10 +240,6 @@ namespace lox {
         }());
 
         Builder.CreateCall(PopFunction, {stack, N});
-    }
-
-    void GlobalStack::CreatePop(LoxBuilder &Builder) const {
-        CreatePopN(Builder, Builder.getInt32(1));
     }
 
     void GlobalStack::CreatePopAll(LoxBuilder &Builder, Function *FunctionPointer) const {
@@ -421,14 +409,5 @@ namespace lox {
 
     void GlobalStack::CreateFree(LoxBuilder &Builder) const {
         Builder.IRBuilder::CreateFree(Builder.CreateLoad(Builder.getPtrTy(), stack));
-    }
-
-    void IterateLocals(LoxBuilder &Builder, Function *FunctionPointer) {
-        if constexpr (DEBUG_LOG_GC) {
-            auto *const sp = Builder.getModule().getLocalsStack().CreateGetCount(Builder);
-            Builder.PrintF({Builder.CreateGlobalCachedString("--iterate locals (%d)--\n"), sp});
-        }
-
-        Builder.getModule().getLocalsStack().CreateIterateObjectValues(Builder, FunctionPointer);
     }
 }// namespace lox

@@ -287,6 +287,15 @@ namespace lox {
         }
     }
 
+    static void IterateLocals(LoxBuilder &Builder, Function *FunctionPointer) {
+        if constexpr (DEBUG_LOG_GC) {
+            auto *const sp = Builder.getModule().getLocalsStack().CreateGetCount(Builder);
+            Builder.PrintF({Builder.CreateGlobalCachedString("--iterate locals (%d)--\n"), sp});
+        }
+
+        Builder.getModule().getLocalsStack().CreateIterateObjectValues(Builder, FunctionPointer);
+    }
+
     static void MarkRoots(LoxBuilder &Builder) {
         static auto *const MarkObjectFunction = Builder.getModule().getFunction("$markObject");
         if constexpr (DEBUG_LOG_GC) {

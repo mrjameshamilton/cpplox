@@ -42,18 +42,14 @@ namespace lox {
 
         Value *CreateGetCount(IRBuilder<> &B) const;
 
-        Value *CreateGet(LoxBuilder &B, Value *index) const;
         void CreateSet(LoxBuilder &B, Value *index, Value *value) const;
 
         void CreatePush(LoxModule &M, IRBuilder<> &Builder, Value *Object) const;
         void CreatePushN(LoxModule &M, IRBuilder<> &Builder, Value *N) const;
-        void CreatePop(LoxBuilder &Builder) const;
         void CreatePopN(LoxBuilder &Builder, Value *N) const;
         void CreatePopAll(LoxBuilder &Builder, Function *FunctionPointer) const;
         void CreateIterateObjectValues(LoxBuilder &Builder, Function *FunctionPointer) const;
         void CreateFree(LoxBuilder &Builder) const;
     };
-
-    void IterateLocals(LoxBuilder &Builder, Function *FunctionPointer);
 }// namespace lox
 #endif//STACK_H
