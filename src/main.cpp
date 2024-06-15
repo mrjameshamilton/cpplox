@@ -53,8 +53,17 @@ int main(const int argc, char **argv) {
     if (!OutputFilename.empty()) {
         const ModuleCompiler ModuleCompiler;
         ModuleCompiler.evaluate(ast);
+
+        if (!ModuleCompiler.initializeTarget()) {
+            std::cout << "Could not initialize target machine." << std::endl;
+            return 65;
+        }
+
         if (!DontOptimize.getValue()) {
-            ModuleCompiler.optimize();
+            if (!ModuleCompiler.optimize()) {
+                std::cout << "Could not optimize." << std::endl;
+                return 65;
+            }
         }
         const auto filename = OutputFilename.getValue();
         if (filename.ends_with(".o")) {
@@ -62,7 +71,7 @@ int main(const int argc, char **argv) {
         } else if (filename.ends_with(".ll")) {
             ModuleCompiler.writeIR(filename);
         } else {
-            std::cout << "Output file should have .ll or .o extension";
+            std::cout << "Output file should have .ll or .o extension." << std::endl;
             return 65;
         }
     } else {

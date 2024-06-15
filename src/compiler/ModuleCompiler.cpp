@@ -110,29 +110,7 @@ namespace lox {
         Builder->CreateRet(Builder->getInt32(0));
     }
 
-    void ModuleCompiler::optimize() const {
-        LoopAnalysisManager LAM;
-        FunctionAnalysisManager FAM;
-        CGSCCAnalysisManager CGAM;
-        ModuleAnalysisManager MAM;
-        PassBuilder PB;
-
-        // PB.printPassNames(outs());
-        PB.registerModuleAnalyses(MAM);
-        PB.registerCGSCCAnalyses(CGAM);
-        PB.registerFunctionAnalyses(FAM);
-        PB.registerLoopAnalyses(LAM);
-        PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
-
-        ModulePassManager MPM = PB.buildPerModuleDefaultPipeline(OptimizationLevel::O2);
-
-        MPM.run(getModule(), MAM);
-    }
-
-    bool ModuleCompiler::writeIR(const std::string_view Filename) const {
-        std::error_code ec;
-
-        // TODO: set this in one place.
+    bool ModuleCompiler::initializeTarget() const {
         const auto TargetTriple = getDefaultTargetTriple();
         InitializeAllTargetInfos();
         InitializeAllTargets();
@@ -151,48 +129,57 @@ namespace lox {
         const auto *const Features = "";
 
         const TargetOptions opt;
-        const auto *const TheTargetMachine = Target->createTargetMachine(
+        auto *const TheTargetMachine = Target->createTargetMachine(
             TargetTriple, CPU, Features, opt, Reloc::PIC_
         );
 
         M.setTargetTriple(TargetTriple);
         M.setDataLayout(TheTargetMachine->createDataLayout());
 
+        this->TheTargetMachine = TheTargetMachine;
+
+        return true;
+    }
+
+    bool ModuleCompiler::optimize() const {
+        if (!this->TheTargetMachine) {
+            return false;
+        }
+        LoopAnalysisManager LAM;
+        FunctionAnalysisManager FAM;
+        CGSCCAnalysisManager CGAM;
+        ModuleAnalysisManager MAM;
+        PassBuilder PB;
+
+        // PB.printPassNames(outs());
+        PB.registerModuleAnalyses(MAM);
+        PB.registerCGSCCAnalyses(CGAM);
+        PB.registerFunctionAnalyses(FAM);
+        PB.registerLoopAnalyses(LAM);
+        PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+        ModulePassManager MPM = PB.buildPerModuleDefaultPipeline(OptimizationLevel::O2);
+
+        MPM.run(getModule(), MAM);
+
+        return true;
+    }
+
+    bool ModuleCompiler::writeIR(const std::string_view Filename) const {
+        if (!this->TheTargetMachine) {
+            return false;
+        }
+        std::error_code ec;
         auto out = raw_fd_ostream(Filename, ec);
-        M.print(out, nullptr);
+        getModule().print(out, nullptr);
         out.close();
         return ec.value() == 0;
     }
 
     bool ModuleCompiler::writeObject(const std::string_view Filename) const {
-        const auto TargetTriple = getDefaultTargetTriple();
-        InitializeAllTargetInfos();
-        InitializeAllTargets();
-        InitializeAllTargetMCs();
-        InitializeAllAsmParsers();
-        InitializeAllAsmPrinters();
-
-        std::string Error;
-
-        // Print an error and exit if we couldn't find the requested target.
-        // This generally occurs if we've forgotten to initialise the
-        // TargetRegistry or we have a bogus target triple.
-        const auto Target = TargetRegistry::lookupTarget(TargetTriple, Error);
-        if (!Target) {
-            std::cerr << Error;
+        if (!this->TheTargetMachine) {
             return false;
         }
-
-        const auto CPU = "generic";
-        const auto Features = "";
-
-        const TargetOptions opt;
-        const auto TheTargetMachine = Target->createTargetMachine(
-            TargetTriple, CPU, Features, opt, Reloc::PIC_
-        );
-
-        getModule().setDataLayout(TheTargetMachine->createDataLayout());
-
         std::error_code EC;
         raw_fd_ostream dest(Filename, EC, sys::fs::OF_None);
 

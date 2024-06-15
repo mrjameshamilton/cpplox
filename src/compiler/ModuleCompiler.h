@@ -17,6 +17,7 @@ namespace lox {
         std::shared_ptr<LLVMContext> Context = std::make_shared<LLVMContext>();
         std::unique_ptr<LoxModule> M = std::make_unique<LoxModule>(*Context);
         std::unique_ptr<LoxBuilder> Builder;
+        mutable TargetMachine * TheTargetMachine{};
 
     public:
         ModuleCompiler() {
@@ -32,8 +33,9 @@ namespace lox {
             return *Context;
         }
 
+        bool initializeTarget() const;
         void evaluate(const Program &program) const;
-        void optimize() const;
+        bool optimize() const;
         [[nodiscard]] bool writeIR(std::string_view Filename) const;
         [[nodiscard]] bool writeObject(std::string_view Filename) const;
     };
