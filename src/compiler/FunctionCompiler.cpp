@@ -30,11 +30,11 @@ namespace lox {
                 }
                 // Declare parameters and store them in local variables.
                 auto *arg = Builder.getFunction()->arg_begin() + 2 /* second arg is receiver, first is upvalues array */;
-                for (auto &p: parameters) {
+                for (const auto &p: parameters) {
                     insertVariable(p.getLexeme(), arg++);
                 }
 
-                for (auto &stmt: statements) {
+                for (const auto &stmt: statements) {
                     evaluate(stmt);
                 }
 
