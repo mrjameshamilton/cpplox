@@ -49,13 +49,16 @@ Multiple techniques from the `clox` C implementation from the [Crafting Interpre
 are used in the `cpplox` implementation:
 
 * NaN boxing, with values (numbers, boolean, nil and object pointers) stored as `i64`
-* interned strings with a hash table implementation based on the one in `clox`
+* interned strings with a hash table
 * upvalues for capturing closed over variables
     - upvalues are closed when the local goes out of scope
 * all methods and functions are wrapped in closures for consistency
     - function / method have a runtime representation with their implementations as LLVM IR functions
     - all closures have a receiver parameter and a list of upvalues
 * mark & sweep garbage collector
+    - a shadow stack is used to track locals as GC roots
+    - temporary locals are inserted when necessary to ensure they are reachable before assignment
+    - locals are null in the shadow stack when they go out of scope
 
 # Build
 
