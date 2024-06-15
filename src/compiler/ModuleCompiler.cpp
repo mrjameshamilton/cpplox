@@ -35,7 +35,6 @@ namespace lox {
     void ModuleCompiler::evaluate(const Program &program) const {
         auto &M = this->getModule();
 
-
         // Native clock function.
         Function *Clock = Function::Create(
             FunctionType::get(IntegerType::getInt64Ty(getContext()), {Builder->getPtrTy(), Builder->getInt64Ty()}, false),
@@ -63,6 +62,30 @@ namespace lox {
             )
         );
 
+        Function *Exit = Function::Create(
+            FunctionType::get(
+                IntegerType::getInt64Ty(getContext()),
+                {Builder->getPtrTy(), Builder->getInt64Ty(), Builder->getInt64Ty()},
+                false
+            ),
+            Function::InternalLinkage,
+            "exit_native",
+            M
+        );
+        Exit->addFnAttr(Attribute::NoRecurse);
+
+        LoxBuilder ExitBuilder(getContext(), M, *Exit);
+        auto *const ExitEntry = ExitBuilder.CreateBasicBlock("entry");
+        ExitBuilder.SetInsertPoint(ExitEntry);
+
+        const auto libcExit = M.getOrInsertFunction(
+            "exit",
+            FunctionType::get(ExitBuilder.getVoidTy(), {ExitBuilder.getInt32Ty()}, false)
+        );
+
+        ExitBuilder.CreateCall(libcExit, {ExitBuilder.CreateFPToSI(ExitBuilder.AsNumber(Exit->arg_begin() + 2), ExitBuilder.getInt32Ty())});
+        ExitBuilder.CreateRet(ExitBuilder.getNilVal());
+
         // ---- Main -----
 
         Function *F = Function::Create(
@@ -79,13 +102,17 @@ namespace lox {
 
         CreateGcFunction(*Builder);
 
-        ScriptCompiler.compile(program, {}, [&ScriptCompiler, &Clock](LoxBuilder &B) {
+        ScriptCompiler.compile(program, {}, [&ScriptCompiler, &Clock, &Exit](LoxBuilder &B) {
             auto *const initString = ScriptCompiler.insertVariable("$initString", B.ObjVal(B.AllocateString("init")));
             B.CreateInvariantStart(initString, B.getInt64(64));
 
             auto *const clockClosure = B.AllocateClosure(ScriptCompiler, Clock, "clock", true);
             B.CreateInvariantStart(clockClosure);
             ScriptCompiler.insertVariable("clock", B.ObjVal(clockClosure));
+
+            auto *const exitClosure = B.AllocateClosure(ScriptCompiler, Exit, "exit", true);
+            B.CreateInvariantStart(exitClosure);
+            ScriptCompiler.insertVariable("exit", B.ObjVal(exitClosure));
         });
 
         Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));
