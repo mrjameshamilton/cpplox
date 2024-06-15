@@ -81,7 +81,42 @@ namespace lox {
                     B.PrintF({B.CreateGlobalCachedString("realloc stack: %p; %p -> %p (count: %d, capacity: %d, newCapacity: %d)\n"), $stack, stack, result, count, capacity, newCapacity});
                 }
                 B.CreateStore(result, $stack);
-                B.CreateBr(EndBlock);
+
+                // Initialize the new entries with nullptr.
+                auto *const i = CreateEntryBlockAlloca(F, B.getInt32Ty(), "i");
+
+                B.CreateStore(count, i);
+
+                auto *const ForCond = B.CreateBasicBlock("for.cond");
+                auto *const ForBody = B.CreateBasicBlock("for.body");
+                auto *const ForInc = B.CreateBasicBlock("for.inc");
+                auto *const ForEnd = B.CreateBasicBlock("for.end");
+
+                B.CreateBr(ForCond);
+                B.SetInsertPoint(ForCond);
+                {
+                    B.CreateCondBr(B.CreateICmpSLE(B.CreateLoad(B.getInt32Ty(), i), size), ForBody, ForEnd);
+                    B.SetInsertPoint(ForBody);
+
+                    auto *const addr = B.CreateInBoundsGEP(B.getPtrTy(), result, B.CreateLoad(B.getInt32Ty(), i));
+
+                    if constexpr (DEBUG_STACK) {
+                        B.PrintF({B.CreateGlobalCachedString("set value: %d %p -> %p\n"), i, B.getNullPtr(), addr});
+                    }
+
+                    B.CreateStore(B.getNullPtr(), addr);
+
+                    B.CreateBr(ForInc);
+                    B.SetInsertPoint(ForInc);
+                    {
+                        B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1), "i+1", true, true), i);
+                        B.CreateBr(ForCond);
+                    }
+                }
+                B.SetInsertPoint(ForEnd);
+                {
+                    B.CreateBr(EndBlock);
+                }
             }
 
             B.SetInsertPoint(EndBlock);
@@ -121,63 +156,16 @@ namespace lox {
         B.CreateStore(value, addr);
     }
 
-    void GlobalStack::CreatePushN(LoxModule &M, IRBuilder<> &Builder, Value *Object, Value *N) const {
-        static auto *PushFunction([&Builder, &M, this] {
-            auto *const F = Function::Create(
-                FunctionType::get(
-                    Builder.getVoidTy(),
-                    {Builder.getPtrTy(), Builder.getPtrTy(), Builder.getInt32Ty()},
-                    false
-                ),
-                Function::InternalLinkage,
-                "$stackPushN",
-                M
-            );
-
-            LoxBuilder B(Builder.getContext(), M, *F);
-
-            auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
-            B.SetInsertPoint(EntryBasicBlock);
-
-            auto *const arguments = F->args().begin();
-            auto *const stackGlobal = arguments;
-            auto *const $stack = B.CreateStructGEP(StackStruct, stackGlobal, 0);
-            auto *const objPtr = arguments + 1;
-            auto *const N = arguments + 2;
-
-            if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
-                B.PrintF({B.CreateGlobalCachedString("push stack %p; ptr %p\n"), $stack, stackGlobal});
-            }
-
-            auto *const i = CreateEntryBlockAlloca(F, B.getInt32Ty(), "i");
-
-            B.CreateStore(B.getInt32(1), i);
-
-            auto *const ForCond = B.CreateBasicBlock("for.cond");
-            auto *const ForBody = B.CreateBasicBlock("for.body");
-            auto *const ForInc = B.CreateBasicBlock("for.inc");
-            auto *const ForEnd = B.CreateBasicBlock("for.end");
-
-            B.CreateBr(ForCond);
-            B.SetInsertPoint(ForCond);
-            B.CreateCondBr(B.CreateICmpSLE(B.CreateLoad(B.getInt32Ty(), i), N), ForBody, ForEnd);
-            B.SetInsertPoint(ForBody);
-
-            CreatePush(M, B, objPtr);
-
-            B.CreateBr(ForInc);
-            B.SetInsertPoint(ForInc);
-            B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1), "i+1", true, true), i);
-            B.CreateBr(ForCond);
-
-            B.SetInsertPoint(ForEnd);
-            B.CreateRetVoid();
-
-            return F;
-        }());
-
-        Builder.CreateCall(PushFunction, {stack, Object, N});
+    // Create N new slots on the stack
+    // The new slots will be initialized to nullptr only if the stack storage
+    // needs to be reallocated.
+    void GlobalStack::CreatePushN(LoxModule &M, IRBuilder<> &Builder, Value *N) const {
+        auto *const count = CreateGetCount(Builder);
+        auto *const size = Builder.CreateAdd(N, count, "newCount", true, true);
+        ensureCapacity(M, Builder, stack, StackStruct, size);
+        Builder.CreateStore(size, Builder.CreateStructGEP(StackStruct, stack, 1));
     }
+
 
     void GlobalStack::CreatePush(LoxModule &M, IRBuilder<> &Builder, Value *Object) const {
         static auto *PushFunction([&Builder, &M, this] {

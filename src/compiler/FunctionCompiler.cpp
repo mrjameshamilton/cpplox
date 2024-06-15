@@ -79,7 +79,7 @@ namespace lox {
         // Ensure the alloca for the sp comes before any of its uses.
         sp->moveBefore(EntryBlockBuilder.CreateStore(locals.CreateGetCount(EntryBlockBuilder), sp));
         // Create new slots for the required number of locals.
-        locals.CreatePushN(Builder.getModule(), EntryBlockBuilder, Constant::getNullValue(EntryBlockBuilder.getPtrTy()), EntryBlockBuilder.getInt32(localsCount));
+        locals.CreatePushN(Builder.getModule(), EntryBlockBuilder, EntryBlockBuilder.getInt32(localsCount));
 
         // At the end of the function, reset the stack pointer then any variables allocated
         // in the function are no longer accessible as GC roots and can be freed.

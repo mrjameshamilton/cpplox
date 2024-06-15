@@ -46,7 +46,7 @@ namespace lox {
         void CreateSet(LoxBuilder &B, Value *index, Value *value) const;
 
         void CreatePush(LoxModule &M, IRBuilder<> &Builder, Value *Object) const;
-        void CreatePushN(LoxModule &M, IRBuilder<> &Builder, Value *Object, Value *N) const;
+        void CreatePushN(LoxModule &M, IRBuilder<> &Builder, Value *N) const;
         void CreatePop(LoxBuilder &Builder) const;
         void CreatePopN(LoxBuilder &Builder, Value *N) const;
         void CreatePopAll(LoxBuilder &Builder, Function *FunctionPointer) const;
