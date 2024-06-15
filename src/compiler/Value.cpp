@@ -243,13 +243,18 @@ namespace lox {
             auto *const BoolBlock = B.CreateBasicBlock("if.print.bool");
             auto *const EndBoolBlock = B.CreateBasicBlock("if.print.bool.end");
             auto *const NilBlock = B.CreateBasicBlock("if.print.nil");
-            auto *const EndNilBlock = B.CreateBasicBlock("if.print.nil.end");
+            auto *const EndNumberBlock = B.CreateBasicBlock("if.print.num.end");
             auto *const NumBlock = B.CreateBasicBlock("if.print.num");
-            auto *const ObjBlock = B.CreateBasicBlock("if.print.obj");
-            auto *const EndObjBlock = B.CreateBasicBlock("if.print.obj.end");
-            auto *const OtherBlock = B.CreateBasicBlock("if.print.other");
+            auto *const CheckObjBlock = B.CreateBasicBlock("if.print.obj.end");
             auto *const EndBlock = B.CreateBasicBlock("if.print.end");
 
+            B.CreateCondBr(B.IsNumber(value), NumBlock, EndNumberBlock);
+            B.SetInsertPoint(NumBlock);
+            {
+                B.PrintNumber(value);
+                B.CreateBr(EndBlock);
+            }
+            B.SetInsertPoint(EndNumberBlock);
             B.CreateCondBr(B.IsBool(value), BoolBlock, EndBoolBlock);
             B.SetInsertPoint(BoolBlock);
             {
@@ -258,31 +263,17 @@ namespace lox {
             }
             B.SetInsertPoint(EndBoolBlock);
 
-            B.CreateCondBr(B.IsNil(value), NilBlock, EndNilBlock);
+            B.CreateCondBr(B.IsNil(value), NilBlock, CheckObjBlock);
             B.SetInsertPoint(NilBlock);
             {
                 B.PrintNil();
                 B.CreateBr(EndBlock);
             }
-            B.SetInsertPoint(EndNilBlock);
-
-            B.CreateCondBr(B.IsNumber(value), NumBlock, EndObjBlock);
-            B.SetInsertPoint(NumBlock);
-            {
-                B.PrintNumber(value);
-                B.CreateBr(EndBlock);
-                B.SetInsertPoint(EndObjBlock);
-            }
-
-            B.CreateCondBr(B.IsObj(value), ObjBlock, OtherBlock);
-            B.SetInsertPoint(ObjBlock);
+            B.SetInsertPoint(CheckObjBlock);
             {
                 B.PrintObject(value);
                 B.CreateBr(EndBlock);
             }
-
-            B.SetInsertPoint(OtherBlock);
-            B.CreateUnreachable();
 
             B.SetInsertPoint(EndBlock);
             B.CreateRetVoid();
