@@ -2,6 +2,7 @@
 #include "../Debug.h"
 #include "FunctionCompiler.h"
 #include "GC.h"
+#include "MDUtil.h"
 #include "Stack.h"
 
 #include "llvm/IR/BasicBlock.h"
@@ -39,6 +40,7 @@ namespace lox {
             Builder.getModule()
         );
         Clock->addFnAttr(Attribute::NoRecurse);
+        Clock->addFnAttr(Attribute::AlwaysInline);
 
         LoxBuilder ClockBuilder(Builder.getContext(), Builder.getModule(), *Clock);
         auto *const Entry = ClockBuilder.CreateBasicBlock("entry");
@@ -73,6 +75,7 @@ namespace lox {
             Builder.getModule()
         );
         Exit->addFnAttr(Attribute::NoRecurse);
+        Exit->addFnAttr(Attribute::AlwaysInline);
 
         LoxBuilder ExitBuilder(Builder.getContext(), Builder.getModule(), *Exit);
         auto *const ExitEntry = ExitBuilder.CreateBasicBlock("entry");
@@ -84,7 +87,7 @@ namespace lox {
         );
 
         ExitBuilder.CreateCall(libcExit, {ExitBuilder.CreateFPToSI(ExitBuilder.AsNumber(Exit->arg_begin() + 2), ExitBuilder.getInt32Ty())});
-        ExitBuilder.CreateRet(ExitBuilder.getNilVal());
+        ExitBuilder.CreateUnreachable();
 
         return Exit;
     }
@@ -112,11 +115,23 @@ namespace lox {
         ScriptCompiler.compile(program, {}, [&ScriptCompiler, &Clock, &Exit](LoxBuilder &B) {
             ScriptCompiler.insertVariable("$initString", B.ObjVal(B.AllocateString("init")), true);
 
-            auto *const clockClosure = B.AllocateClosure(ScriptCompiler, Clock, "clock", true);
-            ScriptCompiler.insertVariable("clock", B.ObjVal(clockClosure));
+            {
+                auto *const clockClosure = B.AllocateClosure(ScriptCompiler, Clock, "clock", true);
+                auto *const clock = cast<GlobalVariable>(ScriptCompiler.insertVariable("clock", B.ObjVal(clockClosure)));
+                auto *const nameNode = MDString::get(B.getContext(), "clock");
+                auto *const arityNode = ValueAsMetadata::get(B.getInt32(Clock->arg_size() - 2));
+                auto *const llvmFunctionName = MDString::get(B.getContext(), "clock_native");
+                setMetadata(clock, "lox-function", MDTuple::get(B.getContext(), {nameNode, arityNode, llvmFunctionName}));
+            }
 
-            auto *const exitClosure = B.AllocateClosure(ScriptCompiler, Exit, "exit", true);
-            ScriptCompiler.insertVariable("exit", B.ObjVal(exitClosure));
+            {
+                auto *const exitClosure = B.AllocateClosure(ScriptCompiler, Exit, "exit", true);
+                auto *const exit = ScriptCompiler.insertVariable("exit", B.ObjVal(exitClosure));
+                auto *const nameNode = MDString::get(B.getContext(), "exit");
+                auto *const arityNode = ValueAsMetadata::get(B.getInt32(Exit->arg_size() - 2));
+                auto *const llvmFunctionName = MDString::get(B.getContext(), "exit_native");
+                setMetadata(exit, "lox-function", MDTuple::get(B.getContext(), {nameNode, arityNode, llvmFunctionName}));
+            }
         });
 
         Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));

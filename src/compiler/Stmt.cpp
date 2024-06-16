@@ -1,5 +1,6 @@
 #include "FunctionCompiler.h"
 #include "GC.h"
+#include "MDUtil.h"
 
 #include <ranges>
 #include <vector>
@@ -43,12 +44,9 @@ namespace lox {
 
         if (type == LoxFunctionType::FUNCTION) {
             auto *const variable = insertVariable(functionStmt->name.getLexeme(), Builder.ObjVal(closurePtr), !isGlobalScope());
-            if (isa<Instruction>(variable)) {
-                auto *const instruction = cast<Instruction>(variable);
-                auto *nameNode = MDString::get(Builder.getContext(), name);
-                auto *arityNode = ValueAsMetadata::get(Builder.getInt32(functionStmt->parameters.size()));
-                instruction->setMetadata("lox-function", MDTuple::get(Builder.getContext(), {nameNode, arityNode}));
-            }
+            auto *nameNode = MDString::get(Builder.getContext(), name);
+            auto *arityNode = ValueAsMetadata::get(Builder.getInt32(functionStmt->parameters.size()));
+            setMetadata(variable, "lox-function", MDTuple::get(Builder.getContext(), {nameNode, arityNode, nameNode}));
         } else if (type == LoxFunctionType::METHOD || type == LoxFunctionType::INITIALIZER) {
             // Methods aren't stored as variables.
             insertTemp(Builder.ObjVal(closurePtr), "method closure");
@@ -63,10 +61,9 @@ namespace lox {
                 // This improves recursive calling performance since there is no
                 // need for an upvalue any longer.
                 auto *const variable = C.insertVariable(name, B.getFunction()->arg_begin() + 1);
-                auto *const instruction = cast<Instruction>(variable);
                 auto *nameNode = MDString::get(Builder.getContext(), name);
                 auto *arityNode = ValueAsMetadata::get(Builder.getInt32(functionStmt->parameters.size()));
-                instruction->setMetadata("lox-function", MDTuple::get(Builder.getContext(), {nameNode, arityNode}));
+                setMetadata(variable, "lox-function", MDTuple::get(Builder.getContext(), {nameNode, arityNode, nameNode}));
             }
         });
 

@@ -1,6 +1,6 @@
 #include "Callstack.h"
 #include "FunctionCompiler.h"
-#include "MDBuilderUtil.h"
+#include "MDUtil.h"
 #include "ModuleCompiler.h"
 
 #include <bit>
@@ -23,11 +23,8 @@ namespace lox {
         auto *const value = evaluate(assignExpr->value);
         auto *const variable = lookupVariable(*assignExpr);
         // Copy metadata from the value to the variable.
-        if (isa<Instruction>(value) && isa<Instruction>(variable)) {
-            auto *const left = cast<Instruction>(variable);
-            left->eraseMetadataIf([](unsigned, auto *) { return true; });
-            left->copyMetadata(*cast<Instruction>(value));
-        }
+        eraseMetadata(variable);
+        copyMetadata(value, variable);
         Builder.CreateStore(value, variable);
         return value;
     }
@@ -162,7 +159,8 @@ namespace lox {
 
         Builder.CreateCondBr(
             Builder.CreateICmpEQ(arity, Builder.getInt32(actual)),
-            CallBlock, WrongArityBlock, createLikelyBranchWeights(mdBuilder));
+            CallBlock, WrongArityBlock, createLikelyBranchWeights(mdBuilder)
+        );
 
         Builder.SetInsertPoint(WrongArityBlock);
 
@@ -193,11 +191,12 @@ namespace lox {
 
         Value *functionPtr;
 
-        if (const auto *const ins = dyn_cast<Instruction>(closure); ins && ins->hasMetadata("lox-function")) {
-            const auto *const metadata = ins->getMetadata("lox-function");
-            functionPtr = Builder.getModule().getFunction(cast<MDString>(metadata->getOperand(0))->getString());
+        if (hasMetadata(closure, "lox-function")) {
+            const auto *const metadata = getMetadata(closure, "lox-function");
+            functionPtr = Builder.getModule().getFunction(cast<MDString>(metadata->getOperand(2))->getString());
 
             auto *const expectedArity = mdconst::extract<ConstantInt>(metadata->getOperand(1));
+
             if (!expectedArity->equalsInt(paramValues.size() - 2)) {
                 Builder.RuntimeError(
                     line,
@@ -253,7 +252,7 @@ namespace lox {
 
         auto *const value = evaluate(callExpr->callee);
 
-        if (isa<Instruction>(value) && cast<Instruction>(value)->hasMetadata("lox-function")) {
+        if (hasMetadata(value, "lox-function")) {
             // Handle a common case where the function local is known
             // which does not require runtime checks to check if the value is a function e.g.
 
@@ -264,16 +263,17 @@ namespace lox {
                            if foo was declared as a function then it must be the function.
              }
              */
-            const auto &funMD = cast<MDTuple>(cast<Instruction>(value)->getMetadata("lox-function"));
-            if (auto *local = lookupLocalVariable(cast<MDString>(funMD->getOperand(0))->getString()); local != nullptr) {
-                auto *const closureValue = Builder.CreateLoad(Builder.getInt64Ty(), local);
-                auto *const closure = Builder.AsObj(closureValue);
-                cast<Instruction>(closure)->copyMetadata(*cast<Instruction>(value));
-                auto *const result = call(closureValue, closure, paramValues, callExpr->keyword.getLine());
-                // std::cout << "function local found: " << cast<MDString>(metadataName)->getString().str() << std::endl;
+            const auto &funMD = cast<MDTuple>(getMetadata(value, "lox-function"));
+            const auto &name = cast<MDString>(funMD->getOperand(0))->getString();
+
+            if (lookupLocal(name) || lookupGlobal(name)) {
+                auto *const closure = Builder.AsObj(value);
+                copyMetadata(value, closure);
+                auto *const result = call(value, closure, paramValues, callExpr->keyword.getLine());
+                //std::cout << "function local found: " << name.str() << std::endl;
                 return insertTemp(result, "function return value");
             } else {
-                // std::cout << "function local not found: " << name << std::endl;
+                //std::cout << "function local not found: " << name.str() << std::endl;
             }
         }
 
@@ -475,9 +475,7 @@ namespace lox {
     Value *FunctionCompiler::operator()(const VarExprPtr &varExpr) {
         auto *const value = lookupVariable(*varExpr);
         auto *inst = Builder.CreateLoad(Builder.getInt64Ty(), value);
-        if (isa<Instruction>(value)) {
-            inst->copyMetadata(*cast<Instruction>(value));
-        }
+        copyMetadata(value, inst);
         return inst;
     }
 

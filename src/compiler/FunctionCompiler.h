@@ -4,6 +4,7 @@
 #include "../frontend/AST.h"
 #include "GC.h"
 #include "LoxBuilder.h"
+#include "MDUtil.h"
 #include "Memory.h"
 #include "ModuleCompiler.h"
 #include "Stack.h"
@@ -204,11 +205,11 @@ namespace lox {
             return Builder;
         }
 
-        [[nodiscard]] Value *lookupLocalVariable(const Token &token) {
-            return lookupLocalVariable(token.getLexeme());
+        [[nodiscard]] Value *lookupLocal(const Token &token) {
+            return lookupLocal(token.getLexeme());
         }
 
-        [[nodiscard]] Value *lookupLocalVariable(const StringRef name) {
+        [[nodiscard]] Value *lookupLocal(const StringRef name) {
             if (const auto local = resolveLocal(this, name)) {
                 return local->value;
             }
@@ -226,7 +227,7 @@ namespace lox {
                 Builder.PrintF({Builder.CreateGlobalCachedString("lookupVariable(%s)\n"), Builder.CreateGlobalCachedString(name)});
             }
 
-            if (auto *const local = lookupLocalVariable(token)) return local;
+            if (auto *const local = lookupLocal(name)) return local;
 
             if (auto *const upvalue = resolveUpvalue(this, name)) {
                 // upvalue is a pointer to an upvalue object.
@@ -317,6 +318,8 @@ namespace lox {
                     }
                 }
 
+                copyMetadata(value, global);
+
                 AddGlobalGCRoot(Builder.getModule(), global);
 
                 return global;
@@ -324,9 +327,7 @@ namespace lox {
                 auto *const alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), key);
                 const auto local = std::make_shared<Local>(*this, key, alloca);
                 variables.insert(key, local);
-                if (isa<Instruction>(alloca) && isa<Instruction>(value)) {
-                    cast<Instruction>(alloca)->copyMetadata(*cast<Instruction>(value));
-                }
+                copyMetadata(value, alloca);
                 Builder.CreateStore(value, alloca);
 
                 if (isConstant) {
