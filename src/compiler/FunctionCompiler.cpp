@@ -7,12 +7,17 @@ namespace lox {
     void FunctionCompiler::compile(const std::vector<Stmt> &statements, const std::vector<Token> &parameters, const std::function<void(LoxBuilder &)> &entryBlockBuilder) {
 
         Builder.SetInsertPoint(EntryBasicBlock);
+        // Alloca's will normally be generated here with CreateEntryBlockAlloca
         if constexpr (DEBUG_LOG_GC) {
             Builder.PrintF({
                 Builder.CreateGlobalCachedString("# start function %s\n"),
                 Builder.CreateGlobalCachedString(Builder.getFunction()->getName()),
             });
         }
+
+        auto *const PrologueBlock = Builder.CreateBasicBlock("prologue");
+        Builder.CreateBr(PrologueBlock);
+        Builder.SetInsertPoint(PrologueBlock);
 
         beginScope();
         {
@@ -74,10 +79,9 @@ namespace lox {
         endScope();
 
         // At the beginning of the function, remember the current local variable stack pointer.
-        IRBuilder EntryBlockBuilder(&Builder.getFunction()->getEntryBlock(), Builder.getFunction()->getEntryBlock().begin());
+        IRBuilder EntryBlockBuilder(PrologueBlock, PrologueBlock->begin());
         const auto locals = Builder.getModule().getLocalsStack();
-        // Ensure the alloca for the sp comes before any of its uses.
-        sp->moveBefore(EntryBlockBuilder.CreateStore(locals.CreateGetCount(EntryBlockBuilder), sp));
+        EntryBlockBuilder.CreateStore(locals.CreateGetCount(EntryBlockBuilder), sp);
         // Create new slots for the required number of locals.
         locals.CreatePushN(Builder.getModule(), EntryBlockBuilder, EntryBlockBuilder.getInt32(localsCount));
 
