@@ -31,24 +31,20 @@ using namespace llvm::sys;
 
 namespace lox {
 
-
-    void ModuleCompiler::evaluate(const Program &program) const {
-        auto &M = this->getModule();
-
-        // Native clock function.
+    static Function *createClockFunction(LoxBuilder &Builder) {
         Function *Clock = Function::Create(
-            FunctionType::get(IntegerType::getInt64Ty(getContext()), {Builder->getPtrTy(), Builder->getInt64Ty()}, false),
+            FunctionType::get(Builder.getInt64Ty(), {Builder.getPtrTy(), Builder.getInt64Ty()}, false),
             Function::InternalLinkage,
             "clock_native",
-            M
+            Builder.getModule()
         );
         Clock->addFnAttr(Attribute::NoRecurse);
 
-        LoxBuilder ClockBuilder(getContext(), M, *Clock);
+        LoxBuilder ClockBuilder(Builder.getContext(), Builder.getModule(), *Clock);
         auto *const Entry = ClockBuilder.CreateBasicBlock("entry");
         ClockBuilder.SetInsertPoint(Entry);
 
-        const auto libcClock = M.getOrInsertFunction(
+        const auto &libcClock = Builder.getModule().getOrInsertFunction(
             "clock",
             FunctionType::get(ClockBuilder.getInt64Ty(), false)
         );
@@ -62,23 +58,27 @@ namespace lox {
             )
         );
 
+        return Clock;
+    }
+
+    static Function *createExitFunction(LoxBuilder &Builder) {
         Function *Exit = Function::Create(
             FunctionType::get(
-                IntegerType::getInt64Ty(getContext()),
-                {Builder->getPtrTy(), Builder->getInt64Ty(), Builder->getInt64Ty()},
+                Builder.getInt64Ty(),
+                {Builder.getPtrTy(), Builder.getInt64Ty(), Builder.getInt64Ty()},
                 false
             ),
             Function::InternalLinkage,
             "exit_native",
-            M
+            Builder.getModule()
         );
         Exit->addFnAttr(Attribute::NoRecurse);
 
-        LoxBuilder ExitBuilder(getContext(), M, *Exit);
+        LoxBuilder ExitBuilder(Builder.getContext(), Builder.getModule(), *Exit);
         auto *const ExitEntry = ExitBuilder.CreateBasicBlock("entry");
         ExitBuilder.SetInsertPoint(ExitEntry);
 
-        const auto libcExit = M.getOrInsertFunction(
+        const auto libcExit = Builder.getModule().getOrInsertFunction(
             "exit",
             FunctionType::get(ExitBuilder.getVoidTy(), {ExitBuilder.getInt32Ty()}, false)
         );
@@ -86,19 +86,26 @@ namespace lox {
         ExitBuilder.CreateCall(libcExit, {ExitBuilder.CreateFPToSI(ExitBuilder.AsNumber(Exit->arg_begin() + 2), ExitBuilder.getInt32Ty())});
         ExitBuilder.CreateRet(ExitBuilder.getNilVal());
 
+        return Exit;
+    }
+
+    void ModuleCompiler::evaluate(const Program &program) const {
+        auto *const Clock = createClockFunction(*Builder);
+        auto *const Exit = createExitFunction(*Builder);
+
         // ---- Main -----
 
         Function *F = Function::Create(
             FunctionType::get(Builder->getVoidTy(), {}, false),
             Function::InternalLinkage,
             "script",
-            M
+            getModule()
         );
 
         F->addFnAttr(Attribute::NoRecurse);
         Builder->getFunction()->addFnAttr(Attribute::NoRecurse);
 
-        FunctionCompiler ScriptCompiler(getContext(), M, *F, LoxFunctionType::NONE);
+        FunctionCompiler ScriptCompiler(getContext(), getModule(), *F, LoxFunctionType::NONE);
 
         CreateGcFunction(*Builder);
 
@@ -117,7 +124,7 @@ namespace lox {
 
         Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));
         auto *const runtimeStringsTable = Builder->AllocateTable();
-        Builder->CreateStore(runtimeStringsTable, M.getRuntimeStrings());
+        Builder->CreateStore(runtimeStringsTable, getModule().getRuntimeStrings());
         Builder->CreateCall(F);
 
         if constexpr (ENABLE_RUNTIME_ASSERTS) {
