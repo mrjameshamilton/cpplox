@@ -33,7 +33,7 @@ namespace lox {
     }
 
     ConstantInt *LoxBuilder::getSizeOf(Type *type, const unsigned int arraySize = 1) const {
-        const uint64_t size = getModule().getDataLayout().getTypeSizeInBits(type) / 8 * arraySize;
+        const uint64_t size = getModule().getDataLayout().getTypeStoreSize(type).getKnownMinValue() * arraySize;
         return ConstantInt::get(Type::getInt64Ty(Context), size);
     }
 
