@@ -205,6 +205,9 @@ namespace lox {
                     {expectedArity, Builder.getInt32(paramValues.size() - 2)},
                     Builder.getFunction()
                 );
+
+                auto *const Unreachable = Builder.CreateBasicBlock("unreachable");
+                Builder.SetInsertPoint(Unreachable);
             }
         } else {
             auto *const function = Builder.CreateLoad(
