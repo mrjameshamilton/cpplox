@@ -29,8 +29,8 @@ namespace lox {
     }
 
     ConstantInt *LoxBuilder::getSizeOf(Type *type, const unsigned int arraySize = 1) const {
-        const uint64_t size = getModule().getDataLayout().getTypeSizeInBits(type) * arraySize;
-        return ConstantInt::get(Type::getInt32Ty(Context), size);
+        const uint64_t size = getModule().getDataLayout().getTypeSizeInBits(type) / 8 * arraySize;
+        return ConstantInt::get(Type::getInt64Ty(Context), size);
     }
 
     Value *LoxBuilder::CreateRealloc(Value *ptr, Value *newSize, const StringRef what) {
@@ -48,6 +48,10 @@ namespace lox {
     }
 
     Value *LoxBuilder::CreateReallocate(Value *ptr, Value *oldSize, Value *newSize) {
+        assert(ptr->getType() == getPtrTy());
+        assert(oldSize->getType() == getInt32Ty());
+        assert(newSize->getType() == getInt32Ty());
+
         static auto *ReallocFunction([this] {
             auto *const F = Function::Create(
                 FunctionType::get(
@@ -119,7 +123,7 @@ namespace lox {
         if (arraySize != nullptr) {
             CreateReallocate(ptr, getSizeOf(type, arraySize), getInt32(0));
         } else {
-            CreateReallocate(ptr, getSizeOf(type, 1), getInt32(0));
+            CreateReallocate(ptr, CreateTrunc(getSizeOf(type, 1), getInt32Ty()), getInt32(0));
         }
     }
 
