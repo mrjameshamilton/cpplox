@@ -42,7 +42,7 @@ namespace lox {
         auto *const closurePtr = Builder.AllocateClosure(*this, F, functionStmt->name.getLexeme(), false);
 
         if (type == LoxFunctionType::FUNCTION) {
-            auto *const variable = insertVariable(functionStmt->name.getLexeme(), Builder.ObjVal(closurePtr), true);
+            auto *const variable = insertVariable(functionStmt->name.getLexeme(), Builder.ObjVal(closurePtr), !isGlobalScope());
             if (isa<Instruction>(variable)) {
                 auto *const instruction = cast<Instruction>(variable);
                 auto *nameNode = MDString::get(Builder.getContext(), name);
@@ -187,7 +187,7 @@ namespace lox {
         auto *const klass = Builder.AllocateClass(nameObj);
         auto *const methods = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2));
 
-        insertVariable(className, Builder.ObjVal(klass), true);
+        insertVariable(className, Builder.ObjVal(klass), !isGlobalScope());
 
         if (classStmt->super_class.has_value()) {
             // Copy all methods from the superclass methods table, to the subclass

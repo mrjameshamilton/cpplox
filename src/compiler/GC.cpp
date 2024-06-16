@@ -487,7 +487,7 @@ namespace lox {
             Builder.getModule()
         );
 
-        static auto *MarkObjectFunction([&Builder] {
+        [[maybe_unused]] static auto *MarkObjectFunction([&Builder] {
             auto *const F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
@@ -552,7 +552,7 @@ namespace lox {
             return F;
         }());
 
-        static auto *GCFunctionBuilder([&Builder] {
+        [[maybe_unused]] static auto *GCFunctionBuilder([&Builder] {
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *GCFunction);
 
             auto *const EntryBasicBlock = B.CreateBasicBlock("entry");

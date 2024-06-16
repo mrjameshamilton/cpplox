@@ -110,15 +110,12 @@ namespace lox {
         CreateGcFunction(*Builder);
 
         ScriptCompiler.compile(program, {}, [&ScriptCompiler, &Clock, &Exit](LoxBuilder &B) {
-            auto *const initString = ScriptCompiler.insertVariable("$initString", B.ObjVal(B.AllocateString("init")));
-            B.CreateInvariantStart(initString, B.getInt64(64));
+            ScriptCompiler.insertVariable("$initString", B.ObjVal(B.AllocateString("init")), true);
 
             auto *const clockClosure = B.AllocateClosure(ScriptCompiler, Clock, "clock", true);
-            B.CreateInvariantStart(clockClosure);
             ScriptCompiler.insertVariable("clock", B.ObjVal(clockClosure));
 
             auto *const exitClosure = B.AllocateClosure(ScriptCompiler, Exit, "exit", true);
-            B.CreateInvariantStart(exitClosure);
             ScriptCompiler.insertVariable("exit", B.ObjVal(exitClosure));
         });
 

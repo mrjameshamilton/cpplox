@@ -91,6 +91,13 @@ namespace lox {
         auto *const functionObj = AllocateFunction(*this, function, nameObj, isNative);
         compiler.insertTemp(ObjVal(functionObj), "function");
 
-        return CreateCall(AllocationClosureFunction, {functionObj});
+        auto *const ptr = CreateCall(AllocationClosureFunction, {functionObj});
+
+        if (isNative) {
+            // Native closures won't change.
+            CreateInvariantStart(ptr);
+        }
+
+        return ptr;
     }
 }// namespace lox

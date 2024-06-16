@@ -311,6 +311,10 @@ namespace lox {
                 } else {
                     global->setInitializer(cast<ConstantInt>(Builder.getNilVal()));
                     Builder.CreateStore(value, global);
+
+                    if (isConstant) {
+                        Builder.CreateInvariantStart(global, Builder.getInt64(64));
+                    }
                 }
 
                 AddGlobalGCRoot(Builder.getModule(), global);
