@@ -37,7 +37,7 @@ namespace lox {
             B.CreateStore(name, B.CreateObjStructGEP(ObjType::FUNCTION, ptr, 3, "name"));
             B.CreateStore(isNative, B.CreateObjStructGEP(ObjType::FUNCTION, ptr, 4, "isNative"));
 
-            B.CreateInvariantStart(ptr);
+            B.CreateInvariantStart(ptr, B.getSizeOf(ObjType::FUNCTION));
 
             B.CreateRet(ptr);
 
@@ -95,7 +95,7 @@ namespace lox {
 
         if (isNative) {
             // Native closures won't change.
-            CreateInvariantStart(ptr);
+            CreateInvariantStart(ptr, getSizeOf(ObjType::CLOSURE));
         }
 
         return ptr;

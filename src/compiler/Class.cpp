@@ -16,7 +16,7 @@ namespace lox {
         CreateStore(name, CreateObjStructGEP(ObjType::CLASS, ptr, 1));
         CreateStore(methods, CreateObjStructGEP(ObjType::CLASS, ptr, 2));
 
-        CreateInvariantStart(ptr);
+        CreateInvariantStart(ptr, getSizeOf(ObjType::CLASS));
 
         return ptr;
     }
@@ -29,7 +29,7 @@ namespace lox {
         CreateStore(klass, CreateObjStructGEP(ObjType::INSTANCE, ptr, 1));
         CreateStore(fields, CreateObjStructGEP(ObjType::INSTANCE, ptr, 2));
 
-        CreateInvariantStart(ptr);
+        CreateInvariantStart(ptr, getSizeOf(ObjType::INSTANCE));
 
         return ptr;
     }
@@ -85,7 +85,7 @@ namespace lox {
                 B.CreateStore(B.ObjVal(receiver), B.CreateObjStructGEP(ObjType::BOUND_METHOD, ptr, 1));
                 B.CreateStore(B.AsObj(method), B.CreateObjStructGEP(ObjType::BOUND_METHOD, ptr, 2));
 
-                B.CreateInvariantStart(ptr);
+                B.CreateInvariantStart(ptr, getSizeOf(ObjType::BOUND_METHOD));
 
                 B.CreateRet(ptr);
             }

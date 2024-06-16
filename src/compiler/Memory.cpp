@@ -28,6 +28,10 @@ namespace lox {
         return arraySize != nullptr ? CreateMul(allocsize, arraySize, "size", true, true) : allocsize;
     }
 
+    ConstantInt *LoxBuilder::getSizeOf(const lox::ObjType type) const {
+        return getSizeOf(getModule().getStructType(type), 1);
+    }
+
     ConstantInt *LoxBuilder::getSizeOf(Type *type, const unsigned int arraySize = 1) const {
         const uint64_t size = getModule().getDataLayout().getTypeSizeInBits(type) / 8 * arraySize;
         return ConstantInt::get(Type::getInt64Ty(Context), size);
@@ -119,16 +123,12 @@ namespace lox {
         return CreateCall(ReallocFunction, {ptr, oldSize, newSize});
     }
 
-    void LoxBuilder::CreateFree(Value *ptr, Type *type, Value *arraySize = nullptr) {
-        if (arraySize != nullptr) {
-            CreateReallocate(ptr, getSizeOf(type, arraySize), getInt32(0));
-        } else {
-            CreateReallocate(ptr, CreateTrunc(getSizeOf(type, 1), getInt32Ty()), getInt32(0));
-        }
-    }
-
     void LoxBuilder::CreateFree(Value *ptr, const lox::ObjType type, Value *arraySize = nullptr) {
-        CreateFree(ptr, getModule().getStructType(type), arraySize);
+        if (arraySize != nullptr) {
+            CreateReallocate(ptr, getSizeOf(getModule().getStructType(type), arraySize), getInt32(0));
+        } else {
+            CreateReallocate(ptr, CreateTrunc(getSizeOf(type), getInt32Ty()), getInt32(0));
+        }
     }
 
     Value *LoxBuilder::AllocateObj(const enum ObjType objType, const std::string_view name) {

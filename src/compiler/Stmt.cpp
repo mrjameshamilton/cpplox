@@ -79,10 +79,13 @@ namespace lox {
             if constexpr (DEBUG_UPVALUES) {
                 Builder.PrintF({Builder.CreateGlobalCachedString("capture variables\n")});
             }
+
+            auto *const upvaluesArraySize = Builder.getSizeOf(Builder.getModule().getStructType(ObjType::UPVALUE), C.upvalues.size());
+
             auto *const upvaluesArrayPtr = Builder.CreateReallocate(
                 Builder.getNullPtr(),
                 Builder.getInt32(0),
-                Builder.CreateTrunc(Builder.getSizeOf(Builder.getModule().getStructType(ObjType::UPVALUE), C.upvalues.size()), Builder.getInt32Ty())
+                Builder.CreateTrunc(upvaluesArraySize, Builder.getInt32Ty())
             );
 
             // Initialize upvalues to nullptr.
@@ -103,9 +106,14 @@ namespace lox {
                 auto *const upvalueIndex = Builder.CreateInBoundsGEP(Builder.getPtrTy(), upvaluesArrayPtr, Builder.getInt32(upvalue->index), "upvalueIndex");
                 Builder.CreateStore(upvalue->isLocal ? captureLocal(upvalue->value) : upvalue->value, upvalueIndex);
             }
+
+            Builder.CreateInvariantStart(upvaluesArrayPtr, upvaluesArraySize);
+
         } else {
             F->addParamAttr(0, Attribute::ReadNone);
         }
+
+        Builder.CreateInvariantStart(closurePtr, Builder.getSizeOf(ObjType::CLOSURE));
 
         return closurePtr;
     }

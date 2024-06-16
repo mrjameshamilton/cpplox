@@ -54,6 +54,7 @@ namespace lox {
         ConstantInt *ObjTypeInt(enum ObjType);
 
         Value *getSizeOf(Type *type, Value *arraySize = nullptr);
+        ConstantInt *getSizeOf(enum ObjType type) const;
         ConstantInt *getSizeOf(Type *type, unsigned int arraySize) const;
         Value *AllocateObj(lox::ObjType objType, std::string_view name = "");
         Value *AllocateString(Value *String, Value *Length, std::string_view name = "");
@@ -69,7 +70,6 @@ namespace lox {
 
         Value *CreateReallocate(Value *ptr, Value *oldSize, Value *newSize);
         Value *CreateRealloc(Value *ptr, Value *newSize, StringRef what);
-        void CreateFree(Value *ptr, Type *type, Value *arraySize);
         void CreateFree(Value *ptr, enum ObjType type, Value *arraySize);
         void CollectGarbage();
         Value *Concat(Value *a, Value *b);
