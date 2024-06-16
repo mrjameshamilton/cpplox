@@ -28,13 +28,9 @@ namespace lox {
         return arraySize != nullptr ? CreateMul(allocsize, arraySize, "size", true, true) : allocsize;
     }
 
-    Constant *LoxBuilder::getSizeOf(Type *type, const unsigned int arraySize) {
-        Type *IntPtrTy = IntegerType::getInt32Ty(getContext());
-        // The IR that is generated with getSizeOf uses a hack described here:
-        // https://mukulrathi.com/create-your-own-programming-language/concurrency-runtime-language-tutorial/#malloc
-        Constant *allocsize = ConstantExpr::getSizeOf(type);
-        allocsize = ConstantExpr::getTruncOrBitCast(allocsize, IntPtrTy);
-        return ConstantExpr::getMul(allocsize, ConstantInt::get(getInt32Ty(), arraySize));
+    ConstantInt *LoxBuilder::getSizeOf(Type *type, const unsigned int arraySize = 1) const {
+        const uint64_t size = getModule().getDataLayout().getTypeSizeInBits(type) * arraySize;
+        return ConstantInt::get(Type::getInt32Ty(Context), size);
     }
 
     Value *LoxBuilder::CreateRealloc(Value *ptr, Value *newSize, const StringRef what) {

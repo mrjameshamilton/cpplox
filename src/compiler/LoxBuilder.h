@@ -54,7 +54,7 @@ namespace lox {
         ConstantInt *ObjTypeInt(enum ObjType);
 
         Value *getSizeOf(Type *type, Value *arraySize = nullptr);
-        Constant *getSizeOf(Type *type, unsigned int arraySize);
+        ConstantInt *getSizeOf(Type *type, unsigned int arraySize) const;
         Value *AllocateObj(lox::ObjType objType, std::string_view name = "");
         Value *AllocateString(Value *String, Value *Length, std::string_view name = "");
         Value *AllocateString(StringRef String, std::string_view name = "");
