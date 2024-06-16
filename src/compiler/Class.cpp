@@ -85,17 +85,19 @@ namespace lox {
                 B.CreateStore(B.ObjVal(receiver), B.CreateObjStructGEP(ObjType::BOUND_METHOD, ptr, 1));
                 B.CreateStore(B.AsObj(method), B.CreateObjStructGEP(ObjType::BOUND_METHOD, ptr, 2));
 
-                B.CreateInvariantStart(ptr, getSizeOf(ObjType::BOUND_METHOD));
-
                 B.CreateRet(ptr);
             }
 
             return F;
         }());
 
-        return CreateCall(
+        auto *const ptr = CreateCall(
             BindMethodFunction,
             {klass, receiver, key, getInt32(line), CreateGlobalCachedString(pFunction == nullptr ? "script" : pFunction->getName())}
         );
+
+        CreateInvariantStart(ptr, getSizeOf(ObjType::BOUND_METHOD));
+
+        return ptr;
     }
 }// namespace lox

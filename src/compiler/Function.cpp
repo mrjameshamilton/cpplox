@@ -37,14 +37,12 @@ namespace lox {
             B.CreateStore(name, B.CreateObjStructGEP(ObjType::FUNCTION, ptr, 3, "name"));
             B.CreateStore(isNative, B.CreateObjStructGEP(ObjType::FUNCTION, ptr, 4, "isNative"));
 
-            B.CreateInvariantStart(ptr, B.getSizeOf(ObjType::FUNCTION));
-
             B.CreateRet(ptr);
 
             return F;
         }());
 
-        return Builder.CreateCall(
+        auto *const ptr = Builder.CreateCall(
             AllocateFunctionFunction,
             {Function,
              name,
@@ -52,6 +50,10 @@ namespace lox {
              isNative ? Builder.getTrue() : Builder.getFalse()
             }
         );
+
+        Builder.CreateInvariantStart(ptr, Builder.getSizeOf(ObjType::FUNCTION));
+
+        return ptr;
     }
 
     Value *LoxBuilder::AllocateClosure(FunctionCompiler &compiler, llvm::Function *function, const std::string_view name, const bool isNative) {

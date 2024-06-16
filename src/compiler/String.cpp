@@ -259,8 +259,6 @@ namespace lox {
             B.CreateStore(hash, B.CreateObjStructGEP(ObjType::STRING, ptr, 3));
             B.CreateStore(B.getFalse(), B.CreateObjStructGEP(ObjType::STRING, ptr, 4));
 
-            B.CreateInvariantStart(ptr, getSizeOf(ObjType::STRING));
-
             B.TableSet(B.CreateLoad(B.getPtrTy(), B.getModule().getRuntimeStrings()), ptr, B.getNilVal());
 
             B.CreateRet(ptr);
@@ -275,7 +273,11 @@ namespace lox {
             hash *= 16777619;
         }
 
-        return CreateCall(AllocateStringFunction, {CreateGlobalCachedString(String), getInt32(String.size()), getInt32(hash)}, name);
+        auto *const ptr = CreateCall(AllocateStringFunction, {CreateGlobalCachedString(String), getInt32(String.size()), getInt32(hash)}, name);
+
+        CreateInvariantStart(ptr, getSizeOf(ObjType::STRING));
+
+        return ptr;
     }
 
     Value *LoxBuilder::Concat(Value *a, Value *b) {
