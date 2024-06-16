@@ -375,6 +375,10 @@ namespace lox {
             return F;
         }());
 
-        return CreateCall(ConcatFunction, {a, b});
+        auto *const ptr = CreateCall(ConcatFunction, {a, b});
+
+        CreateInvariantStart(ptr, getSizeOf(ObjType::STRING));
+
+        return ptr;
     }
 }// namespace lox
