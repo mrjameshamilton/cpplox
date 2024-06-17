@@ -95,13 +95,13 @@ namespace lox {
                 B.CreateBr(ForCond);
                 B.SetInsertPoint(ForCond);
                 {
-                    B.CreateCondBr(B.CreateICmpSLE(B.CreateLoad(B.getInt32Ty(), i), size), ForBody, ForEnd);
+                    B.CreateCondBr(B.CreateICmpSLT(B.CreateLoad(B.getInt32Ty(), i), newCapacity), ForBody, ForEnd);
                     B.SetInsertPoint(ForBody);
 
                     auto *const addr = B.CreateInBoundsGEP(B.getPtrTy(), result, B.CreateLoad(B.getInt32Ty(), i));
 
                     if constexpr (DEBUG_STACK) {
-                        B.PrintF({B.CreateGlobalCachedString("set value: %d %p -> %p\n"), i, B.getNullPtr(), addr});
+                        B.PrintF({B.CreateGlobalCachedString("set value: (result: %p) %d %p -> %p\n"), result, B.CreateLoad(B.getInt32Ty(), i), B.getNullPtr(), addr});
                     }
 
                     B.CreateStore(B.getNullPtr(), addr);
