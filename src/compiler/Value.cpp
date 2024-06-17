@@ -322,7 +322,7 @@ namespace lox {
         auto *const IsStringBlock = CreateBasicBlock("print.string");
         auto *const IsClosureBlock = CreateBasicBlock("print.closure");
         auto *const IsFunctionBlock = CreateBasicBlock("print.function");
-        auto *const IsUpvalueBlock = DEBUG_UPVALUES ? CreateBasicBlock("print.upvalue") : nullptr;
+        auto *const IsUpvalueBlock = DEBUG_LOG_GC || DEBUG_UPVALUES ? CreateBasicBlock("print.upvalue") : nullptr;
         auto *const IsClassBlock = CreateBasicBlock("print.class");
         auto *const IsInstanceBlock = CreateBasicBlock("print.instance");
         auto *const IsNativeFunctionBlock = CreateBasicBlock("print.native.function");
@@ -335,7 +335,7 @@ namespace lox {
         Switch->addCase(ObjTypeInt(ObjType::STRING), IsStringBlock);
         Switch->addCase(ObjTypeInt(ObjType::CLOSURE), IsClosureBlock);
         Switch->addCase(ObjTypeInt(ObjType::FUNCTION), IsFunctionBlock);
-        if constexpr (DEBUG_UPVALUES) {
+        if constexpr (DEBUG_LOG_GC || DEBUG_UPVALUES) {
             Switch->addCase(ObjTypeInt(ObjType::UPVALUE), IsUpvalueBlock);
         }
         Switch->addCase(ObjTypeInt(ObjType::CLASS), IsClassBlock);
@@ -372,7 +372,7 @@ namespace lox {
         }
         CreateBr(EndBlock);
 
-        if constexpr (DEBUG_UPVALUES) {
+        if constexpr (DEBUG_LOG_GC || DEBUG_UPVALUES) {
             SetInsertPoint(IsUpvalueBlock);
             {
                 // Not usually printable, but useful for debugging.
@@ -412,8 +412,10 @@ namespace lox {
         {
             if constexpr (DEBUG_LOG_GC) {
                 PrintF({CreateGlobalCachedString("{{object %d}}\n"), ObjType(value)});
+                CreateBr(EndBlock);
+            } else {
+                CreateUnreachable();
             }
-            CreateUnreachable();
         }
 
         SetInsertPoint(EndBlock);
