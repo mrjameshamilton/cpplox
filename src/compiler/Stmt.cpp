@@ -232,18 +232,17 @@ namespace lox {
             Builder.SetInsertPoint(EndBlock);
         }
 
-        for (auto &method: classStmt->methods) {
-            auto *const name = Builder.AllocateString(method->name.getLexeme());
-            insertTemp(Builder.ObjVal(name), "methodname");
-            const auto fqName = (className + "." + method->name.getLexeme()).str();
-            auto *const methodPtr =
-                CreateFunction(
-                    CreateLLVMFunction(Builder, method, fqName),
-                    method->type,
-                    method,
-                    fqName
-                );
-            Builder.TableSet(methods, name, Builder.ObjVal(methodPtr));
+        for (auto &methodStmt: classStmt->methods) {
+            const auto fqName = (className + "." + methodStmt->name.getLexeme()).str();
+            auto *const method = CreateFunction(
+                CreateLLVMFunction(Builder, methodStmt, fqName),
+                methodStmt->type,
+                methodStmt,
+                fqName
+            );
+            auto *const function = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLOSURE, method, 1));
+            auto *const name = Builder.CreateLoad(Builder.getInt64Ty(), Builder.CreateObjStructGEP(ObjType::FUNCTION, function, 3));
+            Builder.TableSet(methods, Builder.AsObj(name), Builder.ObjVal(method));
         }
 
         if (classStmt->super_class.has_value()) {
