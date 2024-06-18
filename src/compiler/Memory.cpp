@@ -87,21 +87,31 @@ namespace lox {
                 B.getModule().getAllocatedBytes()
             );
 
-            // Trigger GC.
-            B.CollectGarbage(false);
+            auto *const GcBlock = B.CreateBasicBlock("gc");
+            auto *const NoGcBlock = B.CreateBasicBlock("no.gc");
 
-            auto *const IsFreeBlock = B.CreateBasicBlock("is.free");
-            auto *const IsAllocBlock = B.CreateBasicBlock("is.alloc");
+            B.CreateCondBr(B.CreateICmpSGT(newSize, oldSize),GcBlock,NoGcBlock);
 
-            B.CreateCondBr(B.CreateICmpEQ(B.getInt32(0), newSize), IsFreeBlock, IsAllocBlock);
-            B.SetInsertPoint(IsFreeBlock);
+            B.SetInsertPoint(GcBlock);
             {
-                B.IRBuilder::CreateFree(ptr);
-                B.CreateRet(B.getNullPtr());
+                B.CollectGarbage(false);
+                B.CreateBr(NoGcBlock);
             }
-            B.SetInsertPoint(IsAllocBlock);
+            B.SetInsertPoint(NoGcBlock);
             {
-                B.CreateRet(B.CreateRealloc(ptr, newSize, "alloc"));
+                auto *const IsFreeBlock = B.CreateBasicBlock("is.free");
+                auto *const IsAllocBlock = B.CreateBasicBlock("is.alloc");
+
+                B.CreateCondBr(B.CreateICmpEQ(B.getInt32(0), newSize), IsFreeBlock, IsAllocBlock);
+                B.SetInsertPoint(IsFreeBlock);
+                {
+                    B.IRBuilder::CreateFree(ptr);
+                    B.CreateRet(B.getNullPtr());
+                }
+                B.SetInsertPoint(IsAllocBlock);
+                {
+                    B.CreateRet(B.CreateRealloc(ptr, newSize, "alloc"));
+                }
             }
             return F;
         }());
