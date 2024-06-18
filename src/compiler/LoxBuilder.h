@@ -117,7 +117,7 @@ namespace lox {
         }
         Value *BindMethod(Value *klass, Value *receiver, Value *key, unsigned int line, const llvm::Function *pFunction);
 
-        CallInst *CreateInvariantEnd(CallInst* start, Value *Ptr, ConstantInt *Size) {
+        CallInst *CreateInvariantEnd(CallInst *start, Value *Ptr, ConstantInt *Size) {
 
             assert(isa<PointerType>(Ptr->getType()) && "invariant.start only applies to pointers.");
             if (!Size)

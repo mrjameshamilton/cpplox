@@ -375,7 +375,7 @@ namespace lox {
             B.CreateCondBr(B.IsObj(value), IsObjBlock, IsNotObjBlock);
             B.SetInsertPoint(IsObjBlock);
             if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
-                B.PrintF({B.CreateGlobalCachedString("calling function %p(%d, %p)\n"), function, value,value});
+                B.PrintF({B.CreateGlobalCachedString("calling function %p(%d, %p)\n"), function, value, value});
             }
             B.CreateCall(
                 FunctionType::get(B.getVoidTy(), {B.getPtrTy()}, false),

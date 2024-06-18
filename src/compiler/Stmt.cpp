@@ -19,7 +19,7 @@ namespace lox {
         endScope();
     }
 
-    Value *FunctionCompiler::CreateFunction(const LoxFunctionType type, const FunctionStmtPtr &functionStmt, const std::string_view name) {
+    static Function *CreateLLVMFunction(LoxBuilder &Builder, const FunctionStmtPtr &functionStmt, const std::string_view name) {
         std::vector<Type *> paramTypes(functionStmt->parameters.size(), Builder.getInt64Ty());
         // The second parameter is for the receiver instance for methods
         // or the function object value itself for functions.
@@ -28,12 +28,15 @@ namespace lox {
         paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
         auto *const FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
 
-        auto *const F = Function::Create(
+        return Function::Create(
             FT,
             Function::InternalLinkage,
             name,
             Builder.getModule()
         );
+    }
+
+    Value *FunctionCompiler::CreateFunction(Function *F, const LoxFunctionType type, const FunctionStmtPtr &functionStmt, const std::string_view name) {
 
         if (type == LoxFunctionType::INITIALIZER) {
             // Initializers always return their instance which is the second parameter.
@@ -116,7 +119,8 @@ namespace lox {
     }
 
     void FunctionCompiler::operator()(const FunctionStmtPtr &functionStmt) {
-        CreateFunction(LoxFunctionType::FUNCTION, functionStmt, functionStmt->name.getLexeme());
+        const auto name = functionStmt->name.getLexeme();
+        CreateFunction(CreateLLVMFunction(Builder, functionStmt, name), LoxFunctionType::FUNCTION, functionStmt, name);
     }
 
     void FunctionCompiler::operator()(const ExpressionStmtPtr &expressionStmt) {
@@ -231,11 +235,13 @@ namespace lox {
         for (auto &method: classStmt->methods) {
             auto *const name = Builder.AllocateString(method->name.getLexeme());
             insertTemp(Builder.ObjVal(name), "methodname");
+            const auto fqName = (className + "." + method->name.getLexeme()).str();
             auto *const methodPtr =
                 CreateFunction(
+                    CreateLLVMFunction(Builder, method, fqName),
                     method->type,
                     method,
-                    (className + "." + method->name.getLexeme()).str()
+                    fqName
                 );
             Builder.TableSet(methods, name, Builder.ObjVal(methodPtr));
         }

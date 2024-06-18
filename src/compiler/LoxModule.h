@@ -148,7 +148,7 @@ namespace lox {
         GlobalVariable *const enableGC = cast<GlobalVariable>(getOrInsertGlobal(
             "$enableGC",
             IntegerType::getInt1Ty(getContext())
-            ));
+        ));
         std::shared_ptr<GlobalStack> grayStack;
         std::shared_ptr<GlobalStack> localsStack;
         llvm::StringMap<Constant *> strings;
@@ -273,7 +273,7 @@ namespace lox {
             return nextGC;
         }
 
-        GlobalVariable* getEnableGC() const {
+        GlobalVariable *getEnableGC() const {
             return enableGC;
         }
 
