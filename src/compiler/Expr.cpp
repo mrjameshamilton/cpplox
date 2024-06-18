@@ -298,7 +298,10 @@ namespace lox {
         auto *const initializer = Builder.TableGet(Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2)), initString);
 
         auto *const instance = Builder.AllocateInstance(klass);
-        auto *const instanceVal = insertTemp(Builder.ObjVal(instance), "instance");
+        // The instance will be reachable in the function as soon as
+        // the "this" variable is inserted. Before that, there shouldn't
+        // be any GC triggered.
+        auto *const instanceVal = Builder.ObjVal(instance);
 
         auto *const EndClassBlock = Builder.CreateBasicBlock("class.end");
         auto *const HasInitializerBlock = Builder.CreateBasicBlock("call.init");
@@ -346,7 +349,6 @@ namespace lox {
         receiver->addIncoming(value, IsClosureBlock);
 
         auto *const functionReturnVal = call(receiver, closure, paramValues, callExpr->keyword.getLine());
-
 
         auto *const EndCall = Builder.GetInsertBlock();
 
