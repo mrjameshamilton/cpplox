@@ -36,26 +36,25 @@ namespace lox {
         );
     }
 
-    Value *FunctionCompiler::CreateFunction(Function *F, const LoxFunctionType type, const FunctionStmtPtr &functionStmt, const std::string_view name) {
-
-        if (type == LoxFunctionType::INITIALIZER) {
+    Value *FunctionCompiler::CreateFunction(Function *F, const FunctionStmtPtr &functionStmt, const std::string_view name) {
+        if (functionStmt->type == LoxFunctionType::INITIALIZER) {
             // Initializers always return their instance which is the second parameter.
             F->addParamAttr(1, Attribute::Returned);
         }
 
         auto *const closurePtr = Builder.AllocateClosure(*this, F, functionStmt->name.getLexeme(), false);
 
-        if (type == LoxFunctionType::FUNCTION) {
+        if (functionStmt->type == LoxFunctionType::FUNCTION) {
             auto *const variable = insertVariable(functionStmt->name.getLexeme(), Builder.ObjVal(closurePtr), !isGlobalScope());
             auto *nameNode = MDString::get(Builder.getContext(), name);
             auto *arityNode = ValueAsMetadata::get(Builder.getInt32(functionStmt->parameters.size()));
             setMetadata(variable, "lox-function", MDTuple::get(Builder.getContext(), {nameNode, arityNode, nameNode}));
-        } else if (type == LoxFunctionType::METHOD || type == LoxFunctionType::INITIALIZER) {
+        } else if (functionStmt->type == LoxFunctionType::METHOD || functionStmt->type == LoxFunctionType::INITIALIZER) {
             // Methods aren't stored as variables.
             insertTemp(Builder.ObjVal(closurePtr), "closure");
         }
 
-        FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, type, this);
+        FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, functionStmt->type, this);
         C.compile(functionStmt->body, functionStmt->parameters, [&, &C](LoxBuilder &B) {
             if (C.type == LoxFunctionType::METHOD || C.type == LoxFunctionType::INITIALIZER) {
                 C.insertVariable("this", B.getFunction()->arg_begin() + 1, true);
@@ -120,7 +119,7 @@ namespace lox {
 
     void FunctionCompiler::operator()(const FunctionStmtPtr &functionStmt) {
         const auto name = functionStmt->name.getLexeme();
-        CreateFunction(CreateLLVMFunction(Builder, functionStmt, name), LoxFunctionType::FUNCTION, functionStmt, name);
+        CreateFunction(CreateLLVMFunction(Builder, functionStmt, name), functionStmt, name);
     }
 
     void FunctionCompiler::operator()(const ExpressionStmtPtr &expressionStmt) {
@@ -236,7 +235,6 @@ namespace lox {
             const auto fqName = (className + "." + methodStmt->name.getLexeme()).str();
             auto *const method = CreateFunction(
                 CreateLLVMFunction(Builder, methodStmt, fqName),
-                methodStmt->type,
                 methodStmt,
                 fqName
             );
