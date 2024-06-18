@@ -42,20 +42,20 @@ namespace lox {
         Clock->addFnAttr(Attribute::NoRecurse);
         Clock->addFnAttr(Attribute::AlwaysInline);
 
-        LoxBuilder ClockBuilder(Builder.getContext(), Builder.getModule(), *Clock);
-        auto *const Entry = ClockBuilder.CreateBasicBlock("entry");
-        ClockBuilder.SetInsertPoint(Entry);
+        LoxBuilder B(Builder.getContext(), Builder.getModule(), *Clock);
+        auto *const Entry = B.CreateBasicBlock("entry");
+        B.SetInsertPoint(Entry);
 
         const auto &libcClock = Builder.getModule().getOrInsertFunction(
             "clock",
-            FunctionType::get(ClockBuilder.getInt64Ty(), false)
+            FunctionType::get(B.getInt64Ty(), false)
         );
 
-        ClockBuilder.CreateRet(
-            ClockBuilder.NumberVal(
-                ClockBuilder.CreateFDiv(
-                    ClockBuilder.CreateSIToFP(ClockBuilder.CreateCall(libcClock), ClockBuilder.getDoubleTy()),
-                    ConstantFP::get(ClockBuilder.getDoubleTy(), 1000000.0)
+        B.CreateRet(
+            B.NumberVal(
+                B.CreateFDiv(
+                    B.CreateSIToFP(B.CreateCall(libcClock), B.getDoubleTy()),
+                    ConstantFP::get(B.getDoubleTy(), 1000000.0)
                 )
             )
         );
@@ -77,24 +77,60 @@ namespace lox {
         Exit->addFnAttr(Attribute::NoRecurse);
         Exit->addFnAttr(Attribute::AlwaysInline);
 
-        LoxBuilder ExitBuilder(Builder.getContext(), Builder.getModule(), *Exit);
-        auto *const ExitEntry = ExitBuilder.CreateBasicBlock("entry");
-        ExitBuilder.SetInsertPoint(ExitEntry);
+        LoxBuilder B(Builder.getContext(), Builder.getModule(), *Exit);
+        auto *const ExitEntry = B.CreateBasicBlock("entry");
+        B.SetInsertPoint(ExitEntry);
 
         const auto libcExit = Builder.getModule().getOrInsertFunction(
             "exit",
-            FunctionType::get(ExitBuilder.getVoidTy(), {ExitBuilder.getInt32Ty()}, false)
+            FunctionType::get(B.getVoidTy(), {B.getInt32Ty()}, false)
         );
 
-        ExitBuilder.CreateCall(libcExit, {ExitBuilder.CreateFPToSI(ExitBuilder.AsNumber(Exit->arg_begin() + 2), ExitBuilder.getInt32Ty())});
-        ExitBuilder.CreateUnreachable();
+        B.CreateCall(libcExit, {B.CreateFPToSI(B.AsNumber(Exit->arg_begin() + 2), B.getInt32Ty())});
+        B.CreateUnreachable();
 
         return Exit;
     }
 
+    static Function *createGetCharFunction(LoxBuilder &Builder) {
+        Function *GetChar = Function::Create(
+            FunctionType::get(
+                Builder.getInt64Ty(),
+                {Builder.getPtrTy(), Builder.getInt64Ty()},
+                false
+            ),
+            Function::InternalLinkage,
+            "getchar_native",
+            Builder.getModule()
+        );
+        GetChar->addFnAttr(Attribute::NoRecurse);
+        GetChar->addFnAttr(Attribute::AlwaysInline);
+
+        LoxBuilder B(Builder.getContext(), Builder.getModule(), *GetChar);
+        auto *const ExitEntry = B.CreateBasicBlock("entry");
+        B.SetInsertPoint(ExitEntry);
+
+        const auto libcGetChar = Builder.getModule().getOrInsertFunction(
+            "getchar",
+            FunctionType::get(B.getInt8Ty(), {}, false)
+        );
+
+        auto *result = B.CreateCall(libcGetChar);
+
+        B.CreateRet(
+            B.CreateSelect(
+                B.CreateICmpEQ(result, B.getInt8(-1)),
+                B.getNilVal(),
+                B.NumberVal(B.CreateSIToFP(result, B.getDoubleTy()))
+            )
+        );
+
+        return GetChar;
+    }
     void ModuleCompiler::evaluate(const Program &program) const {
         auto *const Clock = createClockFunction(*Builder);
         auto *const Exit = createExitFunction(*Builder);
+        auto *const GetChar = createGetCharFunction(*Builder);
 
         // ---- Main -----
 
@@ -112,7 +148,7 @@ namespace lox {
 
         CreateGcFunction(*Builder);
 
-        ScriptCompiler.compile(program, {}, [&ScriptCompiler, &Clock, &Exit](LoxBuilder &B) {
+        ScriptCompiler.compile(program, {}, [&ScriptCompiler, &Clock, &Exit, &GetChar](LoxBuilder &B) {
             ScriptCompiler.insertVariable("$initString", B.ObjVal(B.AllocateString("init")), true);
 
             {
@@ -120,7 +156,7 @@ namespace lox {
                 auto *const clock = cast<GlobalVariable>(ScriptCompiler.insertVariable("clock", B.ObjVal(clockClosure)));
                 auto *const nameNode = MDString::get(B.getContext(), "clock");
                 auto *const arityNode = ValueAsMetadata::get(B.getInt32(Clock->arg_size() - 2));
-                auto *const llvmFunctionName = MDString::get(B.getContext(), "clock_native");
+                auto *const llvmFunctionName = MDString::get(B.getContext(), Clock->getName());
                 setMetadata(clock, "lox-function", MDTuple::get(B.getContext(), {nameNode, arityNode, llvmFunctionName}));
             }
 
@@ -129,8 +165,17 @@ namespace lox {
                 auto *const exit = ScriptCompiler.insertVariable("exit", B.ObjVal(exitClosure));
                 auto *const nameNode = MDString::get(B.getContext(), "exit");
                 auto *const arityNode = ValueAsMetadata::get(B.getInt32(Exit->arg_size() - 2));
-                auto *const llvmFunctionName = MDString::get(B.getContext(), "exit_native");
+                auto *const llvmFunctionName = MDString::get(B.getContext(), Exit->getName());
                 setMetadata(exit, "lox-function", MDTuple::get(B.getContext(), {nameNode, arityNode, llvmFunctionName}));
+            }
+
+            {
+                auto *const readClosure = B.AllocateClosure(ScriptCompiler, GetChar, "getchar", true);
+                auto *const read = ScriptCompiler.insertVariable("getchar", B.ObjVal(readClosure));
+                auto *const nameNode = MDString::get(B.getContext(), "getchar");
+                auto *const arityNode = ValueAsMetadata::get(B.getInt32(GetChar->arg_size() - 2));
+                auto *const llvmFunctionName = MDString::get(B.getContext(), GetChar->getName());
+                setMetadata(read, "lox-function", MDTuple::get(B.getContext(), {nameNode, arityNode, llvmFunctionName}));
             }
         });
 
