@@ -49,7 +49,7 @@ namespace lox {
             setMetadata(variable, "lox-function", MDTuple::get(Builder.getContext(), {nameNode, arityNode, nameNode}));
         } else if (type == LoxFunctionType::METHOD || type == LoxFunctionType::INITIALIZER) {
             // Methods aren't stored as variables.
-            insertTemp(Builder.ObjVal(closurePtr), "method closure");
+            insertTemp(Builder.ObjVal(closurePtr), "closure");
         }
 
         FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, type, this);
@@ -187,9 +187,10 @@ namespace lox {
 
     void FunctionCompiler::operator()(const ClassStmtPtr &classStmt) {
         const auto className = classStmt->name.getLexeme();
-        auto *const nameObj = Builder.AllocateString(className, ("class_" + className).str());
-        insertTemp(Builder.ObjVal(nameObj), "class name");
-        auto *const klass = Builder.AllocateClass(nameObj);
+        auto *const klass = DelayGC(Builder, [&className](LoxBuilder &B) {
+            auto *const nameObj = B.AllocateString(className, ("class_" + className).str());
+            return B.AllocateClass(nameObj);
+        });
         auto *const methods = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2));
 
         insertVariable(className, Builder.ObjVal(klass), !isGlobalScope());
@@ -229,7 +230,7 @@ namespace lox {
 
         for (auto &method: classStmt->methods) {
             auto *const name = Builder.AllocateString(method->name.getLexeme());
-            insertTemp(Builder.ObjVal(name), "method name");
+            insertTemp(Builder.ObjVal(name), "methodname");
             auto *const methodPtr =
                 CreateFunction(
                     method->type,

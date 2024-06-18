@@ -479,7 +479,7 @@ namespace lox {
         static auto *const GCFunction = Function::Create(
             FunctionType::get(
                 Builder.getVoidTy(),
-                {},
+                {Builder.getInt1Ty(), Builder.getPtrTy()},
                 false
             ),
             Function::InternalLinkage,
@@ -558,11 +558,38 @@ namespace lox {
             auto *const EntryBasicBlock = B.CreateBasicBlock("entry");
             B.SetInsertPoint(EntryBasicBlock);
 
+            auto *const force = B.getFunction()->arg_begin();
+            auto *const extraRoot = B.getFunction()->arg_begin() + 1;
+
             if constexpr (DEBUG_LOG_GC) {
-                B.PrintString("-- start GC ---");
+                B.PrintF({B.CreateGlobalCachedString("-- start GC (force? %d)---\n"), force});
+                B.PrintF({B.CreateGlobalCachedString("  extra root: %p\n"), extraRoot});
             }
 
+            auto *const CollectBlock = B.CreateBasicBlock("collect");
+            auto *const EndBlock = B.CreateBasicBlock("end");
+
+            B.CreateCondBr(
+                B.CreateAnd(
+                    B.CreateLoad(B.getInt1Ty(), B.getModule().getEnableGC()),
+                    B.CreateOr(
+                        force,
+                        B.CreateICmpSGT(B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes()), B.CreateLoad(B.getInt32Ty(), B.getModule().getNextGC()))
+                    )
+                ),
+                CollectBlock, EndBlock
+            );
+            B.SetInsertPoint(EndBlock);
+            if constexpr (DEBUG_LOG_GC) {
+                B.PrintF({B.CreateGlobalCachedString("skip GC\n")});
+            }
+            B.CreateRetVoid();
+
+            B.SetInsertPoint(CollectBlock);
             auto *const before = B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes());
+
+            // Mark the extra root, if any (maybe nullptr).
+            B.CreateCall(MarkObjectFunction, {extraRoot});
 
             MarkRoots(B);
             TraceReferences(B);
@@ -587,8 +614,8 @@ namespace lox {
         return GCFunction;
     }
 
-    void LoxBuilder::CollectGarbage() {
-        CreateCall(getModule().getFunction("$gc"));
+    void LoxBuilder::CollectGarbage(const bool force = false, Value *extraRoot) {
+        CreateCall(getModule().getFunction("$gc"), {force ? getTrue() : getFalse(), extraRoot ? extraRoot : getNullPtr()});
     }
 
     /**
@@ -609,5 +636,25 @@ namespace lox {
 
         B.SetInsertPoint(IsObjBlock->begin());
         MarkObject(B, B.AsObj(value));
+    }
+
+    Value *DelayGC(LoxBuilder &B, const std::function<Value *(LoxBuilder &)> &block) {
+        if constexpr (DEBUG_LOG_GC) {
+            B.PrintF({B.CreateGlobalCachedString("disable gc\n")});
+        }
+        auto *const original = B.CreateLoad(B.getInt1Ty(), B.getModule().getEnableGC());
+        B.CreateStore(B.getFalse(), B.getModule().getEnableGC());
+        auto *const result = block(B);
+        if constexpr (DEBUG_LOG_GC) {
+            B.PrintF({B.CreateGlobalCachedString("enable gc\n")});
+        }
+        B.CreateStore(original, B.getModule().getEnableGC());
+
+        // Collect garbage if necessary, passing the result of the block
+        // function as an extra GC root (because the result may not
+        // be reachable yet via a local/global).
+        B.CollectGarbage(false, result);
+
+        return result;
     }
 }// namespace lox

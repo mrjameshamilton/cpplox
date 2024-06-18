@@ -352,7 +352,7 @@ namespace lox {
             assert(value->getType() == Builder.getInt64Ty());
 
             const auto *const name = "$temp";
-            auto *const alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), name);
+            auto *const alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), (name + what).str());
 
             const auto local = std::make_shared<Local>(*this, name, alloca);
             variables.insert(name, local);

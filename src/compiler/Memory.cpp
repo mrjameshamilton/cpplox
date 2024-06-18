@@ -87,35 +87,21 @@ namespace lox {
                 B.getModule().getAllocatedBytes()
             );
 
-            auto *const GcBlock = B.CreateBasicBlock("gc");
-            auto *const NoGcBlock = B.CreateBasicBlock("no.gc");
+            // Trigger GC.
+            B.CollectGarbage(false);
 
-            B.CreateCondBr(
-                B.CreateAnd(B.CreateICmpSGT(newSize, oldSize), B.CreateICmpSGT(B.CreateLoad(B.getInt32Ty(), B.getModule().getAllocatedBytes()), B.CreateLoad(B.getInt32Ty(), B.getModule().getNextGC()))),
-                GcBlock,
-                NoGcBlock
-            );
+            auto *const IsFreeBlock = B.CreateBasicBlock("is.free");
+            auto *const IsAllocBlock = B.CreateBasicBlock("is.alloc");
 
-            B.SetInsertPoint(GcBlock);
+            B.CreateCondBr(B.CreateICmpEQ(B.getInt32(0), newSize), IsFreeBlock, IsAllocBlock);
+            B.SetInsertPoint(IsFreeBlock);
             {
-                B.CollectGarbage();
-                B.CreateBr(NoGcBlock);
+                B.IRBuilder::CreateFree(ptr);
+                B.CreateRet(B.getNullPtr());
             }
-            B.SetInsertPoint(NoGcBlock);
+            B.SetInsertPoint(IsAllocBlock);
             {
-                auto *const IsFreeBlock = B.CreateBasicBlock("is.free");
-                auto *const IsAllocBlock = B.CreateBasicBlock("is.alloc");
-
-                B.CreateCondBr(B.CreateICmpEQ(B.getInt32(0), newSize), IsFreeBlock, IsAllocBlock);
-                B.SetInsertPoint(IsFreeBlock);
-                {
-                    B.IRBuilder::CreateFree(ptr);
-                    B.CreateRet(B.getNullPtr());
-                }
-                B.SetInsertPoint(IsAllocBlock);
-                {
-                    B.CreateRet(B.CreateRealloc(ptr, newSize, "alloc"));
-                }
+                B.CreateRet(B.CreateRealloc(ptr, newSize, "alloc"));
             }
             return F;
         }());
@@ -234,7 +220,7 @@ namespace lox {
         }());
 
         if constexpr (STRESS_GC) {
-            this->CollectGarbage();
+            this->CollectGarbage(true);
         }
 
         if constexpr (DEBUG_LOG_GC) {

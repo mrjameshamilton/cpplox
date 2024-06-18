@@ -90,7 +90,7 @@ namespace lox {
                     createLikelyBranchWeights(mdBuilder)
                 );
                 Builder.SetInsertPoint(IsStringBlock);
-                auto *const Y = insertTemp(Builder.ObjVal(Builder.Concat(left, right)), "string concat");
+                auto *const Y = insertTemp(Builder.ObjVal(Builder.Concat(left, right)), "concat");
                 Builder.CreateBr(EndBlock);
 
                 Builder.SetInsertPoint(InvalidBlock);
@@ -271,7 +271,7 @@ namespace lox {
                 copyMetadata(value, closure);
                 auto *const result = call(value, closure, paramValues, callExpr->keyword.getLine());
                 //std::cout << "function local found: " << name.str() << std::endl;
-                return insertTemp(result, "function return value");
+                return insertTemp(result, "ret");
             } else {
                 //std::cout << "function local not found: " << name.str() << std::endl;
             }
@@ -385,7 +385,7 @@ namespace lox {
             // //var g = f(); // assigning the result of f to variable would make it reachable
             // var h = f()/* the result here needs to be reachable */();
             // print h();
-            insertTemp(result, "function return value");
+            insertTemp(result, "ret");
 
             Builder.CreateBr(ReturnBlock);
         }
@@ -428,7 +428,7 @@ namespace lox {
 
         auto *const klass = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
         auto *const bound =
-            insertTemp(Builder.ObjVal(Builder.BindMethod(klass, instance, key, getExpr->name.getLine(), enclosing == nullptr ? nullptr : Builder.getFunction())), "bound method");
+            insertTemp(Builder.ObjVal(Builder.BindMethod(klass, instance, key, getExpr->name.getLine(), enclosing == nullptr ? nullptr : Builder.getFunction())), "boundmethod");
 
         Builder.CreateBr(IsDefinedBlock);
 
@@ -461,14 +461,16 @@ namespace lox {
         static auto assignable = Assignable{Token(THIS, "this"sv, nullptr, superExpr->name.getLine())};
         auto *const instance = Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(assignable));
         auto *const klass = Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(*superExpr));
-        auto *const key = insertTemp(Builder.ObjVal(Builder.AllocateString(superExpr->method.getLexeme())), "super method name");
-        auto *const method = Builder.BindMethod(
-            Builder.AsObj(klass),
-            Builder.AsObj(instance),
-            Builder.AsObj(key),
-            superExpr->name.getLine(),
-            enclosing == nullptr ? nullptr : Builder.getFunction()
-        );
+        auto *const method = DelayGC(Builder, [&](LoxBuilder &B) {
+            auto *const key = B.ObjVal(B.AllocateString(superExpr->method.getLexeme()));
+            return B.BindMethod(
+                B.AsObj(klass),
+                B.AsObj(instance),
+                B.AsObj(key),
+                superExpr->name.getLine(),
+                enclosing == nullptr ? nullptr : B.getFunction()
+            );
+        });
         return Builder.ObjVal(method);
     }
 
@@ -494,7 +496,7 @@ namespace lox {
                 },
                 [this](const std::string_view string_value) -> Value * {
                     // Push onto the locals stack so that the string is reachable as a GC root, before it's assigned to a variable.
-                    return insertTemp(Builder.ObjVal(Builder.AllocateString(string_value)), ("string {" + string_value + "}").str());
+                    return insertTemp(Builder.ObjVal(Builder.AllocateString(string_value)), "string");
                 },
                 [this](const std::nullptr_t) -> Value * { return Builder.getNilVal(); },
             },

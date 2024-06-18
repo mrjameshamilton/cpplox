@@ -145,6 +145,10 @@ namespace lox {
             "$nextGC",
             IntegerType::getInt32Ty(getContext())
         ));
+        GlobalVariable *const enableGC = cast<GlobalVariable>(getOrInsertGlobal(
+            "$enableGC",
+            IntegerType::getInt1Ty(getContext())
+            ));
         std::shared_ptr<GlobalStack> grayStack;
         std::shared_ptr<GlobalStack> localsStack;
         llvm::StringMap<Constant *> strings;
@@ -185,6 +189,11 @@ namespace lox {
             nextGC->setAlignment(Align(8));
             nextGC->setConstant(false);
             nextGC->setInitializer(ConstantInt::get(IntegerType::getInt32Ty(getContext()), FIRST_GC_AT));
+
+            enableGC->setLinkage(GlobalVariable::PrivateLinkage);
+            enableGC->setAlignment(Align(8));
+            enableGC->setConstant(false);
+            enableGC->setInitializer(ConstantInt::get(IntegerType::getInt1Ty(getContext()), 1));
 
             initialize();
         }
@@ -262,6 +271,10 @@ namespace lox {
 
         GlobalVariable *getNextGC() const {
             return nextGC;
+        }
+
+        GlobalVariable* getEnableGC() const {
+            return enableGC;
         }
 
         StringMap<Constant *> &getStringCache() {

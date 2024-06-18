@@ -88,12 +88,11 @@ namespace lox {
             return F;
         }());
 
-        auto *const nameObj = AllocateString(name);
-        compiler.insertTemp(ObjVal(nameObj), "function name");
-        auto *const functionObj = AllocateFunction(*this, function, nameObj, isNative);
-        compiler.insertTemp(ObjVal(functionObj), "function");
-
-        auto *const ptr = CreateCall(AllocationClosureFunction, {functionObj});
+        auto *const ptr = DelayGC(*this, [&](LoxBuilder &B) {
+            auto *const nameObj = AllocateString(name);
+            auto *const functionObj = AllocateFunction(*this, function, nameObj, isNative);
+            return B.CreateCall(AllocationClosureFunction, {functionObj});
+        });
 
         if (isNative) {
             // Native closures won't change.

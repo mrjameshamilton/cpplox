@@ -71,7 +71,7 @@ namespace lox {
         Value *CreateReallocate(Value *ptr, Value *oldSize, Value *newSize);
         Value *CreateRealloc(Value *ptr, Value *newSize, StringRef what);
         void CreateFree(Value *ptr, enum ObjType type, Value *arraySize);
-        void CollectGarbage();
+        void CollectGarbage(bool force, Value *extraRoot = nullptr);
         Value *Concat(Value *a, Value *b);
 
         void Print(Value *value);
@@ -116,6 +116,23 @@ namespace lox {
             return BasicBlock::Create(getContext(), name, getFunction());
         }
         Value *BindMethod(Value *klass, Value *receiver, Value *key, unsigned int line, const llvm::Function *pFunction);
+
+        CallInst *CreateInvariantEnd(CallInst* start, Value *Ptr, ConstantInt *Size) {
+
+            assert(isa<PointerType>(Ptr->getType()) && "invariant.start only applies to pointers.");
+            if (!Size)
+                Size = getInt64(-1);
+            else
+                assert(Size->getType() == getInt64Ty() && "invariant.start requires the size to be an i64");
+
+            Value *Ops[] = {start, Size, Ptr};
+            // Fill in the single overloaded type: memory object type.
+            Type *ObjectPtr[1] = {Ptr->getType()};
+            Module *M = BB->getParent()->getParent();
+            llvm::Function *TheFn =
+                Intrinsic::getDeclaration(M, Intrinsic::invariant_end, ObjectPtr);
+            return CreateCall(TheFn, Ops);
+        }
     };
 }// namespace lox
 
