@@ -90,7 +90,7 @@ namespace lox {
             auto *const GcBlock = B.CreateBasicBlock("gc");
             auto *const NoGcBlock = B.CreateBasicBlock("no.gc");
 
-            B.CreateCondBr(B.CreateICmpSGT(newSize, oldSize),GcBlock,NoGcBlock);
+            B.CreateCondBr(B.CreateICmpSGT(newSize, oldSize), GcBlock, NoGcBlock);
 
             B.SetInsertPoint(GcBlock);
             {

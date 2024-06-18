@@ -36,7 +36,9 @@ namespace lox {
         );
     }
 
-    Value *FunctionCompiler::CreateFunction(Function *F, const FunctionStmtPtr &functionStmt, const std::string_view name) {
+    void FunctionCompiler::CreateFunction(const FunctionStmtPtr &functionStmt, const std::string_view name, const std::function<void(Value *)> &initializer = [](auto *V) -> Value * { return V; }) {
+        auto *const F = CreateLLVMFunction(Builder, functionStmt, name);
+
         if (functionStmt->type == LoxFunctionType::INITIALIZER) {
             // Initializers always return their instance which is the second parameter.
             F->addParamAttr(1, Attribute::Returned);
@@ -44,14 +46,13 @@ namespace lox {
 
         auto *const closurePtr = Builder.AllocateClosure(*this, F, functionStmt->name.getLexeme(), false);
 
+        initializer(closurePtr);
+
         if (functionStmt->type == LoxFunctionType::FUNCTION) {
             auto *const variable = insertVariable(functionStmt->name.getLexeme(), Builder.ObjVal(closurePtr), !isGlobalScope());
             auto *nameNode = MDString::get(Builder.getContext(), name);
             auto *arityNode = ValueAsMetadata::get(Builder.getInt32(functionStmt->parameters.size()));
             setMetadata(variable, "lox-function", MDTuple::get(Builder.getContext(), {nameNode, arityNode, nameNode}));
-        } else if (functionStmt->type == LoxFunctionType::METHOD || functionStmt->type == LoxFunctionType::INITIALIZER) {
-            // Methods aren't stored as variables.
-            insertTemp(Builder.ObjVal(closurePtr), "closure");
         }
 
         FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, functionStmt->type, this);
@@ -113,13 +114,10 @@ namespace lox {
         }
 
         Builder.CreateInvariantStart(closurePtr, Builder.getSizeOf(ObjType::CLOSURE));
-
-        return closurePtr;
     }
 
     void FunctionCompiler::operator()(const FunctionStmtPtr &functionStmt) {
-        const auto name = functionStmt->name.getLexeme();
-        CreateFunction(CreateLLVMFunction(Builder, functionStmt, name), functionStmt, name);
+        CreateFunction(functionStmt, functionStmt->name.getLexeme());
     }
 
     void FunctionCompiler::operator()(const ExpressionStmtPtr &expressionStmt) {
@@ -231,16 +229,18 @@ namespace lox {
             Builder.SetInsertPoint(EndBlock);
         }
 
-        for (auto &methodStmt: classStmt->methods) {
-            const auto fqName = (className + "." + methodStmt->name.getLexeme()).str();
-            auto *const method = CreateFunction(
-                CreateLLVMFunction(Builder, methodStmt, fqName),
-                methodStmt,
-                fqName
+        for (auto &method: classStmt->methods) {
+            CreateFunction(
+                method,
+                (className + "." + method->name.getLexeme()).str(),
+                [&](Value *closure) {
+                    // The initializer will add the method to the methods table,
+                    // making the closure reachable ASAP (creation of upvalues in CreateFunction can trigger GC).
+                    auto *const function = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLOSURE, closure, 1));
+                    auto *const name = Builder.CreateLoad(Builder.getInt64Ty(), Builder.CreateObjStructGEP(ObjType::FUNCTION, function, 3));
+                    Builder.TableSet(methods, Builder.AsObj(name), Builder.ObjVal(closure));
+                }
             );
-            auto *const function = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLOSURE, method, 1));
-            auto *const name = Builder.CreateLoad(Builder.getInt64Ty(), Builder.CreateObjStructGEP(ObjType::FUNCTION, function, 3));
-            Builder.TableSet(methods, Builder.AsObj(name), Builder.ObjVal(method));
         }
 
         if (classStmt->super_class.has_value()) {

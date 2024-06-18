@@ -442,7 +442,7 @@ namespace lox {
                    scopes.size() <= 2;
         }
 
-        Value *CreateFunction(Function *F, const FunctionStmtPtr &functionStmt, std::string_view name);
+        void CreateFunction(const FunctionStmtPtr &functionStmt, std::string_view name, const std::function<void(Value *)> &initializer);
     };
 
 }// namespace lox
