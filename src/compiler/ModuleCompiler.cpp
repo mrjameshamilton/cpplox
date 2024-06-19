@@ -32,106 +32,49 @@ using namespace llvm::sys;
 
 namespace lox {
 
-    static Function *createClockFunction(LoxBuilder &Builder) {
-        Function *Clock = Function::Create(
-            FunctionType::get(Builder.getInt64Ty(), {Builder.getPtrTy(), Builder.getInt64Ty()}, false),
-            Function::InternalLinkage,
-            "clock_native",
-            Builder.getModule()
-        );
-        Clock->addFnAttr(Attribute::NoRecurse);
-        Clock->addFnAttr(Attribute::AlwaysInline);
+    static void Native(const StringRef name, Type *result, const std::vector<Type *> &params, FunctionCompiler &ScriptCompiler, const std::function<void(LoxBuilder &B, const FunctionCallee &native, Argument *args)> &block) {
+        auto &ScriptBuilder = ScriptCompiler.getBuilder();
+        std::vector<Type *> paramTypes(params.size(), ScriptBuilder.getInt64Ty());
+        // The second parameter is for the receiver instance for methods
+        // or the function object value itself for functions.
+        paramTypes.insert(paramTypes.begin(), ScriptBuilder.getInt64Ty());
+        // The first parameter is the upvalues.
+        paramTypes.insert(paramTypes.begin(), ScriptBuilder.getPtrTy());
 
-        LoxBuilder B(Builder.getContext(), Builder.getModule(), *Clock);
-        auto *const Entry = B.CreateBasicBlock("entry");
-        B.SetInsertPoint(Entry);
-
-        const auto &libcClock = Builder.getModule().getOrInsertFunction(
-            "clock",
-            FunctionType::get(B.getInt64Ty(), false)
-        );
-
-        B.CreateRet(
-            B.NumberVal(
-                B.CreateFDiv(
-                    B.CreateSIToFP(B.CreateCall(libcClock), B.getDoubleTy()),
-                    ConstantFP::get(B.getDoubleTy(), 1000000.0)
-                )
-            )
-        );
-
-        return Clock;
-    }
-
-    static Function *createExitFunction(LoxBuilder &Builder) {
-        Function *Exit = Function::Create(
+        Function *F = Function::Create(
             FunctionType::get(
-                Builder.getInt64Ty(),
-                {Builder.getPtrTy(), Builder.getInt64Ty(), Builder.getInt64Ty()},
+                ScriptBuilder.getInt64Ty(),
+                paramTypes,
                 false
             ),
             Function::InternalLinkage,
-            "exit_native",
-            Builder.getModule()
+            name + "_native",
+            ScriptBuilder.getModule()
         );
-        Exit->addFnAttr(Attribute::NoRecurse);
-        Exit->addFnAttr(Attribute::AlwaysInline);
+        F->addFnAttr(Attribute::NoRecurse);
+        F->addFnAttr(Attribute::AlwaysInline);
+        F->addParamAttr(0, Attribute::ReadNone);
 
-        LoxBuilder B(Builder.getContext(), Builder.getModule(), *Exit);
+        LoxBuilder B(ScriptBuilder.getContext(), ScriptBuilder.getModule(), *F);
         auto *const ExitEntry = B.CreateBasicBlock("entry");
         B.SetInsertPoint(ExitEntry);
 
-        const auto libcExit = Builder.getModule().getOrInsertFunction(
-            "exit",
-            FunctionType::get(B.getVoidTy(), {B.getInt32Ty()}, false)
+        const FunctionCallee &native = B.getModule().getOrInsertFunction(
+            name,
+            FunctionType::get(result, params, false)
         );
 
-        B.CreateCall(libcExit, {B.CreateFPToSI(B.AsNumber(Exit->arg_begin() + 2), B.getInt32Ty())});
-        B.CreateUnreachable();
+        block(B, native, F->arg_begin() + 2);
 
-        return Exit;
+        auto *const closure = ScriptBuilder.AllocateClosure(ScriptCompiler, F, name, true);
+        auto *const variable = cast<GlobalVariable>(ScriptCompiler.insertVariable(name, ScriptBuilder.ObjVal(closure)));
+        auto *const nameNode = MDString::get(ScriptBuilder.getContext(), name);
+        auto *const arityNode = ValueAsMetadata::get(ScriptBuilder.getInt32(params.size()));
+        auto *const llvmFunctionName = MDString::get(ScriptBuilder.getContext(), F->getName());
+        setMetadata(variable, "lox-function", MDTuple::get(ScriptBuilder.getContext(), {nameNode, arityNode, llvmFunctionName}));
     }
 
-    static Function *createGetCharFunction(LoxBuilder &Builder) {
-        Function *GetChar = Function::Create(
-            FunctionType::get(
-                Builder.getInt64Ty(),
-                {Builder.getPtrTy(), Builder.getInt64Ty()},
-                false
-            ),
-            Function::InternalLinkage,
-            "getchar_native",
-            Builder.getModule()
-        );
-        GetChar->addFnAttr(Attribute::NoRecurse);
-        GetChar->addFnAttr(Attribute::AlwaysInline);
-
-        LoxBuilder B(Builder.getContext(), Builder.getModule(), *GetChar);
-        auto *const ExitEntry = B.CreateBasicBlock("entry");
-        B.SetInsertPoint(ExitEntry);
-
-        const auto libcGetChar = Builder.getModule().getOrInsertFunction(
-            "getchar",
-            FunctionType::get(B.getInt8Ty(), {}, false)
-        );
-
-        auto *result = B.CreateCall(libcGetChar);
-
-        B.CreateRet(
-            B.CreateSelect(
-                B.CreateICmpEQ(result, B.getInt8(-1)),
-                B.getNilVal(),
-                B.NumberVal(B.CreateSIToFP(result, B.getDoubleTy()))
-            )
-        );
-
-        return GetChar;
-    }
     void ModuleCompiler::evaluate(const Program &program) const {
-        auto *const Clock = createClockFunction(*Builder);
-        auto *const Exit = createExitFunction(*Builder);
-        auto *const GetChar = createGetCharFunction(*Builder);
-
         // ---- Main -----
 
         Function *F = Function::Create(
@@ -148,35 +91,35 @@ namespace lox {
 
         CreateGcFunction(*Builder);
 
-        ScriptCompiler.compile(program, {}, [&ScriptCompiler, &Clock, &Exit, &GetChar](LoxBuilder &B) {
+        ScriptCompiler.compile(program, {}, [&ScriptCompiler](LoxBuilder &B) {
             ScriptCompiler.insertVariable("$initString", B.ObjVal(B.AllocateString("init")), true);
 
-            {
-                auto *const clockClosure = B.AllocateClosure(ScriptCompiler, Clock, "clock", true);
-                auto *const clock = cast<GlobalVariable>(ScriptCompiler.insertVariable("clock", B.ObjVal(clockClosure)));
-                auto *const nameNode = MDString::get(B.getContext(), "clock");
-                auto *const arityNode = ValueAsMetadata::get(B.getInt32(Clock->arg_size() - 2));
-                auto *const llvmFunctionName = MDString::get(B.getContext(), Clock->getName());
-                setMetadata(clock, "lox-function", MDTuple::get(B.getContext(), {nameNode, arityNode, llvmFunctionName}));
-            }
+            Native("clock", B.getInt64Ty(), {}, ScriptCompiler, [](LoxBuilder &B, const FunctionCallee &native, Argument *) {
+                B.CreateRet(
+                    B.NumberVal(
+                        B.CreateFDiv(
+                            B.CreateSIToFP(B.CreateCall(native), B.getDoubleTy()),
+                            ConstantFP::get(B.getDoubleTy(), 1000000.0)
+                        )
+                    )
+                );
+            });
 
-            {
-                auto *const exitClosure = B.AllocateClosure(ScriptCompiler, Exit, "exit", true);
-                auto *const exit = ScriptCompiler.insertVariable("exit", B.ObjVal(exitClosure));
-                auto *const nameNode = MDString::get(B.getContext(), "exit");
-                auto *const arityNode = ValueAsMetadata::get(B.getInt32(Exit->arg_size() - 2));
-                auto *const llvmFunctionName = MDString::get(B.getContext(), Exit->getName());
-                setMetadata(exit, "lox-function", MDTuple::get(B.getContext(), {nameNode, arityNode, llvmFunctionName}));
-            }
+            Native("exit", B.getVoidTy(), {B.getInt32Ty()}, ScriptCompiler, [](LoxBuilder &B, const FunctionCallee &native, Argument *args) {
+                B.CreateCall(native, {B.CreateFPToSI(B.AsNumber(args), B.getInt32Ty())});
+                B.CreateUnreachable();
+            });
 
-            {
-                auto *const readClosure = B.AllocateClosure(ScriptCompiler, GetChar, "getchar", true);
-                auto *const read = ScriptCompiler.insertVariable("getchar", B.ObjVal(readClosure));
-                auto *const nameNode = MDString::get(B.getContext(), "getchar");
-                auto *const arityNode = ValueAsMetadata::get(B.getInt32(GetChar->arg_size() - 2));
-                auto *const llvmFunctionName = MDString::get(B.getContext(), GetChar->getName());
-                setMetadata(read, "lox-function", MDTuple::get(B.getContext(), {nameNode, arityNode, llvmFunctionName}));
-            }
+            Native("getchar", B.getInt8Ty(), {}, ScriptCompiler, [](LoxBuilder &B, const FunctionCallee &native, Argument *) {
+                auto *const result = B.CreateCall(native);
+                B.CreateRet(
+                    B.CreateSelect(
+                        B.CreateICmpEQ(result, B.getInt8(-1)),
+                        B.getNilVal(),
+                        B.NumberVal(B.CreateSIToFP(result, B.getDoubleTy()))
+                    )
+                );
+            });
         });
 
         Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));
