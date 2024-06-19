@@ -10,12 +10,9 @@ namespace lox {
             auto *const F = Function::Create(
                 FunctionType::get(
                     Builder.getPtrTy(),
-                    {Builder.getPtrTy(), Builder.getPtrTy(), Builder.getInt32Ty(), Builder.getInt1Ty()},
-                    false
+                    {Builder.getPtrTy(), Builder.getPtrTy(), Builder.getInt32Ty(), Builder.getInt1Ty()}, false
                 ),
-                Function::InternalLinkage,
-                "$allocateFunction",
-                Builder.getModule()
+                Function::InternalLinkage, "$allocateFunction", Builder.getModule()
             );
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
@@ -43,12 +40,9 @@ namespace lox {
         }());
 
         auto *const ptr = Builder.CreateCall(
-            AllocateFunctionFunction,
-            {Function,
-             name,
-             Builder.getInt32(Function->arg_size() - 2),// receiver + upvalues
-             isNative ? Builder.getTrue() : Builder.getFalse()
-            }
+            AllocateFunctionFunction, {Function, name,
+                                       Builder.getInt32(Function->arg_size() - 2),// receiver + upvalues
+                                       isNative ? Builder.getTrue() : Builder.getFalse()}
         );
 
         Builder.CreateInvariantStart(ptr, Builder.getSizeOf(ObjType::FUNCTION));
@@ -56,16 +50,10 @@ namespace lox {
         return ptr;
     }
 
-    Value *LoxBuilder::AllocateClosure(FunctionCompiler &compiler, llvm::Function *function, const std::string_view name, const bool isNative) {
+    Value *LoxBuilder::AllocateClosure(llvm::Function *function, const std::string_view name, const bool isNative) {
         static auto *AllocationClosureFunction([this] {
             auto *const F = Function::Create(
-                FunctionType::get(
-                    getPtrTy(),
-                    {getPtrTy()},
-                    false
-                ),
-                Function::InternalLinkage,
-                "$allocateClosure",
+                FunctionType::get(getPtrTy(), {getPtrTy()}, false), Function::InternalLinkage, "$allocateClosure",
                 getModule()
             );
 

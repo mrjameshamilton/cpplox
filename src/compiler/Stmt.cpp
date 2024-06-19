@@ -7,19 +7,16 @@
 
 namespace lox {
 
-    void FunctionCompiler::evaluate(const Stmt &stmt) {
-        std::visit(*this, stmt);
-    }
+    void FunctionCompiler::evaluate(const Stmt &stmt) { std::visit(*this, stmt); }
 
     void FunctionCompiler::operator()(const BlockStmtPtr &blockStmt) {
         beginScope();
-        for (auto &statement: blockStmt->statements) {
-            evaluate(statement);
-        }
+        for (auto &statement: blockStmt->statements) { evaluate(statement); }
         endScope();
     }
 
-    static Function *CreateLLVMFunction(LoxBuilder &Builder, const FunctionStmtPtr &functionStmt, const std::string_view name) {
+    static Function *
+    CreateLLVMFunction(LoxBuilder &Builder, const FunctionStmtPtr &functionStmt, const std::string_view name) {
         std::vector<Type *> paramTypes(functionStmt->parameters.size(), Builder.getInt64Ty());
         // The second parameter is for the receiver instance for methods
         // or the function object value itself for functions.
@@ -28,15 +25,13 @@ namespace lox {
         paramTypes.insert(paramTypes.begin(), Builder.getPtrTy());
         auto *const FT = FunctionType::get(IntegerType::getInt64Ty(Builder.getContext()), paramTypes, false);
 
-        return Function::Create(
-            FT,
-            Function::InternalLinkage,
-            name,
-            Builder.getModule()
-        );
+        return Function::Create(FT, Function::InternalLinkage, name, Builder.getModule());
     }
 
-    void FunctionCompiler::CreateFunction(const FunctionStmtPtr &functionStmt, const std::string_view name, const std::function<void(Value *)> &initializer = [](auto *V) -> Value * { return V; }) {
+    void FunctionCompiler::CreateFunction(
+        const FunctionStmtPtr &functionStmt, const std::string_view name,
+        const std::function<void(Value *)> &initializer = [](auto *V) -> Value * { return V; }
+    ) {
         auto *const F = CreateLLVMFunction(Builder, functionStmt, name);
 
         if (functionStmt->type == LoxFunctionType::INITIALIZER) {
@@ -44,12 +39,13 @@ namespace lox {
             F->addParamAttr(1, Attribute::Returned);
         }
 
-        auto *const closurePtr = Builder.AllocateClosure(*this, F, functionStmt->name.getLexeme(), false);
+        auto *const closurePtr = Builder.AllocateClosure(F, functionStmt->name.getLexeme(), false);
 
         initializer(closurePtr);
 
         if (functionStmt->type == LoxFunctionType::FUNCTION) {
-            auto *const variable = insertVariable(functionStmt->name.getLexeme(), Builder.ObjVal(closurePtr), !isGlobalScope());
+            auto *const variable =
+                insertVariable(functionStmt->name.getLexeme(), Builder.ObjVal(closurePtr), !isGlobalScope());
             auto *nameNode = MDString::get(Builder.getContext(), name);
             auto *arityNode = ValueAsMetadata::get(Builder.getInt32(functionStmt->parameters.size()));
             setMetadata(variable, "lox-function", MDTuple::get(Builder.getContext(), {nameNode, arityNode, nameNode}));
@@ -66,7 +62,9 @@ namespace lox {
                 auto *const variable = C.insertVariable(name, B.getFunction()->arg_begin() + 1);
                 auto *nameNode = MDString::get(Builder.getContext(), name);
                 auto *arityNode = ValueAsMetadata::get(Builder.getInt32(functionStmt->parameters.size()));
-                setMetadata(variable, "lox-function", MDTuple::get(Builder.getContext(), {nameNode, arityNode, nameNode}));
+                setMetadata(
+                    variable, "lox-function", MDTuple::get(Builder.getContext(), {nameNode, arityNode, nameNode})
+                );
             }
         });
 
@@ -76,34 +74,39 @@ namespace lox {
             F->addParamAttr(0, Attribute::ReadOnly);
             F->addParamAttr(0, Attribute::NoUndef);
 
-            if constexpr (DEBUG_UPVALUES) {
-                Builder.PrintF({Builder.CreateGlobalCachedString("capture variables\n")});
-            }
+            if constexpr (DEBUG_UPVALUES) { Builder.PrintF({Builder.CreateGlobalCachedString("capture variables\n")}); }
 
-            auto *const upvaluesArraySize = Builder.getSizeOf(Builder.getModule().getStructType(ObjType::UPVALUE), C.upvalues.size());
+            auto *const upvaluesArraySize =
+                Builder.getSizeOf(Builder.getModule().getStructType(ObjType::UPVALUE), C.upvalues.size());
 
             auto *const upvaluesArrayPtr = Builder.CreateReallocate(
-                Builder.getNullPtr(),
-                Builder.getInt32(0),
-                Builder.CreateTrunc(upvaluesArraySize, Builder.getInt32Ty())
+                Builder.getNullPtr(), Builder.getInt32(0), Builder.CreateTrunc(upvaluesArraySize, Builder.getInt32Ty())
             );
 
             // Initialize upvalues to nullptr.
             for (const auto &upvalue: C.upvalues) {
-                auto *const upvalueIndex = Builder.CreateInBoundsGEP(Builder.getPtrTy(), upvaluesArrayPtr, Builder.getInt32(upvalue->index), "upvalueIndex");
+                auto *const upvalueIndex = Builder.CreateInBoundsGEP(
+                    Builder.getPtrTy(), upvaluesArrayPtr, Builder.getInt32(upvalue->index), "upvalueIndex"
+                );
                 Builder.CreateStore(Builder.getNullPtr(), upvalueIndex);
             }
 
             Builder.CreateStore(
                 upvaluesArrayPtr,
-                Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closurePtr, 2, "closure.upvalues")
+                Builder.CreateStructGEP(
+                    Builder.getModule().getStructType(ObjType::CLOSURE), closurePtr, 2, "closure.upvalues"
+                )
             );
             Builder.CreateStore(
                 Builder.getInt32(C.upvalues.size()),
-                Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closurePtr, 3, "closure.upvaluesCount")
+                Builder.CreateStructGEP(
+                    Builder.getModule().getStructType(ObjType::CLOSURE), closurePtr, 3, "closure.upvaluesCount"
+                )
             );
             for (const auto &upvalue: C.upvalues) {
-                auto *const upvalueIndex = Builder.CreateInBoundsGEP(Builder.getPtrTy(), upvaluesArrayPtr, Builder.getInt32(upvalue->index), "upvalueIndex");
+                auto *const upvalueIndex = Builder.CreateInBoundsGEP(
+                    Builder.getPtrTy(), upvaluesArrayPtr, Builder.getInt32(upvalue->index), "upvalueIndex"
+                );
                 Builder.CreateStore(upvalue->isLocal ? captureLocal(upvalue->value) : upvalue->value, upvalueIndex);
             }
 
@@ -120,13 +123,9 @@ namespace lox {
         CreateFunction(functionStmt, functionStmt->name.getLexeme());
     }
 
-    void FunctionCompiler::operator()(const ExpressionStmtPtr &expressionStmt) {
-        evaluate(expressionStmt->expression);
-    }
+    void FunctionCompiler::operator()(const ExpressionStmtPtr &expressionStmt) { evaluate(expressionStmt->expression); }
 
-    void FunctionCompiler::operator()(const PrintStmtPtr &printStmt) {
-        Builder.Print(evaluate(printStmt->expression));
-    }
+    void FunctionCompiler::operator()(const PrintStmtPtr &printStmt) { Builder.Print(evaluate(printStmt->expression)); }
 
     void FunctionCompiler::operator()(const ReturnStmtPtr &returnStmt) {
         if (returnStmt->expression.has_value()) {
@@ -192,7 +191,8 @@ namespace lox {
             auto *const nameObj = B.AllocateString(className, ("class_" + className).str());
             return B.AllocateClass(nameObj);
         });
-        auto *const methods = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2));
+        auto *const methods =
+            Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2));
 
         insertVariable(className, Builder.ObjVal(klass), !isGlobalScope());
 
@@ -201,7 +201,8 @@ namespace lox {
             // to support inheritance. Do this before adding methods to the sub-class
             // to support overloaded methods.
 
-            auto *const value = Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(*classStmt->super_class.value()));
+            auto *const value =
+                Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(*classStmt->super_class.value()));
             auto *const IsClassBlock = Builder.CreateBasicBlock("superclass.valid");
             auto *const IsNotClassBlock = Builder.CreateBasicBlock("superclass.invalid");
             auto *const EndBlock = Builder.CreateBasicBlock("superclass.end");
@@ -214,15 +215,14 @@ namespace lox {
             insertVariable("super", value, true);
 
             auto *const superklass = Builder.AsObj(value);
-            auto *const supermethods = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, superklass, 2));
+            auto *const supermethods =
+                Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, superklass, 2));
             Builder.TableAddAll(supermethods, methods);
             Builder.CreateBr(EndBlock);
 
             Builder.SetInsertPoint(IsNotClassBlock);
             Builder.RuntimeError(
-                classStmt->super_class->get()->name.getLine(),
-                "Superclass must be a class.\n",
-                {},
+                classStmt->super_class->get()->name.getLine(), "Superclass must be a class.\n", {},
                 Builder.getFunction()
             );
 
@@ -230,21 +230,18 @@ namespace lox {
         }
 
         for (auto &method: classStmt->methods) {
-            CreateFunction(
-                method,
-                (className + "." + method->name.getLexeme()).str(),
-                [&](Value *closure) {
-                    // The initializer will add the method to the methods table,
-                    // making the closure reachable ASAP (creation of upvalues in CreateFunction can trigger GC).
-                    auto *const function = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLOSURE, closure, 1));
-                    auto *const name = Builder.CreateLoad(Builder.getInt64Ty(), Builder.CreateObjStructGEP(ObjType::FUNCTION, function, 3));
-                    Builder.TableSet(methods, Builder.AsObj(name), Builder.ObjVal(closure));
-                }
-            );
+            CreateFunction(method, (className + "." + method->name.getLexeme()).str(), [&](Value *closure) {
+                // The initializer will add the method to the methods table,
+                // making the closure reachable ASAP (creation of upvalues in CreateFunction can trigger GC).
+                auto *const function =
+                    Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLOSURE, closure, 1));
+                auto *const name = Builder.CreateLoad(
+                    Builder.getInt64Ty(), Builder.CreateObjStructGEP(ObjType::FUNCTION, function, 3)
+                );
+                Builder.TableSet(methods, Builder.AsObj(name), Builder.ObjVal(closure));
+            });
         }
 
-        if (classStmt->super_class.has_value()) {
-            endScope();
-        }
+        if (classStmt->super_class.has_value()) { endScope(); }
     }
 }// namespace lox

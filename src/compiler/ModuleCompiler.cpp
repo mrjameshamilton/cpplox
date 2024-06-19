@@ -32,7 +32,10 @@ using namespace llvm::sys;
 
 namespace lox {
 
-    static void Native(const StringRef name, Type *result, const std::vector<Type *> &params, FunctionCompiler &ScriptCompiler, const std::function<void(LoxBuilder &B, const FunctionCallee &native, Argument *args)> &block) {
+    static void Native(
+        const StringRef name, Type *result, const std::vector<Type *> &params, FunctionCompiler &ScriptCompiler,
+        const std::function<void(LoxBuilder &B, const FunctionCallee &native, Argument *args)> &block
+    ) {
         auto &ScriptBuilder = ScriptCompiler.getBuilder();
         std::vector<Type *> paramTypes(params.size(), ScriptBuilder.getInt64Ty());
         // The second parameter is for the receiver instance for methods
@@ -42,14 +45,8 @@ namespace lox {
         paramTypes.insert(paramTypes.begin(), ScriptBuilder.getPtrTy());
 
         Function *F = Function::Create(
-            FunctionType::get(
-                ScriptBuilder.getInt64Ty(),
-                paramTypes,
-                false
-            ),
-            Function::InternalLinkage,
-            name + "_native",
-            ScriptBuilder.getModule()
+            FunctionType::get(ScriptBuilder.getInt64Ty(), paramTypes, false), Function::InternalLinkage,
+            name + "_native", ScriptBuilder.getModule()
         );
         F->addFnAttr(Attribute::NoRecurse);
         F->addFnAttr(Attribute::AlwaysInline);
@@ -59,29 +56,26 @@ namespace lox {
         auto *const ExitEntry = B.CreateBasicBlock("entry");
         B.SetInsertPoint(ExitEntry);
 
-        const FunctionCallee &native = B.getModule().getOrInsertFunction(
-            name,
-            FunctionType::get(result, params, false)
-        );
+        const FunctionCallee &native =
+            B.getModule().getOrInsertFunction(name, FunctionType::get(result, params, false));
 
         block(B, native, F->arg_begin() + 2);
 
-        auto *const closure = ScriptBuilder.AllocateClosure(ScriptCompiler, F, name, true);
+        auto *const closure = ScriptBuilder.AllocateClosure(F, name, true);
         auto *const variable = cast<GlobalVariable>(ScriptCompiler.insertVariable(name, ScriptBuilder.ObjVal(closure)));
         auto *const nameNode = MDString::get(ScriptBuilder.getContext(), name);
         auto *const arityNode = ValueAsMetadata::get(ScriptBuilder.getInt32(params.size()));
         auto *const llvmFunctionName = MDString::get(ScriptBuilder.getContext(), F->getName());
-        setMetadata(variable, "lox-function", MDTuple::get(ScriptBuilder.getContext(), {nameNode, arityNode, llvmFunctionName}));
+        setMetadata(
+            variable, "lox-function", MDTuple::get(ScriptBuilder.getContext(), {nameNode, arityNode, llvmFunctionName})
+        );
     }
 
     void ModuleCompiler::evaluate(const Program &program) const {
         // ---- Main -----
 
         Function *F = Function::Create(
-            FunctionType::get(Builder->getVoidTy(), {}, false),
-            Function::InternalLinkage,
-            "script",
-            getModule()
+            FunctionType::get(Builder->getVoidTy(), {}, false), Function::InternalLinkage, "script", getModule()
         );
 
         F->addFnAttr(Attribute::NoRecurse);
@@ -94,32 +88,34 @@ namespace lox {
         ScriptCompiler.compile(program, {}, [&ScriptCompiler](LoxBuilder &B) {
             ScriptCompiler.insertVariable("$initString", B.ObjVal(B.AllocateString("init")), true);
 
-            Native("clock", B.getInt64Ty(), {}, ScriptCompiler, [](LoxBuilder &B, const FunctionCallee &native, Argument *) {
-                B.CreateRet(
-                    B.NumberVal(
-                        B.CreateFDiv(
-                            B.CreateSIToFP(B.CreateCall(native), B.getDoubleTy()),
-                            ConstantFP::get(B.getDoubleTy(), 1000000.0)
-                        )
-                    )
-                );
-            });
+            Native(
+                "clock", B.getInt64Ty(), {}, ScriptCompiler,
+                [](LoxBuilder &B, const FunctionCallee &native, Argument *) {
+                    B.CreateRet(B.NumberVal(B.CreateFDiv(
+                        B.CreateSIToFP(B.CreateCall(native), B.getDoubleTy()),
+                        ConstantFP::get(B.getDoubleTy(), 1000000.0)
+                    )));
+                }
+            );
 
-            Native("exit", B.getVoidTy(), {B.getInt32Ty()}, ScriptCompiler, [](LoxBuilder &B, const FunctionCallee &native, Argument *args) {
-                B.CreateCall(native, {B.CreateFPToSI(B.AsNumber(args), B.getInt32Ty())});
-                B.CreateUnreachable();
-            });
+            Native(
+                "exit", B.getVoidTy(), {B.getInt32Ty()}, ScriptCompiler,
+                [](LoxBuilder &B, const FunctionCallee &native, Argument *args) {
+                    B.CreateCall(native, {B.CreateFPToSI(B.AsNumber(args), B.getInt32Ty())});
+                    B.CreateUnreachable();
+                }
+            );
 
-            Native("getchar", B.getInt8Ty(), {}, ScriptCompiler, [](LoxBuilder &B, const FunctionCallee &native, Argument *) {
-                auto *const result = B.CreateCall(native);
-                B.CreateRet(
-                    B.CreateSelect(
-                        B.CreateICmpEQ(result, B.getInt8(-1)),
-                        B.getNilVal(),
+            Native(
+                "getchar", B.getInt8Ty(), {}, ScriptCompiler,
+                [](LoxBuilder &B, const FunctionCallee &native, Argument *) {
+                    auto *const result = B.CreateCall(native);
+                    B.CreateRet(B.CreateSelect(
+                        B.CreateICmpEQ(result, B.getInt8(-1)), B.getNilVal(),
                         B.NumberVal(B.CreateSIToFP(result, B.getDoubleTy()))
-                    )
-                );
-            });
+                    ));
+                }
+            );
         });
 
         Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));
@@ -134,7 +130,9 @@ namespace lox {
 
             Builder->CreateCondBr(Builder->CreateICmpEQ(Builder->getInt32(0), locals), IsZeroBlock, IsNotZeroBlock);
             Builder->SetInsertPoint(IsNotZeroBlock);
-            Builder->RuntimeError(Builder->getInt32(0), "locals not zero (%d)\n", {locals}, Builder->CreateGlobalCachedString("assert"));
+            Builder->RuntimeError(
+                Builder->getInt32(0), "locals not zero (%d)\n", {locals}, Builder->CreateGlobalCachedString("assert")
+            );
 
             Builder->SetInsertPoint(IsZeroBlock);
         }
@@ -163,9 +161,7 @@ namespace lox {
         const auto *const Features = "";
 
         const TargetOptions opt;
-        auto *const TheTargetMachine = Target->createTargetMachine(
-            TargetTriple, CPU, Features, opt, Reloc::PIC_
-        );
+        auto *const TheTargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, Reloc::PIC_);
 
         M.setTargetTriple(TargetTriple);
         M.setDataLayout(TheTargetMachine->createDataLayout());
@@ -176,9 +172,7 @@ namespace lox {
     }
 
     bool ModuleCompiler::optimize() const {
-        if (!this->TheTargetMachine) {
-            return false;
-        }
+        if (!this->TheTargetMachine) { return false; }
         LoopAnalysisManager LAM;
         FunctionAnalysisManager FAM;
         CGSCCAnalysisManager CGAM;
@@ -200,9 +194,7 @@ namespace lox {
     }
 
     bool ModuleCompiler::writeIR(const std::string_view Filename) const {
-        if (!this->TheTargetMachine) {
-            return false;
-        }
+        if (!this->TheTargetMachine) { return false; }
         std::error_code ec;
         auto out = raw_fd_ostream(Filename, ec);
         getModule().print(out, nullptr);
@@ -211,9 +203,7 @@ namespace lox {
     }
 
     bool ModuleCompiler::writeObject(const std::string_view Filename) const {
-        if (!this->TheTargetMachine) {
-            return false;
-        }
+        if (!this->TheTargetMachine) { return false; }
         std::error_code EC;
         raw_fd_ostream dest(Filename, EC, sys::fs::OF_None);
 
@@ -224,7 +214,8 @@ namespace lox {
 
         legacy::PassManager pass;
 
-        if (constexpr auto FileType = CodeGenFileType::ObjectFile; TheTargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType)) {
+        if (constexpr auto FileType = CodeGenFileType::ObjectFile;
+            TheTargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType)) {
             std::cerr << "TheTargetMachine can't emit a file of this type";
             return false;
         }

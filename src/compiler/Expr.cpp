@@ -15,9 +15,7 @@ using namespace std::string_view_literals;
 
 namespace lox {
 
-    Value *FunctionCompiler::evaluate(const Expr &expr) {
-        return std::visit(*this, expr);
-    }
+    Value *FunctionCompiler::evaluate(const Expr &expr) { return std::visit(*this, expr); }
 
     Value *FunctionCompiler::operator()(const AssignExprPtr &assignExpr) {
         auto *const value = evaluate(assignExpr->value);
@@ -46,17 +44,12 @@ namespace lox {
                 auto *const EndBlock = Builder.CreateBasicBlock("if.num");
 
                 Builder.CreateCondBr(
-                    Builder.CreateAnd(Builder.IsNumber(left), Builder.IsNumber(right)),
-                    EndBlock,
-                    InvalidNumBlock,
+                    Builder.CreateAnd(Builder.IsNumber(left), Builder.IsNumber(right)), EndBlock, InvalidNumBlock,
                     createLikelyBranchWeights(mdBuilder)
                 );
                 Builder.SetInsertPoint(InvalidNumBlock);
                 Builder.RuntimeError(
-                    binaryExpr->token.getLine(),
-                    "Operands must be numbers.\n",
-                    {},
-                    Builder.getFunction()
+                    binaryExpr->token.getLine(), "Operands must be numbers.\n", {}, Builder.getFunction()
                 );
 
                 Builder.SetInsertPoint(EndBlock);
@@ -75,8 +68,8 @@ namespace lox {
                 auto *const InvalidBlock = Builder.CreateBasicBlock("invalid");
                 auto *const EndBlock = Builder.CreateBasicBlock("if.end");
                 Builder.CreateCondBr(
-                    Builder.CreateAnd(Builder.IsNumber(left), Builder.IsNumber(right)),
-                    IsNumBlock, IsMaybeStringBlock, createLikelyBranchWeights(mdBuilder)
+                    Builder.CreateAnd(Builder.IsNumber(left), Builder.IsNumber(right)), IsNumBlock, IsMaybeStringBlock,
+                    createLikelyBranchWeights(mdBuilder)
                 );
                 Builder.SetInsertPoint(IsNumBlock);
                 auto *const X = Builder.NumberVal(Builder.CreateFAdd(Builder.AsNumber(left), Builder.AsNumber(right)));
@@ -84,9 +77,7 @@ namespace lox {
 
                 Builder.SetInsertPoint(IsMaybeStringBlock);
                 Builder.CreateCondBr(
-                    Builder.CreateAnd(Builder.IsString(left), Builder.IsString(right)),
-                    IsStringBlock,
-                    InvalidBlock,
+                    Builder.CreateAnd(Builder.IsString(left), Builder.IsString(right)), IsStringBlock, InvalidBlock,
                     createLikelyBranchWeights(mdBuilder)
                 );
                 Builder.SetInsertPoint(IsStringBlock);
@@ -95,9 +86,7 @@ namespace lox {
 
                 Builder.SetInsertPoint(InvalidBlock);
                 Builder.RuntimeError(
-                    binaryExpr->token.getLine(),
-                    "Operands must be two numbers or two strings.\n",
-                    {},
+                    binaryExpr->token.getLine(), "Operands must be two numbers or two strings.\n", {},
                     Builder.getFunction()
                 );
 
@@ -132,7 +121,9 @@ namespace lox {
                 auto *const NotNumBlock = Builder.CreateBasicBlock("not.num");
                 auto *const EndBlock = Builder.CreateBasicBlock("end");
 
-                Builder.CreateCondBr(Builder.CreateAnd(Builder.IsNumber(left), Builder.IsNumber(right)), IsNumBlock, NotNumBlock);
+                Builder.CreateCondBr(
+                    Builder.CreateAnd(Builder.IsNumber(left), Builder.IsNumber(right)), IsNumBlock, NotNumBlock
+                );
                 Builder.SetInsertPoint(IsNumBlock);
                 auto *const X = Builder.CreateFCmpOEQ(Builder.AsNumber(left), Builder.AsNumber(right));
                 Builder.CreateBr(EndBlock);
@@ -151,34 +142,39 @@ namespace lox {
         std::unreachable();
     }
 
-    void CheckArity(FunctionCompiler &Compiler, BasicBlock *CallBlock, Value *arity, const unsigned int actual, const unsigned int line) {
+    void CheckArity(
+        FunctionCompiler &Compiler, BasicBlock *CallBlock, Value *arity, const unsigned int actual,
+        const unsigned int line
+    ) {
         LoxBuilder &Builder = Compiler.getBuilder();
 
         auto mdBuilder = MDBuilder(Builder.getContext());
         auto *const WrongArityBlock = Builder.CreateBasicBlock("wrong.arity");
 
         Builder.CreateCondBr(
-            Builder.CreateICmpEQ(arity, Builder.getInt32(actual)),
-            CallBlock, WrongArityBlock, createLikelyBranchWeights(mdBuilder)
+            Builder.CreateICmpEQ(arity, Builder.getInt32(actual)), CallBlock, WrongArityBlock,
+            createLikelyBranchWeights(mdBuilder)
         );
 
         Builder.SetInsertPoint(WrongArityBlock);
 
         Builder.RuntimeError(
-            line,
-            "Expected %d arguments but got %d.\n",
-            {arity, Builder.getInt32(actual)},
-            Builder.getFunction()
+            line, "Expected %d arguments but got %d.\n", {arity, Builder.getInt32(actual)}, Builder.getFunction()
         );
     }
 
-    Value *FunctionCompiler::call(Value *receiver, Value *closure, std::vector<Value *> paramValues, const unsigned int line) {
+    Value *
+    FunctionCompiler::call(Value *receiver, Value *closure, std::vector<Value *> paramValues, const unsigned int line) {
         assert(receiver->getType() == Builder.getInt64Ty());
         assert(closure->getType() == Builder.getPtrTy());
 
-        CheckStackOverflow(Builder, Builder.getInt32(line), Builder.CreateGlobalCachedString(Builder.getFunction()->getName()));
+        CheckStackOverflow(
+            Builder, Builder.getInt32(line), Builder.CreateGlobalCachedString(Builder.getFunction()->getName())
+        );
 
-        auto *const upvalues = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 2));
+        auto *const upvalues = Builder.CreateLoad(
+            Builder.getPtrTy(), Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::CLOSURE), closure, 2)
+        );
 
         std::vector<Type *> paramTypes(paramValues.size(), Builder.getInt64Ty());
 
@@ -199,10 +195,8 @@ namespace lox {
 
             if (!expectedArity->equalsInt(paramValues.size() - 2)) {
                 Builder.RuntimeError(
-                    line,
-                    "Expected %d arguments but got %d.\n",
-                    {expectedArity, Builder.getInt32(paramValues.size() - 2)},
-                    Builder.getFunction()
+                    line, "Expected %d arguments but got %d.\n",
+                    {expectedArity, Builder.getInt32(paramValues.size() - 2)}, Builder.getFunction()
                 );
 
                 auto *const Unreachable = Builder.CreateBasicBlock("unreachable");
@@ -216,8 +210,7 @@ namespace lox {
             // Check arity.
             auto *const arity = Builder.CreateLoad(
                 Builder.getInt32Ty(),
-                Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::FUNCTION), function, 1),
-                "arity"
+                Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::FUNCTION), function, 1), "arity"
             );
 
             auto *const CallBlock = Builder.CreateBasicBlock("call");
@@ -228,11 +221,7 @@ namespace lox {
 
             functionPtr = Builder.CreateLoad(
                 Builder.getPtrTy(),
-                Builder.CreateStructGEP(
-                    Builder.getModule().getStructType(ObjType::FUNCTION),
-                    function, 2
-                ),
-                "func"
+                Builder.CreateStructGEP(Builder.getModule().getStructType(ObjType::FUNCTION), function, 2), "func"
             );
         }
 
@@ -245,9 +234,7 @@ namespace lox {
 
     Value *FunctionCompiler::operator()(const CallExprPtr &callExpr) {
         const auto paramValues = to<std::vector<Value *>>(
-            callExpr->arguments | std::views::transform([&](const auto &p) -> Value * {
-                return evaluate(p);
-            })
+            callExpr->arguments | std::views::transform([&](const auto &p) -> Value * { return evaluate(p); })
         );
 
         auto *const value = evaluate(callExpr->callee);
@@ -295,7 +282,9 @@ namespace lox {
         Builder.SetInsertPoint(IsClassBlock);
         auto *const klass = valuePtr;
         auto *const initString = Builder.AsObj(Builder.CreateLoad(Builder.getInt64Ty(), lookupGlobal("$initString")));
-        auto *const initializer = Builder.TableGet(Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2)), initString);
+        auto *const initializer = Builder.TableGet(
+            Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2)), initString
+        );
 
         auto *const instance = Builder.AllocateInstance(klass);
         // The instance will be reachable in the function as soon as
@@ -322,16 +311,15 @@ namespace lox {
         Builder.SetInsertPoint(CheckMethodBlock);
         Builder.CreateCondBr(Builder.IsBoundMethod(value), IsMethodBlock, NotCallableBlock);
         Builder.SetInsertPoint(IsMethodBlock);
-        auto *const receiverObjVal = Builder.CreateLoad(Builder.getInt64Ty(), Builder.CreateObjStructGEP(ObjType::BOUND_METHOD, valuePtr, 1));
-        auto *const methodPtr = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::BOUND_METHOD, valuePtr, 2));
+        auto *const receiverObjVal =
+            Builder.CreateLoad(Builder.getInt64Ty(), Builder.CreateObjStructGEP(ObjType::BOUND_METHOD, valuePtr, 1));
+        auto *const methodPtr =
+            Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::BOUND_METHOD, valuePtr, 2));
         Builder.CreateBr(ExecuteBlock);
 
         Builder.SetInsertPoint(NotCallableBlock);
         Builder.RuntimeError(
-            callExpr->keyword.getLine(),
-            "Can only call functions and classes.\n",
-            {},
-            Builder.getFunction()
+            callExpr->keyword.getLine(), "Can only call functions and classes.\n", {}, Builder.getFunction()
         );
 
         Builder.SetInsertPoint(IsClosureBlock);
@@ -414,7 +402,8 @@ namespace lox {
         CheckInstance(Builder, "Only instances have properties.\n"sv, getExpr->name.getLine(), object);
 
         auto *const instance = Builder.AsObj(object);
-        auto *const fields = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
+        auto *const fields =
+            Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
 
         auto *const key = Builder.AllocateString(getExpr->name.getLexeme(), getExpr->name.getLexeme());
         auto *const result = Builder.TableGet(fields, key);
@@ -428,9 +417,14 @@ namespace lox {
 
         Builder.SetInsertPoint(IsMethodBlock);
 
-        auto *const klass = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
-        auto *const bound =
-            insertTemp(Builder.ObjVal(Builder.BindMethod(klass, instance, key, getExpr->name.getLine(), enclosing == nullptr ? nullptr : Builder.getFunction())), "boundmethod");
+        auto *const klass =
+            Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
+        auto *const bound = insertTemp(
+            Builder.ObjVal(Builder.BindMethod(
+                klass, instance, key, getExpr->name.getLine(), enclosing == nullptr ? nullptr : Builder.getFunction()
+            )),
+            "boundmethod"
+        );
 
         Builder.CreateBr(IsDefinedBlock);
 
@@ -448,7 +442,8 @@ namespace lox {
 
         auto *const instance = Builder.AsObj(object);
         auto *const value = evaluate(setExpr->value);
-        auto *const fields = Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
+        auto *const fields =
+            Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::INSTANCE, instance, 2));
 
         Builder.TableSet(fields, Builder.AllocateString(setExpr->name.getLexeme(), "key"), value);
 
@@ -466,10 +461,7 @@ namespace lox {
         auto *const method = DelayGC(Builder, [&](LoxBuilder &B) {
             auto *const key = B.ObjVal(B.AllocateString(superExpr->method.getLexeme()));
             return B.BindMethod(
-                B.AsObj(klass),
-                B.AsObj(instance),
-                B.AsObj(key),
-                superExpr->name.getLine(),
+                B.AsObj(klass), B.AsObj(instance), B.AsObj(key), superExpr->name.getLine(),
                 enclosing == nullptr ? nullptr : B.getFunction()
             );
         });
@@ -490,9 +482,7 @@ namespace lox {
     Value *FunctionCompiler::operator()(const LiteralExprPtr &literalExpr) {
         return std::visit(
             overloaded{
-                [this](const bool value) -> Value * {
-                    return value ? Builder.getTrueVal() : Builder.getFalseVal();
-                },
+                [this](const bool value) -> Value * { return value ? Builder.getTrueVal() : Builder.getFalseVal(); },
                 [this](const double double_value) -> Value * {
                     return Builder.getInt64(std::bit_cast<int64_t>(double_value));
                 },
@@ -514,11 +504,7 @@ namespace lox {
                 auto *const LeftIsTruthyBlock = Builder.CreateBasicBlock("if.left.truthy");
                 auto *const LeftNotTruthyBlock = Builder.CreateBasicBlock("if.left.nottruthy");
                 auto *const EndBlock = Builder.CreateBasicBlock("end");
-                Builder.CreateCondBr(
-                    Builder.IsTruthy(left),
-                    LeftIsTruthyBlock,
-                    LeftNotTruthyBlock
-                );
+                Builder.CreateCondBr(Builder.IsTruthy(left), LeftIsTruthyBlock, LeftNotTruthyBlock);
                 Builder.SetInsertPoint(LeftNotTruthyBlock);
                 auto *const Y = left;
                 auto *const EndLeftNotTruthyBlock = Builder.GetInsertBlock();
@@ -539,11 +525,7 @@ namespace lox {
                 auto *const LeftIsTruthyBlock = Builder.CreateBasicBlock("if.left.truthy");
                 auto *const LeftNotTruthyBlock = Builder.CreateBasicBlock("if.left.nottruthy");
                 auto *const EndBlock = Builder.CreateBasicBlock("end");
-                Builder.CreateCondBr(
-                    Builder.IsTruthy(left),
-                    LeftIsTruthyBlock,
-                    LeftNotTruthyBlock
-                );
+                Builder.CreateCondBr(Builder.IsTruthy(left), LeftIsTruthyBlock, LeftNotTruthyBlock);
                 Builder.SetInsertPoint(LeftNotTruthyBlock);
                 auto *const right = evaluate(logicalExpr->right);
                 auto *const Y = Builder.CreateSelect(Builder.IsTruthy(right), right, left);
@@ -569,7 +551,9 @@ namespace lox {
 
         switch (unaryExpr->op) {
             case UnaryOp::BANG:
-                return Builder.BoolVal(Builder.CreateSelect(Builder.IsTruthy(left), Builder.getFalse(), Builder.getTrue()));
+                return Builder.BoolVal(
+                    Builder.CreateSelect(Builder.IsTruthy(left), Builder.getFalse(), Builder.getTrue())
+                );
             case UnaryOp::MINUS: {
                 auto *const InvalidNumBlock = Builder.CreateBasicBlock("if.not.num");
                 auto *const EndBlock = Builder.CreateBasicBlock("if.num");
@@ -577,10 +561,7 @@ namespace lox {
                 Builder.CreateCondBr(Builder.IsNumber(left), EndBlock, InvalidNumBlock);
                 Builder.SetInsertPoint(InvalidNumBlock);
                 Builder.RuntimeError(
-                    unaryExpr->token.getLine(),
-                    "Operand must be a number.\n",
-                    {},
-                    Builder.getFunction()
+                    unaryExpr->token.getLine(), "Operand must be a number.\n", {}, Builder.getFunction()
                 );
 
                 Builder.SetInsertPoint(EndBlock);
