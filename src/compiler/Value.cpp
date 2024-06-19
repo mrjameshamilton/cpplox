@@ -432,7 +432,7 @@ namespace lox {
     void LoxBuilder::RuntimeError(Value *line, const StringRef message, const std::vector<Value *> &values, Value *location, const bool freeObjects) {
         static const auto Exit = getModule().getOrInsertFunction(
             "exit",
-            FunctionType::get(getVoidTy(), {getInt32Ty()}, true)
+            FunctionType::get(getVoidTy(), {getInt32Ty()}, false)
         );
 
         PrintFErr(CreateGlobalCachedString(message), values);

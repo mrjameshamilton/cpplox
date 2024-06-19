@@ -33,11 +33,12 @@ using namespace llvm::sys;
 namespace lox {
 
     static void Native(
-        const StringRef name, Type *result, const std::vector<Type *> &params, FunctionCompiler &ScriptCompiler,
+        const StringRef name, Type *result, const std::vector<Type *> &params, const unsigned long loxArgsSize,
+        const StringRef loxName, FunctionCompiler &ScriptCompiler,
         const std::function<void(LoxBuilder &B, const FunctionCallee &native, Argument *args)> &block
     ) {
         auto &ScriptBuilder = ScriptCompiler.getBuilder();
-        std::vector<Type *> paramTypes(params.size(), ScriptBuilder.getInt64Ty());
+        std::vector<Type *> paramTypes(loxArgsSize, ScriptBuilder.getInt64Ty());
         // The second parameter is for the receiver instance for methods
         // or the function object value itself for functions.
         paramTypes.insert(paramTypes.begin(), ScriptBuilder.getInt64Ty());
@@ -61,14 +62,22 @@ namespace lox {
 
         block(B, native, F->arg_begin() + 2);
 
-        auto *const closure = ScriptBuilder.AllocateClosure(F, name, true);
-        auto *const variable = cast<GlobalVariable>(ScriptCompiler.insertVariable(name, ScriptBuilder.ObjVal(closure)));
-        auto *const nameNode = MDString::get(ScriptBuilder.getContext(), name);
-        auto *const arityNode = ValueAsMetadata::get(ScriptBuilder.getInt32(params.size()));
+        auto *const closure = ScriptBuilder.AllocateClosure(F, loxName, true);
+        auto *const variable =
+            cast<GlobalVariable>(ScriptCompiler.insertVariable(loxName, ScriptBuilder.ObjVal(closure)));
+        auto *const nameNode = MDString::get(ScriptBuilder.getContext(), loxName);
+        auto *const arityNode = ValueAsMetadata::get(ScriptBuilder.getInt32(loxArgsSize));
         auto *const llvmFunctionName = MDString::get(ScriptBuilder.getContext(), F->getName());
         setMetadata(
             variable, "lox-function", MDTuple::get(ScriptBuilder.getContext(), {nameNode, arityNode, llvmFunctionName})
         );
+    }
+
+    static void Native(
+        const StringRef name, Type *result, const std::vector<Type *> &params, FunctionCompiler &ScriptCompiler,
+        const std::function<void(LoxBuilder &B, const FunctionCallee &native, Argument *args)> &block
+    ) {
+        Native(name, result, params, params.size(), name, ScriptCompiler, block);
     }
 
     void ModuleCompiler::evaluate(const Program &program) const {
@@ -114,6 +123,15 @@ namespace lox {
                         B.CreateICmpEQ(result, B.getInt8(-1)), B.getNilVal(),
                         B.NumberVal(B.CreateSIToFP(result, B.getDoubleTy()))
                     ));
+                }
+            );
+
+            Native(
+                "fprintf", B.getInt8Ty(), {B.getPtrTy(), B.getPtrTy()}, 1, "printerr", ScriptCompiler,
+                [](LoxBuilder &B, const FunctionCallee &native, Argument *args) {
+                    static auto *const StdErr = B.getModule().getOrInsertGlobal("stderr", B.getPtrTy());
+                    B.CreateCall(native, {B.CreateLoad(B.getPtrTy(), StdErr), B.AsCString(args)});
+                    B.CreateRet(B.getNilVal());
                 }
             );
         });
