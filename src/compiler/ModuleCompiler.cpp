@@ -33,8 +33,8 @@ using namespace llvm::sys;
 namespace lox {
 
     static void Native(
-        const StringRef name, Type *result, const std::vector<Type *> &params, const unsigned long loxArgsSize,
-        const StringRef loxName, FunctionCompiler &ScriptCompiler,
+        const StringRef loxName, const unsigned long loxArgsSize, const FunctionCallee &native,
+        FunctionCompiler &ScriptCompiler,
         const std::function<void(LoxBuilder &B, const FunctionCallee &native, Argument *args)> &block
     ) {
         auto &ScriptBuilder = ScriptCompiler.getBuilder();
@@ -47,7 +47,7 @@ namespace lox {
 
         Function *F = Function::Create(
             FunctionType::get(ScriptBuilder.getInt64Ty(), paramTypes, false), Function::InternalLinkage,
-            name + "_native", ScriptBuilder.getModule()
+            loxName + "_native", ScriptBuilder.getModule()
         );
         F->addFnAttr(Attribute::NoRecurse);
         F->addFnAttr(Attribute::AlwaysInline);
@@ -56,9 +56,6 @@ namespace lox {
         LoxBuilder B(ScriptBuilder.getContext(), ScriptBuilder.getModule(), *F);
         auto *const ExitEntry = B.CreateBasicBlock("entry");
         B.SetInsertPoint(ExitEntry);
-
-        const FunctionCallee &native =
-            B.getModule().getOrInsertFunction(name, FunctionType::get(result, params, false));
 
         block(B, native, F->arg_begin() + 2);
 
@@ -77,7 +74,9 @@ namespace lox {
         const StringRef name, Type *result, const std::vector<Type *> &params, FunctionCompiler &ScriptCompiler,
         const std::function<void(LoxBuilder &B, const FunctionCallee &native, Argument *args)> &block
     ) {
-        Native(name, result, params, params.size(), name, ScriptCompiler, block);
+        const FunctionCallee native =
+            ScriptCompiler.getBuilder().getModule().getOrInsertFunction(name, FunctionType::get(result, params, false));
+        Native(name, params.size(), native, ScriptCompiler, block);
     }
 
     void ModuleCompiler::evaluate(const Program &program) const {
@@ -96,7 +95,6 @@ namespace lox {
 
         ScriptCompiler.compile(program, {}, [&ScriptCompiler](LoxBuilder &B) {
             ScriptCompiler.insertVariable("$initString", B.ObjVal(B.AllocateString("init")), true);
-
             Native(
                 "clock", B.getInt64Ty(), {}, ScriptCompiler,
                 [](LoxBuilder &B, const FunctionCallee &native, Argument *) {
@@ -126,14 +124,62 @@ namespace lox {
                 }
             );
 
+            const FunctionCallee native = B.getModule().getOrInsertFunction(
+                "fprintf", FunctionType::get(B.getInt8Ty(), {B.getPtrTy(), B.getPtrTy()}, true)
+            );
             Native(
-                "fprintf", B.getInt8Ty(), {B.getPtrTy(), B.getPtrTy()}, 1, "printerr", ScriptCompiler,
+                "printerr", 1, native, ScriptCompiler,
                 [](LoxBuilder &B, const FunctionCallee &native, Argument *args) {
                     static auto *const StdErr = B.getModule().getOrInsertGlobal("stderr", B.getPtrTy());
-                    B.CreateCall(native, {B.CreateLoad(B.getPtrTy(), StdErr), B.AsCString(args)});
+                    static auto *const fmt = B.CreateGlobalCachedString("%s\n");
+                    B.CreateCall(native, {B.CreateLoad(B.getPtrTy(), StdErr), fmt, B.AsCString(args)});
                     B.CreateRet(B.getNilVal());
                 }
             );
+
+            Native("utf", 4, nullptr, ScriptCompiler, [](LoxBuilder &B, const FunctionCallee &, Argument *args) {
+                // example: utf(224, 174, 131, nil); -> ஃ
+                auto *const count = CreateEntryBlockAlloca(B.getFunction(), B.getInt32Ty(), "count");
+                B.CreateStore(B.getInt32(0), count);
+
+                auto *const type = ArrayType::get(B.getInt8Ty(), 4);
+                auto *const bytes = CreateEntryBlockAlloca(B.getFunction(), type, "bytes");
+
+                for (int i = 0; i < 4; i++) {
+                    B.CreateStore(
+                        B.CreateSelect(
+                            B.IsNil(args + i), B.getInt8(0), B.CreateFPToSI(B.AsNumber(args + i), B.getInt8Ty())
+                        ),
+                        B.CreateInBoundsGEP(type, bytes, {B.getInt8(0), B.getInt8(i)})
+                    );
+
+                    auto *const c = B.CreateLoad(B.getInt32Ty(), count);
+                    B.CreateStore(
+                        B.CreateSelect(
+                            B.IsNil(args + i), c,
+                            B.CreateAdd(B.getInt32(1), c)
+                        ),
+                        count
+                    );
+                }
+
+                auto *const length = B.CreateLoad(B.getInt32Ty(), count);
+                auto *const allocsize =
+                    B.CreateAdd(B.getInt32(1), length, "lengthwithnullterminator", true, true);
+                auto *const chars = B.CreateRealloc(
+                    B.getNullPtr(), B.CreateSExt(B.getSizeOf(B.getInt8Ty(), allocsize), B.getInt64Ty()), "string"
+                );
+
+                B.CreateMemCpy(chars, Align(8), bytes, Align(8), length);
+
+                auto *const addr = B.CreateInBoundsGEP(B.getInt8Ty(), chars, {length});
+
+                B.CreateStore(B.getInt8(0), addr);
+
+                auto *const string = B.AllocateString(chars, length);
+
+                B.CreateRet(B.ObjVal(string));
+            });
         });
 
         Builder->SetInsertPoint(Builder->CreateBasicBlock("entry"));
