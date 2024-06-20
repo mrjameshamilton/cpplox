@@ -113,16 +113,15 @@ namespace lox {
                 }
             );
 
-            Native(
-                "getchar", B.getInt8Ty(), {}, ScriptCompiler,
-                [](LoxBuilder &B, const FunctionCallee &native, Argument *) {
-                    auto *const result = B.CreateCall(native);
-                    B.CreateRet(B.CreateSelect(
-                        B.CreateICmpEQ(result, B.getInt8(-1)), B.getNilVal(),
-                        B.NumberVal(B.CreateSIToFP(result, B.getDoubleTy()))
-                    ));
-                }
-            );
+            const FunctionCallee getchar =
+                B.getModule().getOrInsertFunction("getchar", FunctionType::get(B.getInt8Ty(), {}, false));
+            Native("read", 0, getchar, ScriptCompiler, [](LoxBuilder &B, const FunctionCallee &native, Argument *) {
+                auto *const result = B.CreateCall(native);
+                B.CreateRet(B.CreateSelect(
+                    B.CreateICmpEQ(result, B.getInt8(-1)), B.getNilVal(),
+                    B.NumberVal(B.CreateSIToFP(result, B.getDoubleTy()))
+                ));
+            });
 
             const FunctionCallee native = B.getModule().getOrInsertFunction(
                 "fprintf", FunctionType::get(B.getInt8Ty(), {B.getPtrTy(), B.getPtrTy()}, true)
@@ -154,18 +153,11 @@ namespace lox {
                     );
 
                     auto *const c = B.CreateLoad(B.getInt32Ty(), count);
-                    B.CreateStore(
-                        B.CreateSelect(
-                            B.IsNil(args + i), c,
-                            B.CreateAdd(B.getInt32(1), c)
-                        ),
-                        count
-                    );
+                    B.CreateStore(B.CreateSelect(B.IsNil(args + i), c, B.CreateAdd(B.getInt32(1), c)), count);
                 }
 
                 auto *const length = B.CreateLoad(B.getInt32Ty(), count);
-                auto *const allocsize =
-                    B.CreateAdd(B.getInt32(1), length, "lengthwithnullterminator", true, true);
+                auto *const allocsize = B.CreateAdd(B.getInt32(1), length, "lengthwithnullterminator", true, true);
                 auto *const chars = B.CreateRealloc(
                     B.getNullPtr(), B.CreateSExt(B.getSizeOf(B.getInt8Ty(), allocsize), B.getInt64Ty()), "string"
                 );
