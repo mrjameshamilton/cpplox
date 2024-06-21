@@ -22,7 +22,7 @@ The following additional native functions are implemented in the interpreter to 
 
 ## LLVM Compiler
 
-The compiler implementation uses LLVM to compile Lox scripts to LLVM IR, 
+The [compiler](https://github.com/mrjameshamilton/cpplox/tree/master/src/compiler) uses LLVM to compile Lox scripts to LLVM IR, 
 which can generate textual LLVM IR or object files.
 
 To compile a Lox script, provide a filename with the `-o` command line option.
@@ -45,20 +45,16 @@ $ ./helloworld
 
 ### Implementation details
 
-Multiple techniques from the `clox` C implementation from the [Crafting Interpreters](https://craftinginterpreters.com/)
-are used in the `cpplox` implementation:
-
-* NaN boxing, with values (numbers, boolean, nil and object pointers) stored as `i64`
-* interned strings with a hash table
-* upvalues for capturing closed over variables
+* NaN boxing with values (numbers, boolean, nil and object pointers) stored as `i64`
+* interned strings using a hash table
+* [upvalues](https://craftinginterpreters.com/closures.html#upvalues) for capturing closed over variables
     - upvalues are closed when the local goes out of scope
-* all methods and functions are wrapped in closures for consistency
-    - function / method have a runtime representation with their implementations as LLVM IR functions
-    - all closures have a receiver parameter and a list of upvalues
+* all functions and methods are wrapped in closures for consistency
+    - functions have a runtime representation with their implementations as LLVM IR functions
+    - all closures have a receiver parameter and upvalue parameter
 * mark & sweep garbage collector
     - a shadow stack is used to track locals as GC roots
     - temporary locals are inserted when necessary to ensure they are reachable before assignment
-    - locals are null in the shadow stack when they go out of scope
 
 # Build
 
