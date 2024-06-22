@@ -8,12 +8,12 @@ inline MDNode *createLikelyBranchWeights(MDBuilder &Builder) {
     return Builder.createBranchWeights((1U << 20) - 1, 1);
 }
 
-inline bool hasMetadata(Value *value, const StringRef) {
-    if (auto *const i = dyn_cast<Instruction>(value); i && i->hasMetadata()) {
+inline bool hasMetadata(Value *value, const StringRef name) {
+    if (auto *const i = dyn_cast<Instruction>(value); i && i->hasMetadata(name)) {
         return true;
     }
 
-    if (auto *const g = dyn_cast<GlobalVariable>(value); g && g->hasMetadata()) {
+    if (auto *const g = dyn_cast<GlobalVariable>(value); g && g->hasMetadata(name)) {
         return true;
     }
 
