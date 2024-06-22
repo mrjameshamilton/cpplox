@@ -194,20 +194,27 @@ namespace lox {
         auto *const methods =
             Builder.CreateLoad(Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::CLASS, klass, 2));
 
-        insertVariable(className, Builder.ObjVal(klass), !isGlobalScope());
+        auto *const variable = insertVariable(className, Builder.ObjVal(klass), !isGlobalScope());
+        auto *nameNode = MDString::get(Builder.getContext(), className);
+        setMetadata(variable, "lox-class", MDTuple::get(Builder.getContext(), {nameNode}));
 
         if (classStmt->super_class.has_value()) {
             // Copy all methods from the superclass methods table, to the subclass
             // to support inheritance. Do this before adding methods to the sub-class
             // to support overloaded methods.
 
-            auto *const value =
-                Builder.CreateLoad(Builder.getInt64Ty(), lookupVariable(*classStmt->super_class.value()));
+            auto *const superclassVariable = lookupVariable(*classStmt->super_class.value());
+
+            auto *const value = Builder.CreateLoad(Builder.getInt64Ty(), superclassVariable);
             auto *const IsClassBlock = Builder.CreateBasicBlock("superclass.valid");
             auto *const IsNotClassBlock = Builder.CreateBasicBlock("superclass.invalid");
             auto *const EndBlock = Builder.CreateBasicBlock("superclass.end");
 
-            Builder.CreateCondBr(Builder.IsClass(value), IsClassBlock, IsNotClassBlock);
+            auto mdBuilder = MDBuilder(Builder.getContext());
+            Builder.CreateCondBr(
+                hasMetadata(superclassVariable, "lox-class") ? Builder.getTrue() : Builder.IsClass(value), IsClassBlock,
+                IsNotClassBlock, createLikelyBranchWeights(mdBuilder)
+            );
             Builder.SetInsertPoint(IsClassBlock);
 
             beginScope();// Create a new scope since the "super" variable
