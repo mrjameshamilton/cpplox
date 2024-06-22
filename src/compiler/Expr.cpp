@@ -264,6 +264,8 @@ namespace lox {
             }
         }
 
+        const bool isClass = hasMetadata(value, "lox-class");
+
         auto *const valuePtr = Builder.AsObj(value);
 
         auto *const IsClosureBlock = Builder.CreateBasicBlock("is.closure");
@@ -275,7 +277,11 @@ namespace lox {
         auto *const ExecuteBlock = Builder.CreateBasicBlock("execute");
         auto *const EndBlock = Builder.CreateBasicBlock("end.block");
 
-        Builder.CreateCondBr(Builder.IsClosure(value), IsClosureBlock, CheckClassBlock);
+        if (isClass) {
+            Builder.CreateBr(IsClassBlock);
+        } else {
+            Builder.CreateCondBr(Builder.IsClosure(value), IsClosureBlock, CheckClassBlock);
+        }
 
         Builder.SetInsertPoint(CheckClassBlock);
         Builder.CreateCondBr(Builder.IsClass(value), IsClassBlock, CheckMethodBlock);
