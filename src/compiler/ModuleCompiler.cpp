@@ -141,9 +141,7 @@ namespace lox {
 
                 B.CreateMemCpy(chars, Align(8), bytes, Align(8), length);
 
-                auto *const addr = B.CreateInBoundsGEP(B.getInt8Ty(), chars, {length});
-
-                B.CreateStore(B.getInt8(0), addr);
+                B.CreateStore(/* null terminator */B.getInt8(0), B.CreateInBoundsGEP(B.getInt8Ty(), chars, {length}));
 
                 B.CreateRet(B.ObjVal(B.AllocateString(chars, length)));
             });
