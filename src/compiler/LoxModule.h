@@ -109,18 +109,12 @@ namespace lox {
             },
             "Entry"
         );
-        GlobalVariable *const objects = cast<GlobalVariable>(getOrInsertGlobal(
-            "objects",
-            PointerType::get(getContext(), 0)
-        ));
-        GlobalVariable *const runtimeStrings = cast<GlobalVariable>(getOrInsertGlobal(
-            "strings",
-            PointerType::get(getContext(), 0)
-        ));
-        GlobalVariable *const openUpvalues = cast<GlobalVariable>(getOrInsertGlobal(
-            "openUpvalues",
-            PointerType::get(getContext(), 0)
-        ));
+        GlobalVariable *const objects =
+            cast<GlobalVariable>(getOrInsertGlobal("objects", PointerType::get(getContext(), 0)));
+        GlobalVariable *const runtimeStrings =
+            cast<GlobalVariable>(getOrInsertGlobal("strings", PointerType::get(getContext(), 0)));
+        GlobalVariable *const openUpvalues =
+            cast<GlobalVariable>(getOrInsertGlobal("openUpvalues", PointerType::get(getContext(), 0)));
         StructType *const Call = StructType::create(
             getContext(),
             {
@@ -129,26 +123,16 @@ namespace lox {
             },
             "Call"
         );
-        GlobalVariable *const callstack = cast<GlobalVariable>(getOrInsertGlobal(
-            "callstack",
-            ArrayType::get(Call, MAX_CALL_STACK_SIZE)
-        ));
-        GlobalVariable *const callstackpointer = cast<GlobalVariable>(getOrInsertGlobal(
-            "callsp",
-            IntegerType::getInt32Ty(getContext())
-        ));
-        GlobalVariable *const allocatedBytes = cast<GlobalVariable>(getOrInsertGlobal(
-            "$allocatedBytes",
-            IntegerType::getInt32Ty(getContext())
-        ));
-        GlobalVariable *const nextGC = cast<GlobalVariable>(getOrInsertGlobal(
-            "$nextGC",
-            IntegerType::getInt32Ty(getContext())
-        ));
-        GlobalVariable *const enableGC = cast<GlobalVariable>(getOrInsertGlobal(
-            "$enableGC",
-            IntegerType::getInt1Ty(getContext())
-        ));
+        GlobalVariable *const callstack =
+            cast<GlobalVariable>(getOrInsertGlobal("callstack", ArrayType::get(Call, MAX_CALL_STACK_SIZE)));
+        GlobalVariable *const callstackpointer =
+            cast<GlobalVariable>(getOrInsertGlobal("callsp", IntegerType::getInt32Ty(getContext())));
+        GlobalVariable *const allocatedBytes =
+            cast<GlobalVariable>(getOrInsertGlobal("$allocatedBytes", IntegerType::getInt32Ty(getContext())));
+        GlobalVariable *const nextGC =
+            cast<GlobalVariable>(getOrInsertGlobal("$nextGC", IntegerType::getInt32Ty(getContext())));
+        GlobalVariable *const enableGC =
+            cast<GlobalVariable>(getOrInsertGlobal("$enableGC", IntegerType::getInt1Ty(getContext())));
         std::shared_ptr<GlobalStack> grayStack;
         std::shared_ptr<GlobalStack> localsStack;
         llvm::StringMap<Constant *> strings;
@@ -200,17 +184,11 @@ namespace lox {
 
         void initialize();
 
-        StructType *getObjStructType() const {
-            return ObjStructType;
-        }
+        StructType *getObjStructType() const { return ObjStructType; }
 
-        StructType *getTableStructType() const {
-            return TableStruct;
-        }
+        StructType *getTableStructType() const { return TableStruct; }
 
-        StructType *getEntryStructType() const {
-            return EntryStruct;
-        }
+        StructType *getEntryStructType() const { return EntryStruct; }
 
         StructType *getStructType(const ObjType objType) const {
             switch (objType) {
@@ -233,53 +211,34 @@ namespace lox {
             }
         }
 
-        GlobalVariable *getObjects() const {
-            return objects;
-        }
+        GlobalVariable *getObjects() const { return objects; }
 
-        GlobalVariable *getOpenUpvalues() const {
-            return openUpvalues;
-        }
+        GlobalVariable *getOpenUpvalues() const { return openUpvalues; }
 
-        GlobalVariable *getRuntimeStrings() const {
-            return runtimeStrings;
-        }
+        GlobalVariable *getRuntimeStrings() const { return runtimeStrings; }
 
-        GlobalVariable *getCallStack() const {
-            return callstack;
-        }
+        GlobalVariable *getCallStack() const { return callstack; }
 
-        Type *getCallStruct() const {
-            return Call;
-        }
+        Type *getCallStruct() const { return Call; }
 
-        GlobalVariable *getCallStackPointer() const {
-            return callstackpointer;
-        }
+        GlobalVariable *getCallStackPointer() const { return callstackpointer; }
 
-        const GlobalStack &getGrayStack() const {
-            return *grayStack;
-        }
+        const GlobalStack &getGrayStack() const { return *grayStack; }
 
-        const GlobalStack &getLocalsStack() const {
-            return *localsStack;
-        }
+        const GlobalStack &getLocalsStack() const { return *localsStack; }
 
-        GlobalVariable *getAllocatedBytes() const {
-            return allocatedBytes;
-        }
+        GlobalVariable *getAllocatedBytes() const { return allocatedBytes; }
 
-        GlobalVariable *getNextGC() const {
-            return nextGC;
-        }
+        GlobalVariable *getNextGC() const { return nextGC; }
 
-        GlobalVariable *getEnableGC() const {
-            return enableGC;
-        }
+        GlobalVariable *getEnableGC() const { return enableGC; }
 
-        StringMap<Constant *> &getStringCache() {
-            return strings;
-        }
+        StringMap<Constant *> &getStringCache() { return strings; }
+
+        const FunctionCallee PrintF = getOrInsertFunction(
+            "printf",
+            FunctionType::get(IntegerType::getInt8Ty(getContext()), {PointerType::getUnqual(getContext())}, true)
+        );
     };
 }// namespace lox
 

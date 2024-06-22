@@ -16,21 +16,13 @@ using namespace llvm::sys;
 
 namespace lox {
 
-    Value *LoxBuilder::getUninitializedVal() {
-        return getInt64(UNINITIALIZED_VAL);
-    }
+    Value *LoxBuilder::getUninitializedVal() { return getInt64(UNINITIALIZED_VAL); }
 
-    Value *LoxBuilder::getNilVal() {
-        return getInt64(NIL_VAL);
-    }
+    Value *LoxBuilder::getNilVal() { return getInt64(NIL_VAL); }
 
-    Value *LoxBuilder::getTrueVal() {
-        return getInt64(TRUE_VAL);
-    }
+    Value *LoxBuilder::getTrueVal() { return getInt64(TRUE_VAL); }
 
-    Value *LoxBuilder::getFalseVal() {
-        return getInt64(FALSE_VAL);
-    }
+    Value *LoxBuilder::getFalseVal() { return getInt64(FALSE_VAL); }
 
     Value *LoxBuilder::IsBool(Value *value) {
         assert(value->getType() == getInt64Ty());
@@ -61,14 +53,8 @@ namespace lox {
         assert(value->getType() == Builder.getInt64Ty());
         static auto *CheckTypeFunction([&Builder] {
             auto *const F = Function::Create(
-                FunctionType::get(
-                    Builder.getInt1Ty(),
-                    {Builder.getInt64Ty(), Builder.getInt8Ty()},
-                    false
-                ),
-                Function::InternalLinkage,
-                "$checkType",
-                Builder.getModule()
+                FunctionType::get(Builder.getInt1Ty(), {Builder.getInt64Ty(), Builder.getInt8Ty()}, false),
+                Function::InternalLinkage, "$checkType", Builder.getModule()
             );
 
             F->addFnAttr(Attribute::AlwaysInline);
@@ -103,41 +89,24 @@ namespace lox {
         return Builder.CreateCall(CheckTypeFunction, {value, Builder.ObjTypeInt(type)});
     }
 
-    Value *LoxBuilder::IsClosure(Value *value) {
-        return CheckType(*this, value, ObjType::CLOSURE);
-    }
+    Value *LoxBuilder::IsClosure(Value *value) { return CheckType(*this, value, ObjType::CLOSURE); }
 
-    Value *LoxBuilder::IsString(Value *value) {
-        return CheckType(*this, value, ObjType::STRING);
-    }
+    Value *LoxBuilder::IsString(Value *value) { return CheckType(*this, value, ObjType::STRING); }
 
-    Value *LoxBuilder::IsClass(Value *value) {
-        return CheckType(*this, value, ObjType::CLASS);
-    }
+    Value *LoxBuilder::IsClass(Value *value) { return CheckType(*this, value, ObjType::CLASS); }
 
-    Value *LoxBuilder::IsInstance(Value *value) {
-        return CheckType(*this, value, ObjType::INSTANCE);
-    }
+    Value *LoxBuilder::IsInstance(Value *value) { return CheckType(*this, value, ObjType::INSTANCE); }
 
-    Value *LoxBuilder::IsUpvalue(Value *value) {
-        return CheckType(*this, value, ObjType::UPVALUE);
-    }
+    Value *LoxBuilder::IsUpvalue(Value *value) { return CheckType(*this, value, ObjType::UPVALUE); }
 
-    Value *LoxBuilder::IsBoundMethod(Value *value) {
-        return CheckType(*this, value, ObjType::BOUND_METHOD);
-    }
+    Value *LoxBuilder::IsBoundMethod(Value *value) { return CheckType(*this, value, ObjType::BOUND_METHOD); }
 
     Value *LoxBuilder::ObjType(Value *value) {
         assert(value->getType() == getInt64Ty());
-        return CreateLoad(
-            getInt8Ty(),
-            CreateStructGEP(getModule().getObjStructType(), AsObj(value), 0)
-        );
+        return CreateLoad(getInt8Ty(), CreateStructGEP(getModule().getObjStructType(), AsObj(value), 0));
     }
 
-    ConstantInt *LoxBuilder::ObjTypeInt(enum ObjType objType) {
-        return getInt8(static_cast<uint8_t>(objType));
-    }
+    ConstantInt *LoxBuilder::ObjTypeInt(enum ObjType objType) { return getInt8(static_cast<uint8_t>(objType)); }
 
     Value *LoxBuilder::BoolVal(Value *value) {
         assert(value->getType() == getInt1Ty());
@@ -169,20 +138,12 @@ namespace lox {
         return CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::STRING, AsObj(value), 1));
     }
 
-    Value *LoxBuilder::NumberVal(Value *value) {
-        return CreateBitCast(value, getInt64Ty());
-    }
+    Value *LoxBuilder::NumberVal(Value *value) { return CreateBitCast(value, getInt64Ty()); }
 
     Value *LoxBuilder::IsTruthy(Value *value) {
         static auto *IsTruthyFunction([this] {
             auto *const F = Function::Create(
-                FunctionType::get(
-                    getInt1Ty(),
-                    getInt64Ty(),
-                    false
-                ),
-                Function::InternalLinkage,
-                "$isTruthy",
+                FunctionType::get(getInt1Ty(), getInt64Ty(), false), Function::InternalLinkage, "$isTruthy",
                 this->getModule()
             );
 
@@ -199,9 +160,7 @@ namespace lox {
             auto *const p0 = F->args().begin();
             B.CreateCondBr(B.IsNil(p0), IsNullBlock, IsNotNullBlock);
             B.SetInsertPoint(IsNullBlock);
-            {
-                B.CreateRet(B.getFalse());
-            }
+            { B.CreateRet(B.getFalse()); }
             B.SetInsertPoint(IsNotNullBlock);
             {
                 B.CreateCondBr(B.IsBool(p0), IsBoolBlock, EndBlock);
@@ -209,9 +168,7 @@ namespace lox {
                 B.CreateRet(B.AsBool(p0));
             }
             B.SetInsertPoint(EndBlock);
-            {
-                B.CreateRet(B.getTrue());
-            }
+            { B.CreateRet(B.getTrue()); }
 
             return F;
         }());
@@ -223,13 +180,7 @@ namespace lox {
         assert(value->getType() == getInt64Ty());
         static auto *PrintFunction([this] {
             auto *const F = Function::Create(
-                FunctionType::get(
-                    getVoidTy(),
-                    getInt64Ty(),
-                    false
-                ),
-                Function::InternalLinkage,
-                "$print",
+                FunctionType::get(getVoidTy(), getInt64Ty(), false), Function::InternalLinkage, "$print",
                 this->getModule()
             );
 
@@ -284,13 +235,7 @@ namespace lox {
         CreateCall(PrintFunction, value);
     }
 
-    void LoxBuilder::PrintF(const std::initializer_list<Value *> value) {
-        static const auto PrintF = getModule().getOrInsertFunction(
-            "printf",
-            FunctionType::get(getInt8Ty(), {PointerType::getUnqual(getContext())}, true)
-        );
-        CreateCall(PrintF, value);
-    }
+    void LoxBuilder::PrintF(const std::initializer_list<Value *> value) { CreateCall(getModule().PrintF, value); }
 
     void LoxBuilder::PrintFErr(Value *message, const std::vector<Value *> &values) {
         static auto *const StdErr = getModule().getOrInsertGlobal("stderr", getPtrTy());
@@ -310,13 +255,9 @@ namespace lox {
         PrintF({CreateGlobalCachedString("%s\n"), CreateGlobalCachedString(string)});
     }
 
-    void LoxBuilder::PrintNumber(Value *value) {
-        PrintF({CreateGlobalCachedString("%g\n"), AsNumber(value)});
-    }
+    void LoxBuilder::PrintNumber(Value *value) { PrintF({CreateGlobalCachedString("%g\n"), AsNumber(value)}); }
 
-    void LoxBuilder::PrintNil() {
-        PrintF({CreateGlobalCachedString("nil\n")});
-    }
+    void LoxBuilder::PrintNil() { PrintF({CreateGlobalCachedString("nil\n")}); }
 
     void LoxBuilder::PrintObject(Value *value) {
         auto *const IsStringBlock = CreateBasicBlock("print.string");
@@ -335,17 +276,13 @@ namespace lox {
         Switch->addCase(ObjTypeInt(ObjType::STRING), IsStringBlock);
         Switch->addCase(ObjTypeInt(ObjType::CLOSURE), IsClosureBlock);
         Switch->addCase(ObjTypeInt(ObjType::FUNCTION), IsFunctionBlock);
-        if constexpr (DEBUG_LOG_GC || DEBUG_UPVALUES) {
-            Switch->addCase(ObjTypeInt(ObjType::UPVALUE), IsUpvalueBlock);
-        }
+        if constexpr (DEBUG_LOG_GC || DEBUG_UPVALUES) { Switch->addCase(ObjTypeInt(ObjType::UPVALUE), IsUpvalueBlock); }
         Switch->addCase(ObjTypeInt(ObjType::CLASS), IsClassBlock);
         Switch->addCase(ObjTypeInt(ObjType::INSTANCE), IsInstanceBlock);
         Switch->addCase(ObjTypeInt(ObjType::BOUND_METHOD), IsBoundMethod);
 
         SetInsertPoint(IsStringBlock);
-        {
-            PrintString(value);
-        }
+        { PrintString(value); }
         CreateBr(EndBlock);
 
         SetInsertPoint(IsClosureBlock);
@@ -360,7 +297,10 @@ namespace lox {
             PrintF({CreateGlobalCachedString("<native fn>\n")});
             CreateBr(EndBlock);
             SetInsertPoint(IsNotNativeFunctionBlock);
-            PrintF({CreateGlobalCachedString("<fn %s>\n"), AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::FUNCTION, function, 3)))});
+            PrintF(
+                {CreateGlobalCachedString("<fn %s>\n"),
+                 AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::FUNCTION, function, 3)))}
+            );
         }
         CreateBr(EndBlock);
 
@@ -368,7 +308,10 @@ namespace lox {
         {
             // Not usually printable, but useful for debugging.
             auto *const function = AsObj(value);
-            PrintF({CreateGlobalCachedString("<fn %s>\n"), AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::FUNCTION, function, 3)))});
+            PrintF(
+                {CreateGlobalCachedString("<fn %s>\n"),
+                 AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::FUNCTION, function, 3)))}
+            );
         }
         CreateBr(EndBlock);
 
@@ -380,8 +323,14 @@ namespace lox {
                 auto *const object = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 1));
                 auto *const next = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 2));
                 auto *const closed = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::UPVALUE, upvalue, 3));
-                PrintF({CreateGlobalCachedString("Upvalue(%p, %p, next = %p, closed = %d) = "), upvalue, object, next, closed});
-                CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("$print"), CreateLoad(getInt64Ty(), object));
+                PrintF(
+                    {CreateGlobalCachedString("Upvalue(%p, %p, next = %p, closed = %d) = "), upvalue, object, next,
+                     closed}
+                );
+                CreateCall(
+                    FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("$print"),
+                    CreateLoad(getInt64Ty(), object)
+                );
             }
             CreateBr(EndBlock);
         }
@@ -389,14 +338,20 @@ namespace lox {
         SetInsertPoint(IsClassBlock);
         {
             auto *const klass = AsObj(value);
-            PrintF({CreateGlobalCachedString("%s\n"), AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::CLASS, klass, 1)))});
+            PrintF(
+                {CreateGlobalCachedString("%s\n"),
+                 AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::CLASS, klass, 1)))}
+            );
             CreateBr(EndBlock);
 
             SetInsertPoint(IsInstanceBlock);
 
             auto *const instance = AsObj(value);
             auto *const instanceKlass = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::INSTANCE, instance, 1));
-            PrintF({CreateGlobalCachedString("%s instance\n"), AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::CLASS, instanceKlass, 1)))});
+            PrintF(
+                {CreateGlobalCachedString("%s instance\n"),
+                 AsCString(CreateLoad(getInt64Ty(), CreateObjStructGEP(ObjType::CLASS, instanceKlass, 1)))}
+            );
         }
         CreateBr(EndBlock);
 
@@ -404,7 +359,10 @@ namespace lox {
         {
             auto *const bound = AsObj(value);
             auto *const methodClosure = CreateLoad(getPtrTy(), CreateObjStructGEP(ObjType::BOUND_METHOD, bound, 2));
-            CreateCall(FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("$print"), ObjVal(methodClosure));
+            CreateCall(
+                FunctionType::get(getVoidTy(), getInt64Ty(), false), getModule().getFunction("$print"),
+                ObjVal(methodClosure)
+            );
         }
         CreateBr(EndBlock);
 
@@ -421,19 +379,21 @@ namespace lox {
         SetInsertPoint(EndBlock);
     }
 
-    void LoxBuilder::PrintString(Value *value) {
-        PrintF({CreateGlobalCachedString("%s\n"), AsCString(value)});
-    }
+    void LoxBuilder::PrintString(Value *value) { PrintF({CreateGlobalCachedString("%s\n"), AsCString(value)}); }
 
     void LoxBuilder::PrintBool(Value *value) {
-        PrintF({CreateGlobalCachedString("%s\n"), CreateSelect(AsBool(value), CreateGlobalCachedString("true"), CreateGlobalCachedString("false"))});
+        PrintF(
+            {CreateGlobalCachedString("%s\n"),
+             CreateSelect(AsBool(value), CreateGlobalCachedString("true"), CreateGlobalCachedString("false"))}
+        );
     }
 
-    void LoxBuilder::RuntimeError(Value *line, const StringRef message, const std::vector<Value *> &values, Value *location, const bool freeObjects) {
-        static const auto Exit = getModule().getOrInsertFunction(
-            "exit",
-            FunctionType::get(getVoidTy(), {getInt32Ty()}, false)
-        );
+    void LoxBuilder::RuntimeError(
+        Value *line, const StringRef message, const std::vector<Value *> &values, Value *location,
+        const bool freeObjects
+    ) {
+        static const auto Exit =
+            getModule().getOrInsertFunction("exit", FunctionType::get(getVoidTy(), {getInt32Ty()}, false));
 
         PrintFErr(CreateGlobalCachedString(message), values);
         // Push the current location onto the call stack, so that it's printed as part of the stacktrace.

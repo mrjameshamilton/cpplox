@@ -21,13 +21,9 @@
 
 template<>
 struct llvm::DenseMapInfo<std::string_view> {
-    static inline std::string_view getEmptyKey() {
-        return "$EMPTY KEY$";
-    }
+    static inline std::string_view getEmptyKey() { return "$EMPTY KEY$"; }
 
-    static inline std::string_view getTombstoneKey() {
-        return "$TOMBSTONE KEY$";
-    }
+    static inline std::string_view getTombstoneKey() { return "$TOMBSTONE KEY$"; }
 
     static inline unsigned getHashValue(std::string_view Val);
     static inline bool isEqual(std::string_view LHS, std::string_view RHS);
@@ -53,19 +49,19 @@ namespace lox {
             Value *value;
             bool isCaptured = false;
             unsigned int index;
-            Local(FunctionCompiler &compiler, const std::string_view name, Value *value, const bool isCaptured = false) : compiler{compiler}, name{name}, value{value}, isCaptured{isCaptured} {
+            Local(FunctionCompiler &compiler, const std::string_view name, Value *value, const bool isCaptured = false)
+                : compiler{compiler}, name{name}, value{value}, isCaptured{isCaptured} {
                 auto &B = compiler.Builder;
                 B.CreateLifetimeStart(value, B.getInt64(64));
                 index = compiler.localsCount++;
                 if constexpr (DEBUG_STACK) {
                     auto *const stackOffset = B.CreateAdd(
-                        B.CreateLoad(B.getInt32Ty(), compiler.sp),
-                        B.getInt32(index),
-                        "stackOffset",
-                        true,
-                        true
+                        B.CreateLoad(B.getInt32Ty(), compiler.sp), B.getInt32(index), "stackOffset", true, true
                     );
-                    B.PrintF({B.CreateGlobalCachedString("create local %d at %d %p\n"), B.getInt32(index), stackOffset, value});
+                    B.PrintF(
+                        {B.CreateGlobalCachedString("create local %d at %d %p\n"), B.getInt32(index), stackOffset, value
+                        }
+                    );
                 }
             }
             ~Local() {
@@ -75,7 +71,8 @@ namespace lox {
                     // the upvalues must be closed, since the local
                     // will not be available any longer.
                     if constexpr (DEBUG_UPVALUES) {
-                        B.PrintF({B.CreateGlobalCachedString(("closing upvalues for " + name + " (%p)\n").str()), value});
+                        B.PrintF({B.CreateGlobalCachedString(("closing upvalues for " + name + " (%p)\n").str()), value}
+                        );
                     }
                     closeUpvalues(B, value);
                 }
@@ -83,15 +80,13 @@ namespace lox {
                 B.CreateLifetimeEnd(value, B.getInt64(64));
 
                 const auto &locals = B.getModule().getLocalsStack();
-                auto *const stackIndex = B.CreateAdd(
-                    B.CreateLoad(B.getInt32Ty(), compiler.sp),
-                    B.getInt32(index),
-                    "stackIndex",
-                    true,
-                    true
-                );
+                auto *const stackIndex =
+                    B.CreateAdd(B.CreateLoad(B.getInt32Ty(), compiler.sp), B.getInt32(index), "stackIndex", true, true);
                 if constexpr (DEBUG_STACK) {
-                    B.PrintF({B.CreateGlobalCachedString("end local %d at %d %p sp: %d c: %d\n"), B.getInt32(index), stackIndex, value, B.CreateLoad(B.getInt32Ty(), compiler.sp), locals.CreateGetCount(B)});
+                    B.PrintF(
+                        {B.CreateGlobalCachedString("end local %d at %d %p sp: %d c: %d\n"), B.getInt32(index),
+                         stackIndex, value, B.CreateLoad(B.getInt32Ty(), compiler.sp), locals.CreateGetCount(B)}
+                    );
                 }
 
                 // At the end of the scope, clear the entry in the locals stack,
@@ -114,14 +109,20 @@ namespace lox {
         std::unordered_set<Value *> functionLocals;
 
     public:
-        explicit FunctionCompiler(LLVMContext &Context, LoxModule &Module, Function &F, const LoxFunctionType type = LoxFunctionType::FUNCTION, FunctionCompiler *enclosing = nullptr)
+        explicit FunctionCompiler(
+            LLVMContext &Context, LoxModule &Module, Function &F,
+            const LoxFunctionType type = LoxFunctionType::FUNCTION, FunctionCompiler *enclosing = nullptr
+        )
             : Builder{Context, Module, F}, enclosing(enclosing), type{type} {
             Builder.SetInsertPoint(EntryBasicBlock);
             sp = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt32Ty(), "$sp");
         }
 
         // Statement code generation.
-        void compile(const std::vector<Stmt> &statements, const std::vector<Token> &parameters = {}, const std::function<void(LoxBuilder &)> &entryBlockBuilder = nullptr);
+        void compile(
+            const std::vector<Stmt> &statements, const std::vector<Token> &parameters = {},
+            const std::function<void(LoxBuilder &)> &entryBlockBuilder = nullptr
+        );
         void evaluate(const Stmt &stmt);
         void operator()(const BlockStmtPtr &blockStmt);
         void operator()(const FunctionStmtPtr &functionStmt);
@@ -150,9 +151,7 @@ namespace lox {
         Value *operator()(const UnaryExprPtr &unaryExpr);
 
 
-        void beginScope() {
-            scopes.emplace(variables);
-        }
+        void beginScope() { scopes.emplace(variables); }
 
         void endScope() {
             auto *const CurrentBlock = Builder.GetInsertBlock();
@@ -191,34 +190,26 @@ namespace lox {
             }
         }
 
-        [[nodiscard]] FunctionCompiler *getEnclosing() const {
-            return enclosing;
-        }
+        [[nodiscard]] FunctionCompiler *getEnclosing() const { return enclosing; }
 
-        LoxBuilder &getBuilder() {
-            return Builder;
-        }
+        LoxBuilder &getBuilder() { return Builder; }
 
-        [[nodiscard]] Value *lookupLocal(const Token &token) {
-            return lookupLocal(token.getLexeme());
-        }
+        [[nodiscard]] Value *lookupLocal(const Token &token) { return lookupLocal(token.getLexeme()); }
 
         [[nodiscard]] Value *lookupLocal(const StringRef name) {
-            if (const auto local = resolveLocal(this, name)) {
-                return local->value;
-            }
+            if (const auto local = resolveLocal(this, name)) { return local->value; }
 
             return nullptr;
         }
 
-        [[nodiscard]] Value *lookupVariable(const Assignable &assignable) {
-            return lookupVariable(assignable.name);
-        }
+        [[nodiscard]] Value *lookupVariable(const Assignable &assignable) { return lookupVariable(assignable.name); }
 
         [[nodiscard]] Value *lookupVariable(const Token &token) {
             const auto &name = token.getLexeme();
             if constexpr (DEBUG_UPVALUES) {
-                Builder.PrintF({Builder.CreateGlobalCachedString("lookupVariable(%s)\n"), Builder.CreateGlobalCachedString(name)});
+                Builder.PrintF(
+                    {Builder.CreateGlobalCachedString("lookupVariable(%s)\n"), Builder.CreateGlobalCachedString(name)}
+                );
             }
 
             if (auto *const local = lookupLocal(name)) return local;
@@ -229,8 +220,7 @@ namespace lox {
                 // which points to the closed over value.
 
                 return Builder.CreateLoad(
-                    Builder.getPtrTy(),
-                    Builder.CreateObjStructGEP(ObjType::UPVALUE, upvalue, 1, "upvalue.locationptr"),
+                    Builder.getPtrTy(), Builder.CreateObjStructGEP(ObjType::UPVALUE, upvalue, 1, "upvalue.locationptr"),
                     "upvalue.valueptr"
                 );
             }
@@ -248,9 +238,7 @@ namespace lox {
                 Builder.CreateCondBr(Builder.IsUninitialized(loadedValue), UndefinedBlock, EndBlock);
                 Builder.SetInsertPoint(UndefinedBlock);
                 Builder.RuntimeError(
-                    token.getLine(),
-                    "Undefined variable '%s'.\n",
-                    {Builder.CreateGlobalCachedString(name)},
+                    token.getLine(), "Undefined variable '%s'.\n", {Builder.CreateGlobalCachedString(name)},
                     Builder.getFunction()
                 );
 
@@ -266,8 +254,7 @@ namespace lox {
             if (global == nullptr) {
                 // Global was not yet defined, so define it already but with an uninitialized value.
                 global = cast<GlobalVariable>(Builder.getModule().getOrInsertGlobal(
-                    ("g" + name).str(),
-                    IntegerType::getInt64Ty(Builder.getContext())
+                    ("g" + name).str(), IntegerType::getInt64Ty(Builder.getContext())
                 ));
 
                 global->setLinkage(GlobalValue::PrivateLinkage);
@@ -292,10 +279,8 @@ namespace lox {
 
             if (isGlobalScope()) {
                 const auto &name = ("g" + key).str();// TODO: how to not call Twine.+?
-                auto *const global = cast<GlobalVariable>(Builder.getModule().getOrInsertGlobal(
-                    name,
-                    Builder.getInt64Ty()
-                ));
+                auto *const global =
+                    cast<GlobalVariable>(Builder.getModule().getOrInsertGlobal(name, Builder.getInt64Ty()));
 
                 global->setLinkage(GlobalValue::PrivateLinkage);
                 global->setAlignment(Align(8));
@@ -307,9 +292,7 @@ namespace lox {
                     global->setInitializer(cast<ConstantInt>(Builder.getNilVal()));
                     Builder.CreateStore(value, global);
 
-                    if (isConstant) {
-                        Builder.CreateInvariantStart(global, Builder.getInt64(64));
-                    }
+                    if (isConstant) { Builder.CreateInvariantStart(global, Builder.getInt64(64)); }
                 }
 
                 copyMetadata(value, global);
@@ -318,22 +301,27 @@ namespace lox {
 
                 return global;
             } else {
-                auto *const alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), key);
+                auto *const alloca = CreateEntryBlockAlloca(
+                    Builder.getFunction(), Builder.getInt64Ty(), key,
+                    [&](IRBuilder<> &B, AllocaInst *a) {
+                        if constexpr (DEBUG_LOG_GC) {
+                            B.CreateCall(
+                                Builder.getModule().PrintF,
+                                {B.CreateGlobalString("local: %s@%p\n"), B.CreateGlobalString(key), a}
+                            );
+                        }
+                    }
+                );
                 const auto local = std::make_shared<Local>(*this, key, alloca);
                 variables.insert(key, local);
                 copyMetadata(value, alloca);
                 Builder.CreateStore(value, alloca);
 
-                if (isConstant) {
-                    Builder.CreateInvariantStart(alloca, Builder.getInt64(64));
-                }
+                if (isConstant) { Builder.CreateInvariantStart(alloca, Builder.getInt64(64)); }
 
                 const auto locals = Builder.getModule().getLocalsStack();
                 auto *const stackIndex = Builder.CreateAdd(
-                    Builder.CreateLoad(Builder.getInt32Ty(), sp),
-                    Builder.getInt32(local->index),
-                    "stackIndex",
-                    true,
+                    Builder.CreateLoad(Builder.getInt32Ty(), sp), Builder.getInt32(local->index), "stackIndex", true,
                     true
                 );
                 locals.CreateSet(Builder, stackIndex, alloca);
@@ -346,7 +334,17 @@ namespace lox {
             assert(value->getType() == Builder.getInt64Ty());
 
             const auto *const name = "$temp";
-            auto *const alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), (name + what).str());
+            auto *const alloca = CreateEntryBlockAlloca(
+                Builder.getFunction(), Builder.getInt64Ty(), (name + what).str(),
+                [&](IRBuilder<> &B, AllocaInst *a) {
+                    if constexpr (DEBUG_LOG_GC) {
+                        B.CreateCall(
+                            Builder.getModule().PrintF,
+                            {B.CreateGlobalString("local temp: %s@%p\n"), B.CreateGlobalString(what), a}
+                        );
+                    }
+                }
+            );
 
             const auto local = std::make_shared<Local>(*this, name, alloca);
             variables.insert(name, local);
@@ -355,11 +353,7 @@ namespace lox {
 
             const auto locals = Builder.getModule().getLocalsStack();
             auto *const stackIndex = Builder.CreateAdd(
-                Builder.CreateLoad(Builder.getInt32Ty(), sp),
-                Builder.getInt32(local->index),
-                "stackIndex",
-                true,
-                true
+                Builder.CreateLoad(Builder.getInt32Ty(), sp), Builder.getInt32(local->index), "stackIndex", true, true
             );
             locals.CreateSet(Builder, stackIndex, alloca);
 
@@ -403,11 +397,16 @@ namespace lox {
             // the upvalue array which is the function's first argument,
             // in the *compiler*'s function.
             auto *const upvalues = Builder.getFunction()->arg_begin();
-            auto *const upvalueIndex = Builder.CreateInBoundsGEP(Builder.getPtrTy(), upvalues, {Builder.getInt32(upvalueArrayIndex)}, "arrayindex");
+            auto *const upvalueIndex = Builder.CreateInBoundsGEP(
+                Builder.getPtrTy(), upvalues, {Builder.getInt32(upvalueArrayIndex)}, "arrayindex"
+            );
             auto *const upvaluePtr = Builder.CreateLoad(Builder.getPtrTy(), upvalueIndex, "upvaluePtr");
 
             if constexpr (DEBUG_UPVALUES) {
-                Builder.PrintF({Builder.CreateGlobalCachedString("addUpValue(%p, %d, %p, %p)\n"), upvalues, Builder.getInt32(upvalueArrayIndex), upvalueIndex, upvaluePtr});
+                Builder.PrintF(
+                    {Builder.CreateGlobalCachedString("addUpValue(%p, %d, %p, %p)\n"), upvalues,
+                     Builder.getInt32(upvalueArrayIndex), upvalueIndex, upvaluePtr}
+                );
             }
 
             // The pointer from the upvalues array for new upvalue index.
@@ -419,7 +418,10 @@ namespace lox {
 
                 if constexpr (DEBUG_UPVALUES) {
                     auto &Builder = compiler->Builder;
-                    Builder.PrintF({Builder.CreateGlobalCachedString("resolveLocal(%s) = %p = "), Builder.CreateGlobalCachedString(name), local->value});
+                    Builder.PrintF(
+                        {Builder.CreateGlobalCachedString("resolveLocal(%s) = %p = "),
+                         Builder.CreateGlobalCachedString(name), local->value}
+                    );
                     Builder.Print(Builder.ObjVal(Builder.CreateLoad(Builder.getPtrTy(), local->value)));
                 }
 
@@ -436,7 +438,9 @@ namespace lox {
                    scopes.size() <= 2;
         }
 
-        void CreateFunction(const FunctionStmtPtr &functionStmt, std::string_view name, const std::function<void(Value *)> &initializer);
+        void CreateFunction(
+            const FunctionStmtPtr &functionStmt, std::string_view name, const std::function<void(Value *)> &initializer
+        );
     };
 
 }// namespace lox

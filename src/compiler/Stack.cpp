@@ -15,12 +15,9 @@ namespace lox {
             auto *const F = Function::Create(
                 FunctionType::get(
                     Builder.getVoidTy(),
-                    {Builder.getPtrTy(), Builder.getPtrTy(), Builder.getPtrTy(), Builder.getInt32Ty()},
-                    false
+                    {Builder.getPtrTy(), Builder.getPtrTy(), Builder.getPtrTy(), Builder.getInt32Ty()}, false
                 ),
-                Function::InternalLinkage,
-                "$stackEnsureCapacity",
-                M
+                Function::InternalLinkage, "$stackEnsureCapacity", M
             );
 
             F->addFnAttr(Attribute::AlwaysInline);
@@ -36,25 +33,30 @@ namespace lox {
             auto *const $capacity = arguments + 2;
             auto *const size = arguments + 3;
 
-            if (DEBUG_STACK) {
-                B.PrintF({B.CreateGlobalCachedString("ensure cap stack with %d\n"), size});
-            }
+            if (DEBUG_STACK) { B.PrintF({B.CreateGlobalCachedString("ensure cap stack with %d\n"), size}); }
 
             auto *const stack = B.CreateLoad(B.getPtrTy(), $stack);
             auto *const count = B.CreateLoad(B.getInt32Ty(), $count);
             auto *const capacity = B.CreateLoad(B.getInt32Ty(), $capacity);
-            if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
-                B.PrintF({B.CreateGlobalCachedString("realloc stack: %p (count: %d, capacity: %d)\n"), stack, count, capacity});
-            }
+
             auto *const GrowBlock = B.CreateBasicBlock("grow");
             auto *const EndBlock = B.CreateBasicBlock("end");
+            auto *const DontGrowBlock = DEBUG_STACK ? B.CreateBasicBlock("dont.grow") : EndBlock;
 
-            B.CreateCondBr(B.CreateICmpSLT(capacity, size), GrowBlock, EndBlock);
+            B.CreateCondBr(B.CreateICmpSLT(capacity, size), GrowBlock, DontGrowBlock);
+
+            if constexpr (DEBUG_STACK) {
+                B.SetInsertPoint(DontGrowBlock);
+                B.PrintF(
+                    {B.CreateGlobalCachedString("don't grow realloc stack: %p (count: %d, capacity: %d)\n"), stack,
+                     count, capacity}
+                );
+                B.CreateBr(EndBlock);
+            }
 
             B.SetInsertPoint(GrowBlock);
             auto *const newCapacity = B.CreateSelect(
-                B.CreateICmpSLT(size, B.getInt32(8)),
-                B.getInt32(8),
+                B.CreateICmpSLT(size, B.getInt32(8)), B.getInt32(8),
                 B.CreateMul(size, B.getInt32(GROWTH_FACTOR), "newcapacity", true, true)
             );
             B.CreateStore(newCapacity, $capacity);
@@ -62,7 +64,7 @@ namespace lox {
             auto *const newSize = B.getSizeOf(B.getPtrTy(), newCapacity);
 
             if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
-                B.PrintF({B.CreateGlobalCachedString("realloc stack: %p with new size %d\n"), stack, newSize});
+                B.PrintF({B.CreateGlobalCachedString("grow realloc stack: %p with new size %d\n"), stack, newSize});
             }
 
             auto *const result = B.CreateRealloc(stack, newSize, "stack");
@@ -73,12 +75,20 @@ namespace lox {
             B.CreateCondBr(B.CreateIsNull(result), IsNullBlock, OkBlock);
             B.SetInsertPoint(IsNullBlock);
             {
-                B.RuntimeError(B.getInt32(0), "Could not reallocate %d for %p\n", {newSize, stack}, B.CreateGlobalCachedString("ensureCapacity"));
+                B.RuntimeError(
+                    B.getInt32(0), "Could not reallocate %d for %p\n", {newSize, stack},
+                    B.CreateGlobalCachedString("ensureCapacity")
+                );
             }
             B.SetInsertPoint(OkBlock);
             {
                 if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
-                    B.PrintF({B.CreateGlobalCachedString("realloc stack: %p; %p -> %p (count: %d, capacity: %d, newCapacity: %d)\n"), $stack, stack, result, count, capacity, newCapacity});
+                    B.PrintF(
+                        {B.CreateGlobalCachedString(
+                             "realloc stack: %p; %p -> %p (count: %d, capacity: %d, newCapacity: %d)\n"
+                         ),
+                         $stack, stack, result, count, capacity, newCapacity}
+                    );
                 }
                 B.CreateStore(result, $stack);
 
@@ -101,7 +111,10 @@ namespace lox {
                     auto *const addr = B.CreateInBoundsGEP(B.getPtrTy(), result, B.CreateLoad(B.getInt32Ty(), i));
 
                     if constexpr (DEBUG_STACK) {
-                        B.PrintF({B.CreateGlobalCachedString("set value: (result: %p) %d %p -> %p\n"), result, B.CreateLoad(B.getInt32Ty(), i), B.getNullPtr(), addr});
+                        B.PrintF(
+                            {B.CreateGlobalCachedString("set value: (result: %p) %d %p -> %p\n"), result,
+                             B.CreateLoad(B.getInt32Ty(), i), B.getNullPtr(), addr}
+                        );
                     }
 
                     B.CreateStore(B.getNullPtr(), addr);
@@ -109,14 +122,14 @@ namespace lox {
                     B.CreateBr(ForInc);
                     B.SetInsertPoint(ForInc);
                     {
-                        B.CreateStore(B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1), "i+1", true, true), i);
+                        B.CreateStore(
+                            B.CreateAdd(B.CreateLoad(B.getInt32Ty(), i), B.getInt32(1), "i+1", true, true), i
+                        );
                         B.CreateBr(ForCond);
                     }
                 }
                 B.SetInsertPoint(ForEnd);
-                {
-                    B.CreateBr(EndBlock);
-                }
+                { B.CreateBr(EndBlock); }
             }
 
             B.SetInsertPoint(EndBlock);
@@ -162,14 +175,8 @@ namespace lox {
     void GlobalStack::CreatePush(LoxModule &M, IRBuilder<> &Builder, Value *Object) const {
         static auto *PushFunction([&Builder, &M, this] {
             auto *const F = Function::Create(
-                FunctionType::get(
-                    Builder.getVoidTy(),
-                    {Builder.getPtrTy(), Builder.getPtrTy()},
-                    false
-                ),
-                Function::InternalLinkage,
-                "$stackPush",
-                M
+                FunctionType::get(Builder.getVoidTy(), {Builder.getPtrTy(), Builder.getPtrTy()}, false),
+                Function::InternalLinkage, "$stackPush", M
             );
 
             LoxBuilder B(Builder.getContext(), M, *F);
@@ -211,14 +218,8 @@ namespace lox {
     void GlobalStack::CreatePopN(LoxBuilder &Builder, Value *N) const {
         static auto *PopFunction([&] {
             auto *const F = Function::Create(
-                FunctionType::get(
-                    Builder.getVoidTy(),
-                    {Builder.getPtrTy(), Builder.getInt32Ty()},
-                    false
-                ),
-                Function::InternalLinkage,
-                "$stackPopN",
-                Builder.getModule()
+                FunctionType::get(Builder.getVoidTy(), {Builder.getPtrTy(), Builder.getInt32Ty()}, false),
+                Function::InternalLinkage, "$stackPopN", Builder.getModule()
             );
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
@@ -245,14 +246,8 @@ namespace lox {
     void GlobalStack::CreatePopAll(LoxBuilder &Builder, Function *FunctionPointer) const {
         static auto *IterateFunction([&] {
             auto *const F = Function::Create(
-                FunctionType::get(
-                    Builder.getVoidTy(),
-                    {Builder.getPtrTy(), Builder.getPtrTy()},
-                    false
-                ),
-                Function::InternalLinkage,
-                "$stackPopAll",
-                Builder.getModule()
+                FunctionType::get(Builder.getVoidTy(), {Builder.getPtrTy(), Builder.getPtrTy()}, false),
+                Function::InternalLinkage, "$stackPopAll", Builder.getModule()
             );
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
@@ -267,9 +262,7 @@ namespace lox {
 
             auto *const count = B.CreateLoad(B.getInt32Ty(), $count);
 
-            if constexpr (DEBUG_LOG_GC) {
-                B.PrintF({B.CreateGlobalCachedString("--iterate stack (%d)--\n"), count});
-            }
+            if constexpr (DEBUG_LOG_GC) { B.PrintF({B.CreateGlobalCachedString("--iterate stack (%d)--\n"), count}); }
 
             auto *const WhileCond = B.CreateBasicBlock("while.cond");
             auto *const WhileBody = B.CreateBasicBlock("while.body");
@@ -280,16 +273,13 @@ namespace lox {
             B.CreateCondBr(B.CreateICmpSGT(B.CreateLoad(B.getInt32Ty(), $count), B.getInt32(0)), WhileBody, WhileEnd);
             B.SetInsertPoint(WhileBody);
             {
-                auto *const newCount = B.CreateSub(B.CreateLoad(B.getInt32Ty(), $count), B.getInt32(1), "newCount", true, true);
+                auto *const newCount =
+                    B.CreateSub(B.CreateLoad(B.getInt32Ty(), $count), B.getInt32(1), "newCount", true, true);
                 B.CreateStore(newCount, $count);
                 auto *const addr = B.CreateInBoundsGEP(B.getPtrTy(), B.CreateLoad(B.getPtrTy(), $stack), newCount);
                 auto *const ptr = B.CreateLoad(B.getPtrTy(), addr);
 
-                B.CreateCall(
-                    FunctionType::get(B.getVoidTy(), {B.getPtrTy()}, false),
-                    function,
-                    {ptr}
-                );
+                B.CreateCall(FunctionType::get(B.getVoidTy(), {B.getPtrTy()}, false), function, {ptr});
 
                 B.CreateBr(WhileCond);
             }
@@ -305,14 +295,8 @@ namespace lox {
     void GlobalStack::CreateIterateObjectValues(LoxBuilder &Builder, Function *FunctionPointer) const {
         static auto *IterateFunction([&] {
             auto *const F = Function::Create(
-                FunctionType::get(
-                    Builder.getVoidTy(),
-                    {Builder.getPtrTy(), Builder.getPtrTy()},
-                    false
-                ),
-                Function::InternalLinkage,
-                "$iterateStack",
-                Builder.getModule()
+                FunctionType::get(Builder.getVoidTy(), {Builder.getPtrTy(), Builder.getPtrTy()}, false),
+                Function::InternalLinkage, "$iterateStack", Builder.getModule()
             );
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
@@ -351,7 +335,9 @@ namespace lox {
             auto *const ptr = B.CreateLoad(B.getPtrTy(), addr);
 
             if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
-                B.PrintF({B.CreateGlobalCachedString("iter ptr: %p %p\n"), addr, ptr});
+                B.PrintF(
+                    {B.CreateGlobalCachedString("iter ptr %d: %p %p\n"), B.CreateLoad(B.getInt32Ty(), i), addr, ptr}
+                );
             }
 
             auto *const IsObjBlock = B.CreateBasicBlock("is.obj");
@@ -377,11 +363,7 @@ namespace lox {
             if constexpr (DEBUG_STACK || DEBUG_LOG_GC) {
                 B.PrintF({B.CreateGlobalCachedString("calling function %p(%d, %p)\n"), function, value, value});
             }
-            B.CreateCall(
-                FunctionType::get(B.getVoidTy(), {B.getPtrTy()}, false),
-                function,
-                {(B.AsObj(value))}
-            );
+            B.CreateCall(FunctionType::get(B.getVoidTy(), {B.getPtrTy()}, false), function, {(B.AsObj(value))});
             B.CreateBr(EndBlock);
 
             if constexpr (DEBUG_LOG_GC) {

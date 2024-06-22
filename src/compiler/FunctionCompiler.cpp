@@ -4,7 +4,10 @@
 
 namespace lox {
 
-    void FunctionCompiler::compile(const std::vector<Stmt> &statements, const std::vector<Token> &parameters, const std::function<void(LoxBuilder &)> &entryBlockBuilder) {
+    void FunctionCompiler::compile(
+        const std::vector<Stmt> &statements, const std::vector<Token> &parameters,
+        const std::function<void(LoxBuilder &)> &entryBlockBuilder
+    ) {
 
         Builder.SetInsertPoint(EntryBasicBlock);
         // Alloca's will normally be generated here with CreateEntryBlockAlloca
@@ -31,17 +34,18 @@ namespace lox {
             beginScope();
             {
                 if constexpr (DEBUG_LOG_GC) {
-                    Builder.PrintF({Builder.CreateGlobalCachedString("## start function inner scope %s (sp %d)\n"), Builder.CreateGlobalCachedString(Builder.getFunction()->getName()), Builder.CreateLoad(Builder.getInt32Ty(), sp)});
+                    Builder.PrintF(
+                        {Builder.CreateGlobalCachedString("## start function inner scope %s (sp %d)\n"),
+                         Builder.CreateGlobalCachedString(Builder.getFunction()->getName()),
+                         Builder.CreateLoad(Builder.getInt32Ty(), sp)}
+                    );
                 }
                 // Declare parameters and store them in local variables.
-                auto *arg = Builder.getFunction()->arg_begin() + 2 /* second arg is receiver, first is upvalues array */;
-                for (const auto &p: parameters) {
-                    insertVariable(p.getLexeme(), arg++);
-                }
+                auto *arg =
+                    Builder.getFunction()->arg_begin() + 2 /* second arg is receiver, first is upvalues array */;
+                for (const auto &p: parameters) { insertVariable(p.getLexeme(), arg++); }
 
-                for (const auto &stmt: statements) {
-                    evaluate(stmt);
-                }
+                for (const auto &stmt: statements) { evaluate(stmt); }
 
                 if (Builder.GetInsertBlock()->getTerminator() == nullptr) {
                     // In the case where there was no return statement in the Lox code,
@@ -57,7 +61,11 @@ namespace lox {
             endScope();
 
             if constexpr (DEBUG_LOG_GC) {
-                Builder.PrintF({Builder.CreateGlobalCachedString("## end function inner scope %s (sp %d)\n"), Builder.CreateGlobalCachedString(Builder.getFunction()->getName()), Builder.CreateLoad(Builder.getInt32Ty(), sp)});
+                Builder.PrintF(
+                    {Builder.CreateGlobalCachedString("## end function inner scope %s (sp %d)\n"),
+                     Builder.CreateGlobalCachedString(Builder.getFunction()->getName()),
+                     Builder.CreateLoad(Builder.getInt32Ty(), sp)}
+                );
             }
 
             auto *const ReturnBlock = Builder.CreateBasicBlock("exit");
@@ -90,7 +98,11 @@ namespace lox {
         locals.CreatePopN(Builder, Builder.getInt32(localsCount));
 
         if constexpr (DEBUG_LOG_GC) {
-            Builder.PrintF({Builder.CreateGlobalCachedString("# end function scope %s (sp %d)\n"), Builder.CreateGlobalCachedString(Builder.getFunction()->getName()), Builder.CreateLoad(Builder.getInt32Ty(), sp)});
+            Builder.PrintF(
+                {Builder.CreateGlobalCachedString("# end function scope %s (sp %d)\n"),
+                 Builder.CreateGlobalCachedString(Builder.getFunction()->getName()),
+                 Builder.CreateLoad(Builder.getInt32Ty(), sp)}
+            );
         }
 
         assert(scopes.empty());

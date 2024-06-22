@@ -16,8 +16,8 @@ namespace lox {
         llvm::Function &Function;
 
     public:
-        explicit LoxBuilder(LLVMContext &Context, LoxModule &Module, llvm::Function &Function) : IRBuilder(Context), M(Module), Function(Function) {
-        }
+        explicit LoxBuilder(LLVMContext &Context, LoxModule &Module, llvm::Function &Function)
+            : IRBuilder(Context), M(Module), Function(Function) {}
 
         // Code generation for internal Lox functions.
         Value *IsTruthy(Value *value);
@@ -76,7 +76,7 @@ namespace lox {
 
         void Print(Value *value);
         void PrintF(std::initializer_list<Value *> value);
-        void PrintFErr(Value *message, const std::vector<Value *> &values);
+        void PrintFErr(Value *message, const std::vector<Value *> &values = {});
         void PrintString(StringRef string);
 
         void PrintNumber(Value *value);
@@ -96,17 +96,20 @@ namespace lox {
 
         Constant *CreateGlobalCachedString(const std::string_view string) {
             auto &strings = getModule().getStringCache();
-            if (strings.contains(string)) {
-                return strings.at(string);
-            }
+            if (strings.contains(string)) { return strings.at(string); }
 
             auto *const ptr = CreateGlobalStringPtr(string);
             strings[string] = ptr;
             return ptr;
         }
 
-        void RuntimeError(Value *line, StringRef message, const std::vector<Value *> &values, Value *location, bool freeObjects = true);
-        void RuntimeError(const unsigned line, const StringRef message, const std::vector<Value *> &values, const llvm::Function *function) {
+        void RuntimeError(
+            Value *line, StringRef message, const std::vector<Value *> &values, Value *location, bool freeObjects = true
+        );
+        void RuntimeError(
+            const unsigned line, const StringRef message, const std::vector<Value *> &values,
+            const llvm::Function *function
+        ) {
             RuntimeError(getInt32(line), message, values, CreateGlobalCachedString(function->getName()));
         }
 
@@ -115,13 +118,13 @@ namespace lox {
         [[nodiscard]] BasicBlock *CreateBasicBlock(const std::string_view &name) const {
             return BasicBlock::Create(getContext(), name, getFunction());
         }
-        Value *BindMethod(Value *klass, Value *receiver, Value *key, unsigned int line, const llvm::Function *pFunction);
+        Value *
+        BindMethod(Value *klass, Value *receiver, Value *key, unsigned int line, const llvm::Function *pFunction);
 
         CallInst *CreateInvariantEnd(CallInst *start, Value *Ptr, ConstantInt *Size) {
 
             assert(isa<PointerType>(Ptr->getType()) && "invariant.start only applies to pointers.");
-            if (!Size)
-                Size = getInt64(-1);
+            if (!Size) Size = getInt64(-1);
             else
                 assert(Size->getType() == getInt64Ty() && "invariant.start requires the size to be an i64");
 
@@ -129,8 +132,7 @@ namespace lox {
             // Fill in the single overloaded type: memory object type.
             Type *ObjectPtr[1] = {Ptr->getType()};
             Module *M = BB->getParent()->getParent();
-            llvm::Function *TheFn =
-                Intrinsic::getDeclaration(M, Intrinsic::invariant_end, ObjectPtr);
+            llvm::Function *TheFn = Intrinsic::getDeclaration(M, Intrinsic::invariant_end, ObjectPtr);
             return CreateCall(TheFn, Ops);
         }
     };

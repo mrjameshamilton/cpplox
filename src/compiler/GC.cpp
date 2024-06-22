@@ -14,6 +14,7 @@ namespace lox {
 
     void MarkObject(LoxBuilder &Builder, Value *ObjectPtr) {
         assert(ObjectPtr->getType() == Builder.getPtrTy());
+
         static auto *const MarkObjectFunction = Builder.getModule().getFunction("$markObject");
         Builder.CreateCall(MarkObjectFunction, {ObjectPtr});
     }
@@ -94,8 +95,8 @@ namespace lox {
 
             auto *const value = B.ObjVal(F->arg_begin());
             if constexpr (DEBUG_LOG_GC) {
-                B.PrintF({B.CreateGlobalCachedString("blacken(%p, type: %d) = "), F->arg_begin(), B.ObjType(value)});
-                B.Print(value);
+                B.PrintF({B.CreateGlobalCachedString("blacken(%p, type: %d) = \n"), F->arg_begin(), value});//B.ObjType(value)});
+                //B.Print(value);
             }
 
             auto *const IsClosureBlock = B.CreateBasicBlock("print.closure");
@@ -206,7 +207,7 @@ namespace lox {
             B.SetInsertPoint(DefaultBlock);
             {
                 if constexpr (DEBUG_LOG_GC) {
-                    B.PrintF({B.CreateGlobalCachedString("not blackening {{object %d}}\n"), B.ObjType(value)});
+                    //B.PrintF({B.CreateGlobalCachedString("not blackening {{object %d}}\n"), B.ObjType(value)});
                 }
                 B.CreateBr(EndBlock);
             }
@@ -523,8 +524,8 @@ namespace lox {
                 if constexpr (DEBUG_LOG_GC) {
                     B.CreateCondBr(B.CreateICmpEQ(B.getTrue(), isMarked), IsMarkedBlock, IsNotMarkedBlock);
                     B.SetInsertPoint(IsMarkedBlock);
-                    B.PrintF({B.CreateGlobalCachedString("already marked(%p) = "), ObjectPtr});
-                    B.Print(B.ObjVal(ObjectPtr));
+                    B.PrintF({B.CreateGlobalCachedString("already marked(%p)\n"), ObjectPtr});
+                    //B.Print(B.ObjVal(ObjectPtr));
                     B.CreateBr(EndBlock);
                 } else {
                     B.CreateCondBr(B.CreateICmpEQ(B.getTrue(), isMarked), EndBlock, IsNotMarkedBlock);

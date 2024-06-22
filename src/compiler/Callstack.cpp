@@ -7,14 +7,8 @@ namespace lox {
     void PushCall(LoxBuilder &Builder, Value *line, Value *name) {
         static auto *PushFunction([&Builder] {
             auto *const F = Function::Create(
-                FunctionType::get(
-                    Builder.getVoidTy(),
-                    {Builder.getInt32Ty(), Builder.getPtrTy()},
-                    false
-                ),
-                Function::InternalLinkage,
-                "$push",
-                Builder.getModule()
+                FunctionType::get(Builder.getVoidTy(), {Builder.getInt32Ty(), Builder.getPtrTy()}, false),
+                Function::InternalLinkage, "$push", Builder.getModule()
             );
 
             F->addFnAttr(Attribute::AlwaysInline);
@@ -50,13 +44,7 @@ namespace lox {
     void PopCall(LoxBuilder &Builder) {
         static auto *PopFunction([&Builder] {
             auto *const F = Function::Create(
-                FunctionType::get(
-                    Builder.getVoidTy(),
-                    {},
-                    false
-                ),
-                Function::InternalLinkage,
-                "$pop",
+                FunctionType::get(Builder.getVoidTy(), {}, false), Function::InternalLinkage, "$pop",
                 Builder.getModule()
             );
 
@@ -82,13 +70,7 @@ namespace lox {
     void PrintStackTrace(LoxBuilder &Builder) {
         static auto *PrintStackTraceFunction([&Builder] {
             auto *const F = Function::Create(
-                FunctionType::get(
-                    Builder.getVoidTy(),
-                    {},
-                    false
-                ),
-                Function::InternalLinkage,
-                "$printStackTrace",
+                FunctionType::get(Builder.getVoidTy(), {}, false), Function::InternalLinkage, "$printStackTrace",
                 Builder.getModule()
             );
 
@@ -116,7 +98,8 @@ namespace lox {
             B.CreateCondBr(B.CreateICmpSLE(B.CreateLoad(B.getInt32Ty(), i), sp), ForBody, ForEnd);
             B.SetInsertPoint(ForBody);
 
-            auto *const top = B.CreateSub(B.CreateLoad(B.getInt32Ty(), $sp), B.CreateLoad(B.getInt32Ty(), i), "top", true, true);
+            auto *const top =
+                B.CreateSub(B.CreateLoad(B.getInt32Ty(), $sp), B.CreateLoad(B.getInt32Ty(), i), "top", true, true);
             auto *const addr = B.CreateInBoundsGEP($cs->getValueType(), $cs, {B.getInt32(0), top});
 
             auto *const line = B.CreateLoad(B.getInt32Ty(), B.CreateStructGEP(B.getModule().getCallStruct(), addr, 0));
@@ -151,14 +134,8 @@ namespace lox {
     void CheckStackOverflow(LoxBuilder &Builder, Value *line, Value *name) {
         static auto *CheckStackOverflowFunction([&Builder] {
             auto *const F = Function::Create(
-                FunctionType::get(
-                    Builder.getVoidTy(),
-                    {Builder.getInt32Ty(), Builder.getPtrTy()},
-                    false
-                ),
-                Function::InternalLinkage,
-                "$checkStackOverflow",
-                Builder.getModule()
+                FunctionType::get(Builder.getVoidTy(), {Builder.getInt32Ty(), Builder.getPtrTy()}, false),
+                Function::InternalLinkage, "$checkStackOverflow", Builder.getModule()
             );
 
             LoxBuilder B(Builder.getContext(), Builder.getModule(), *F);
@@ -177,8 +154,10 @@ namespace lox {
             auto *const IsStackOverFlow = B.CreateBasicBlock("is.stackoverflow");
             auto *const IsNotStackOverFlow = B.CreateBasicBlock("isnot.stackoverflow");
 
-            B.CreateCondBr(B.CreateICmpSLT(sp, B.getInt32(MAX_CALL_STACK_SIZE - 1)),
-                IsNotStackOverFlow, IsStackOverFlow, createLikelyBranchWeights(mdBuilder));
+            B.CreateCondBr(
+                B.CreateICmpSLT(sp, B.getInt32(MAX_CALL_STACK_SIZE - 1)), IsNotStackOverFlow, IsStackOverFlow,
+                createLikelyBranchWeights(mdBuilder)
+            );
 
             B.SetInsertPoint(IsStackOverFlow);
             B.RuntimeError(line, "Stack overflow.\n", {}, name);

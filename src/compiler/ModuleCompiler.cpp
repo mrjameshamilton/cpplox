@@ -71,6 +71,13 @@ namespace lox {
     }
 
     static void Native(
+        const StringRef loxName, const unsigned long loxArgsSize, FunctionCompiler &ScriptCompiler,
+        const std::function<void(LoxBuilder &B, const FunctionCallee &native, Argument *args)> &block
+    ) {
+        return Native(loxName, loxArgsSize, nullptr, ScriptCompiler, block);
+    }
+
+    static void Native(
         const StringRef name, Type *result, const std::vector<Type *> &params, FunctionCompiler &ScriptCompiler,
         const std::function<void(LoxBuilder &B, const FunctionCallee &native, Argument *args)> &block
     ) {
@@ -113,30 +120,22 @@ namespace lox {
                 }
             );
 
-            const FunctionCallee getchar =
-                B.getModule().getOrInsertFunction("getchar", FunctionType::get(B.getInt8Ty(), {}, false));
-            Native("read", 0, getchar, ScriptCompiler, [](LoxBuilder &B, const FunctionCallee &native, Argument *) {
-                auto *const result = B.CreateCall(native);
+            Native("read", 0, ScriptCompiler, [](LoxBuilder &B, const FunctionCallee &, Argument *) {
+                static const FunctionCallee getchar =
+                    B.getModule().getOrInsertFunction("getchar", FunctionType::get(B.getInt8Ty(), {}, false));
+                auto *const result = B.CreateCall(getchar);
                 B.CreateRet(B.CreateSelect(
                     B.CreateICmpEQ(result, B.getInt8(-1)), B.getNilVal(),
                     B.NumberVal(B.CreateSIToFP(result, B.getDoubleTy()))
                 ));
             });
 
-            const FunctionCallee native = B.getModule().getOrInsertFunction(
-                "fprintf", FunctionType::get(B.getInt8Ty(), {B.getPtrTy(), B.getPtrTy()}, true)
-            );
-            Native(
-                "printerr", 1, native, ScriptCompiler,
-                [](LoxBuilder &B, const FunctionCallee &native, Argument *args) {
-                    static auto *const StdErr = B.getModule().getOrInsertGlobal("stderr", B.getPtrTy());
-                    static auto *const fmt = B.CreateGlobalCachedString("%s\n");
-                    B.CreateCall(native, {B.CreateLoad(B.getPtrTy(), StdErr), fmt, B.AsCString(args)});
-                    B.CreateRet(B.getNilVal());
-                }
-            );
+            Native("printerr", 1, ScriptCompiler, [](LoxBuilder &B, const FunctionCallee &, Argument *args) {
+                B.PrintFErr(B.CreateGlobalCachedString("%s\n"), {B.AsCString(args)});
+                B.CreateRet(B.getNilVal());
+            });
 
-            Native("utf", 4, nullptr, ScriptCompiler, [](LoxBuilder &B, const FunctionCallee &, Argument *args) {
+            Native("utf", 4, ScriptCompiler, [](LoxBuilder &B, const FunctionCallee &, Argument *args) {
                 // example: utf(224, 174, 131, nil); -> ஃ
                 auto *const count = CreateEntryBlockAlloca(B.getFunction(), B.getInt32Ty(), "count");
                 B.CreateStore(B.getInt32(0), count);
@@ -168,9 +167,7 @@ namespace lox {
 
                 B.CreateStore(B.getInt8(0), addr);
 
-                auto *const string = B.AllocateString(chars, length);
-
-                B.CreateRet(B.ObjVal(string));
+                B.CreateRet(B.ObjVal(B.AllocateString(chars, length)));
             });
         });
 
