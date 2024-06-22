@@ -148,10 +148,17 @@ namespace lox {
 
             auto *const Switch = B.CreateSwitch(objType, DefaultBlock);
 
-            const std::initializer_list<lox::ObjType> ObjTypes{ObjType::STRING,      ObjType::FUNCTION,
-                                                               ObjType::CLOSURE,     ObjType::UPVALUE,
-                                                               ObjType::CLASS,       ObjType::INSTANCE,
-                                                               ObjType::BOUND_METHOD};
+            // clang-format off
+            const std::initializer_list<lox::ObjType> ObjTypes{
+                ObjType::STRING,
+                ObjType::FUNCTION,
+                ObjType::CLOSURE,
+                ObjType::UPVALUE,
+                ObjType::CLASS,
+                ObjType::INSTANCE,
+                ObjType::BOUND_METHOD
+            };
+            // clang-format on
 
             auto *const CurrentBlock = B.GetInsertBlock();
 
