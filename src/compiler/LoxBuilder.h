@@ -85,6 +85,8 @@ namespace lox {
         void PrintString(Value *value);
         void PrintBool(Value *value);
 
+        void Exit(Value *code);
+
         Value *CreateObjStructGEP(const enum ObjType objType, Value *Ptr, const unsigned Idx, const Twine &Name = "") {
             return CreateStructGEP(getModule().getStructType(objType), Ptr, Idx, Name);
         }

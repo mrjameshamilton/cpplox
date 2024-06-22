@@ -60,8 +60,7 @@ namespace lox {
         block(B, F->arg_begin() + 2);
 
         auto *const closure = ScriptBuilder.AllocateClosure(F, name, true);
-        auto *const variable =
-            cast<GlobalVariable>(ScriptCompiler.insertVariable(name, ScriptBuilder.ObjVal(closure)));
+        auto *const variable = cast<GlobalVariable>(ScriptCompiler.insertVariable(name, ScriptBuilder.ObjVal(closure)));
         auto *const nameNode = MDString::get(ScriptBuilder.getContext(), name);
         auto *const arityNode = ValueAsMetadata::get(ScriptBuilder.getInt32(numArgs));
         auto *const llvmFunctionName = MDString::get(ScriptBuilder.getContext(), F->getName());
@@ -96,11 +95,7 @@ namespace lox {
             });
 
             Native("exit", 1, ScriptCompiler, [](LoxBuilder &B, Argument *args) {
-                static const FunctionCallee exit = B.getModule().getOrInsertFunction(
-                    "exit", FunctionType::get(B.getVoidTy(), {B.getInt32Ty()}, false)
-                );
-                B.CreateCall(exit, {B.CreateFPToSI(B.AsNumber(args), B.getInt32Ty())});
-                B.CreateUnreachable();
+                B.Exit(B.CreateFPToSI(B.AsNumber(args), B.getInt32Ty()));
             });
 
             Native("read", 0, ScriptCompiler, [](LoxBuilder &B, Argument *) {

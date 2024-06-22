@@ -388,13 +388,20 @@ namespace lox {
         );
     }
 
+    void LoxBuilder::Exit(Value *code) {
+        assert(code->getType() == getInt32Ty());
+
+        static const auto Exit =
+            getModule().getOrInsertFunction("exit", FunctionType::get(getVoidTy(), {getInt32Ty()}, false));
+
+        CreateCall(Exit, code);
+        CreateUnreachable();
+    }
+
     void LoxBuilder::RuntimeError(
         Value *line, const StringRef message, const std::vector<Value *> &values, Value *location,
         const bool freeObjects
     ) {
-        static const auto Exit =
-            getModule().getOrInsertFunction("exit", FunctionType::get(getVoidTy(), {getInt32Ty()}, false));
-
         PrintFErr(CreateGlobalCachedString(message), values);
         // Push the current location onto the call stack, so that it's printed as part of the stacktrace.
         PushCall(*this, line, location);
@@ -402,7 +409,6 @@ namespace lox {
 
         if (freeObjects) FreeObjects(*this);
 
-        CreateCall(Exit, getInt32(70));
-        CreateUnreachable();
+        Exit(getInt32(70));
     }
 }// namespace lox
