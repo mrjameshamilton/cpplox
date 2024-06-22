@@ -54,8 +54,8 @@ namespace lox {
 
         LoxBuilder B(ScriptBuilder.getContext(), ScriptBuilder.getModule(), *F);
 
-        auto *const ExitEntry = B.CreateBasicBlock("entry");
-        B.SetInsertPoint(ExitEntry);
+        auto *const EntryBlock = B.CreateBasicBlock("entry");
+        B.SetInsertPoint(EntryBlock);
 
         block(B, F->arg_begin() + 2);
 
