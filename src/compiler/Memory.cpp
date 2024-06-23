@@ -16,6 +16,18 @@ namespace lox {
     ) {
         IRBuilder TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
         auto *const alloca = TmpB.CreateAlloca(type, nullptr, VarName);
+
+        if constexpr (DEBUG_LOG_GC) {
+            FunctionCallee PrintF = TheFunction->getParent()->getOrInsertFunction(
+                "printf", FunctionType::get(
+                              IntegerType::getInt8Ty(TheFunction->getContext()),
+                              {PointerType::getUnqual(TheFunction->getContext())}, true
+                          )
+            );
+            TmpB.CreateCall(
+                PrintF, {TmpB.CreateGlobalString("local: %s@%p\n"), TmpB.CreateGlobalString(VarName), alloca}
+            );
+        }
         if (entryBuilder) { entryBuilder(TmpB, alloca); }
         return alloca;
     }

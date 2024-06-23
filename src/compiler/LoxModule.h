@@ -233,11 +233,6 @@ namespace lox {
         GlobalVariable *getEnableGC() const { return enableGC; }
 
         StringMap<Constant *> &getStringCache() { return strings; }
-
-        const FunctionCallee PrintF = getOrInsertFunction(
-            "printf",
-            FunctionType::get(IntegerType::getInt8Ty(getContext()), {PointerType::getUnqual(getContext())}, true)
-        );
     };
 }// namespace lox
 

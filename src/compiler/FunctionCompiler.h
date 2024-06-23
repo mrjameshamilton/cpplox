@@ -301,17 +301,7 @@ namespace lox {
 
                 return global;
             } else {
-                auto *const alloca = CreateEntryBlockAlloca(
-                    Builder.getFunction(), Builder.getInt64Ty(), key,
-                    [&](IRBuilder<> &B, AllocaInst *a) {
-                        if constexpr (DEBUG_LOG_GC) {
-                            B.CreateCall(
-                                Builder.getModule().PrintF,
-                                {B.CreateGlobalString("local: %s@%p\n"), B.CreateGlobalString(key), a}
-                            );
-                        }
-                    }
-                );
+                auto *const alloca = CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), key);
                 const auto local = std::make_shared<Local>(*this, key, alloca);
                 variables.insert(key, local);
                 metadata::copyMetadata(value, alloca);
@@ -334,17 +324,8 @@ namespace lox {
             assert(value->getType() == Builder.getInt64Ty());
 
             const auto *const name = "$temp";
-            auto *const alloca = CreateEntryBlockAlloca(
-                Builder.getFunction(), Builder.getInt64Ty(), (name + what).str(),
-                [&](IRBuilder<> &B, AllocaInst *a) {
-                    if constexpr (DEBUG_LOG_GC) {
-                        B.CreateCall(
-                            Builder.getModule().PrintF,
-                            {B.CreateGlobalString("local temp: %s@%p\n"), B.CreateGlobalString(what), a}
-                        );
-                    }
-                }
-            );
+            auto *const alloca =
+                CreateEntryBlockAlloca(Builder.getFunction(), Builder.getInt64Ty(), (name + what).str());
 
             const auto local = std::make_shared<Local>(*this, name, alloca);
             variables.insert(name, local);

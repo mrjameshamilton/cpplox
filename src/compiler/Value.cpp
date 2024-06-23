@@ -235,7 +235,13 @@ namespace lox {
         CreateCall(PrintFunction, value);
     }
 
-    void LoxBuilder::PrintF(const std::initializer_list<Value *> value) { CreateCall(getModule().PrintF, value); }
+    void LoxBuilder::PrintF(const std::initializer_list<Value *> value) {
+        const FunctionCallee PrintF = getModule().getOrInsertFunction(
+            "printf",
+            FunctionType::get(IntegerType::getInt8Ty(getContext()), {PointerType::getUnqual(getContext())}, true)
+        );
+        CreateCall(PrintF, value);
+    }
 
     void LoxBuilder::PrintFErr(Value *message, const std::vector<Value *> &values) {
         static auto *const StdErr = getModule().getOrInsertGlobal("stderr", getPtrTy());
