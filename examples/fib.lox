@@ -1,23 +1,9 @@
-var n = 40;
-
-{
-    fun fib(n) {
-        if (n < 2) return n;
-        return fib(n - 2) + fib(n - 1);
-    }
-
-    var start = clock();
-    print fib(n);
-    var end = clock();
-    print end - start;
-}
-
-fun fibglobal(n) {
-    if (n < 2) return n;
-    return fibglobal(n - 2) + fibglobal(n - 1);
+fun fib(n) {
+  if (n < 2) return n;
+  return fib(n - 2) + fib(n - 1);
 }
 
 var start = clock();
-print fibglobal(n);
+print fib(30);
 var end = clock();
 print end - start;

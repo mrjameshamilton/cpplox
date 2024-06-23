@@ -67,6 +67,47 @@ $ ninja -C build
 $ bin/cpplox ../examples/helloworld.lox
 ```
 
+# Performance
+
+As a quick performance test, running the below fibonacci example,
+gives the following run times (on my laptop, approximate average over several runs):
+
+<table>
+  <tr>
+    <td>LLVM compiler</td>
+    <td>clox</td>
+  </tr>
+  <tr>
+    <td>0.15 seconds</td>
+    <td>0.55 seconds</td>
+  </tr>
+</table>
+
+```javascript
+fun fib(n) {
+  if (n < 2) return n;
+  return fib(n - 2) + fib(n - 1);
+}
+
+var start = clock();
+print fib(40);
+var end = clock();
+print end - start;
+```
+
+# Lox.lox
+
+Both the interpreter and compiler can execute [Lox.lox](https://github.com/mrjameshamilton/loxlox), a working-but-slow
+Lox interpreter written in Lox itself:
+
+```shell
+$ bin/cpplox Lox.lox -o loxlox.ll
+$ clang loxlox.ll -o loxlox
+$ cat examples/fib.lox | ./loxlox
+832040
+38.4879
+```
+
 # Running tests
 
 The interpreter passes the [jlox test suite](https://github.com/munificent/craftinginterpreters/tree/master/test) which
