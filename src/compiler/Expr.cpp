@@ -21,8 +21,8 @@ namespace lox {
         auto *const value = evaluate(assignExpr->value);
         auto *const variable = lookupVariable(*assignExpr);
         // Copy metadata from the value to the variable.
-        eraseMetadata(variable);
-        copyMetadata(value, variable);
+        metadata::eraseMetadata(variable);
+        metadata::copyMetadata(value, variable);
         Builder.CreateStore(value, variable);
         return value;
     }
@@ -45,7 +45,7 @@ namespace lox {
 
                 Builder.CreateCondBr(
                     Builder.CreateAnd(Builder.IsNumber(left), Builder.IsNumber(right)), EndBlock, InvalidNumBlock,
-                    createLikelyBranchWeights(mdBuilder)
+                    metadata::createLikelyBranchWeights(mdBuilder)
                 );
                 Builder.SetInsertPoint(InvalidNumBlock);
                 Builder.RuntimeError(
@@ -69,7 +69,7 @@ namespace lox {
                 auto *const EndBlock = Builder.CreateBasicBlock("if.end");
                 Builder.CreateCondBr(
                     Builder.CreateAnd(Builder.IsNumber(left), Builder.IsNumber(right)), IsNumBlock, IsMaybeStringBlock,
-                    createLikelyBranchWeights(mdBuilder)
+                    metadata::createLikelyBranchWeights(mdBuilder)
                 );
                 Builder.SetInsertPoint(IsNumBlock);
                 auto *const X = Builder.NumberVal(Builder.CreateFAdd(Builder.AsNumber(left), Builder.AsNumber(right)));
@@ -78,7 +78,7 @@ namespace lox {
                 Builder.SetInsertPoint(IsMaybeStringBlock);
                 Builder.CreateCondBr(
                     Builder.CreateAnd(Builder.IsString(left), Builder.IsString(right)), IsStringBlock, InvalidBlock,
-                    createLikelyBranchWeights(mdBuilder)
+                    metadata::createLikelyBranchWeights(mdBuilder)
                 );
                 Builder.SetInsertPoint(IsStringBlock);
                 auto *const Y = insertTemp(Builder.ObjVal(Builder.Concat(left, right)), "concat");
@@ -153,7 +153,7 @@ namespace lox {
 
         Builder.CreateCondBr(
             Builder.CreateICmpEQ(arity, Builder.getInt32(actual)), CallBlock, WrongArityBlock,
-            createLikelyBranchWeights(mdBuilder)
+            metadata::createLikelyBranchWeights(mdBuilder)
         );
 
         Builder.SetInsertPoint(WrongArityBlock);
@@ -187,8 +187,8 @@ namespace lox {
 
         Value *functionPtr;
 
-        if (hasMetadata(closure, "lox-function")) {
-            const auto *const metadata = getMetadata(closure, "lox-function");
+        if (metadata::hasMetadata(closure, "lox-function")) {
+            const auto *const metadata = metadata::getMetadata(closure, "lox-function");
             functionPtr = Builder.getModule().getFunction(cast<MDString>(metadata->getOperand(2))->getString());
 
             auto *const expectedArity = mdconst::extract<ConstantInt>(metadata->getOperand(1));
@@ -239,7 +239,7 @@ namespace lox {
 
         auto *const value = evaluate(callExpr->callee);
 
-        if (hasMetadata(value, "lox-function")) {
+        if (metadata::hasMetadata(value, "lox-function")) {
             // Handle a common case where the function local is known
             // which does not require runtime checks to check if the value is a function e.g.
 
@@ -250,12 +250,12 @@ namespace lox {
                            if foo was declared as a function then it must be the function.
              }
              */
-            const auto &funMD = cast<MDTuple>(getMetadata(value, "lox-function"));
+            const auto &funMD = cast<MDTuple>(metadata::getMetadata(value, "lox-function"));
             const auto &name = cast<MDString>(funMD->getOperand(0))->getString();
 
             if (lookupLocal(name) || lookupGlobal(name)) {
                 auto *const closure = Builder.AsObj(value);
-                copyMetadata(value, closure);
+                metadata::copyMetadata(value, closure);
                 auto *const result = call(value, closure, paramValues, callExpr->keyword.getLine());
                 //std::cout << "function local found: " << name.str() << std::endl;
                 return insertTemp(result, "ret");
@@ -264,7 +264,7 @@ namespace lox {
             }
         }
 
-        const bool isClass = hasMetadata(value, "lox-class");
+        const bool isClass = metadata::hasMetadata(value, "lox-class");
 
         auto *const valuePtr = Builder.AsObj(value);
 
@@ -477,7 +477,7 @@ namespace lox {
     Value *FunctionCompiler::operator()(const VarExprPtr &varExpr) {
         auto *const value = lookupVariable(*varExpr);
         auto *inst = Builder.CreateLoad(Builder.getInt64Ty(), value);
-        copyMetadata(value, inst);
+        metadata::copyMetadata(value, inst);
         return inst;
     }
 

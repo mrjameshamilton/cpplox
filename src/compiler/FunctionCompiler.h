@@ -295,7 +295,7 @@ namespace lox {
                     if (isConstant) { Builder.CreateInvariantStart(global, Builder.getInt64(64)); }
                 }
 
-                copyMetadata(value, global);
+                metadata::copyMetadata(value, global);
 
                 AddGlobalGCRoot(Builder.getModule(), global);
 
@@ -314,7 +314,7 @@ namespace lox {
                 );
                 const auto local = std::make_shared<Local>(*this, key, alloca);
                 variables.insert(key, local);
-                copyMetadata(value, alloca);
+                metadata::copyMetadata(value, alloca);
                 Builder.CreateStore(value, alloca);
 
                 if (isConstant) { Builder.CreateInvariantStart(alloca, Builder.getInt64(64)); }

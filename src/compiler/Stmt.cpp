@@ -48,7 +48,7 @@ namespace lox {
                 insertVariable(functionStmt->name.getLexeme(), Builder.ObjVal(closurePtr), !isGlobalScope());
             auto *nameNode = MDString::get(Builder.getContext(), name);
             auto *arityNode = ValueAsMetadata::get(Builder.getInt32(functionStmt->parameters.size()));
-            setMetadata(variable, "lox-function", MDTuple::get(Builder.getContext(), {nameNode, arityNode, nameNode}));
+            metadata::setMetadata(variable, "lox-function", MDTuple::get(Builder.getContext(), {nameNode, arityNode, nameNode}));
         }
 
         FunctionCompiler C(Builder.getContext(), Builder.getModule(), *F, functionStmt->type, this);
@@ -62,7 +62,7 @@ namespace lox {
                 auto *const variable = C.insertVariable(name, B.getFunction()->arg_begin() + 1);
                 auto *nameNode = MDString::get(Builder.getContext(), name);
                 auto *arityNode = ValueAsMetadata::get(Builder.getInt32(functionStmt->parameters.size()));
-                setMetadata(
+                metadata::setMetadata(
                     variable, "lox-function", MDTuple::get(Builder.getContext(), {nameNode, arityNode, nameNode})
                 );
             }
@@ -196,7 +196,7 @@ namespace lox {
 
         auto *const variable = insertVariable(className, Builder.ObjVal(klass), !isGlobalScope());
         auto *nameNode = MDString::get(Builder.getContext(), className);
-        setMetadata(variable, "lox-class", MDTuple::get(Builder.getContext(), {nameNode}));
+        metadata::setMetadata(variable, "lox-class", MDTuple::get(Builder.getContext(), {nameNode}));
 
         if (classStmt->super_class.has_value()) {
             // Copy all methods from the superclass methods table, to the subclass
@@ -212,8 +212,8 @@ namespace lox {
 
             auto mdBuilder = MDBuilder(Builder.getContext());
             Builder.CreateCondBr(
-                hasMetadata(superclassVariable, "lox-class") ? Builder.getTrue() : Builder.IsClass(value), IsClassBlock,
-                IsNotClassBlock, createLikelyBranchWeights(mdBuilder)
+                metadata::hasMetadata(superclassVariable, "lox-class") ? Builder.getTrue() : Builder.IsClass(value), IsClassBlock,
+                IsNotClassBlock, metadata::createLikelyBranchWeights(mdBuilder)
             );
             Builder.SetInsertPoint(IsClassBlock);
 

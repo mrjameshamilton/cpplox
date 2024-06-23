@@ -156,7 +156,7 @@ namespace lox {
 
             B.CreateCondBr(
                 B.CreateICmpSLT(sp, B.getInt32(MAX_CALL_STACK_SIZE - 1)), IsNotStackOverFlow, IsStackOverFlow,
-                createLikelyBranchWeights(mdBuilder)
+                metadata::createLikelyBranchWeights(mdBuilder)
             );
 
             B.SetInsertPoint(IsStackOverFlow);

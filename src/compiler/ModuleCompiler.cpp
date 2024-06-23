@@ -64,7 +64,7 @@ namespace lox {
         auto *const nameNode = MDString::get(ScriptBuilder.getContext(), name);
         auto *const arityNode = ValueAsMetadata::get(ScriptBuilder.getInt32(numArgs));
         auto *const llvmFunctionName = MDString::get(ScriptBuilder.getContext(), F->getName());
-        setMetadata(
+        metadata::setMetadata(
             variable, "lox-function", MDTuple::get(ScriptBuilder.getContext(), {nameNode, arityNode, llvmFunctionName})
         );
     }
