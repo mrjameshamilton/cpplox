@@ -4,22 +4,6 @@
 will execute the provide script with the interpreter and if provided an output file, LLVM IR or
 an object file will be generated.
 
-## Interpreter
-
-The interpreter implementation is similar to the `jlox` Java implementation from the [Crafting Interpreters](https://craftinginterpreters.com/) book
-with the main implementation difference being the language and the use of `std::variant` instead of the visitor pattern.
-
-```shell
-$ bin/cpplox examples/helloworld.lox
-```
-
-The following additional native functions are implemented in the interpreter to allow running [Lox.lox](https://github.com/mrjameshamilton/loxlox), an Lox interpreter written in Lox:
-
-- `read()` reads a byte from `stdin` or `nil` if end of stream
-- `utf(byte, byte, byte, byte)` converts 1, 2, 3, or 4 bytes into a UTF string
-- `printerr(string)` prints a string to `stderr`
-- `exit(number)` exits with the specific exit code
-
 ## LLVM Compiler
 
 The [compiler](https://github.com/mrjameshamilton/cpplox/tree/master/src/compiler) uses LLVM to compile Lox scripts to LLVM IR, 
@@ -66,6 +50,23 @@ $ cmake -S . -G Ninja -B build
 $ ninja -C build
 $ bin/cpplox ../examples/helloworld.lox
 ```
+
+## Interpreter
+
+The interpreter implementation is similar to the `jlox` Java implementation from the [Crafting Interpreters](https://craftinginterpreters.com/) book
+with the main implementation difference being the language and the use of `std::variant` instead of the visitor pattern.
+
+```shell
+$ bin/cpplox examples/helloworld.lox
+```
+
+The following additional native functions are implemented in the interpreter to allow running [Lox.lox](https://github.com/mrjameshamilton/loxlox), an Lox interpreter written in Lox:
+
+- `read()` reads a byte from `stdin` or `nil` if end of stream
+- `utf(byte, byte, byte, byte)` converts 1, 2, 3, or 4 bytes into a UTF string
+- `printerr(string)` prints a string to `stderr`
+- `exit(number)` exits with the specific exit code
+
 
 # Performance
 
