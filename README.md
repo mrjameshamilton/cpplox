@@ -102,10 +102,9 @@ Lox interpreter written in Lox itself:
 
 ```shell
 $ bin/cpplox Lox.lox -o loxlox.ll
-$ clang loxlox.ll -o loxlox
-$ cat examples/fib.lox | ./loxlox
+$ cat examples/fib.lox | lli loxlox.ll
 832040
-38.4879
+27.0111
 ```
 
 # Running tests
