@@ -7,7 +7,6 @@
 
 constexpr unsigned int MAX_CALL_STACK_SIZE = 512;
 constexpr unsigned int FIRST_GC_AT = 512;
-constexpr unsigned int MAX_LOCALS_STACK_SIZE = 2048;
 
 namespace lox {
     using namespace llvm;
