@@ -40,17 +40,6 @@ $ ./helloworld
     - a shadow stack is used to track locals as GC roots
     - temporary locals are inserted when necessary to ensure they are reachable before assignment
 
-# Build
-
-The build uses cmake and ninja and produces a binary `cpplox` in the `bin` folder:
-
-```shell
-$ mkdir build
-$ cmake -S . -G Ninja -B build
-$ ninja -C build
-$ bin/cpplox ../examples/helloworld.lox
-```
-
 ## Interpreter
 
 The interpreter implementation is similar to the `jlox` Java implementation from the [Crafting Interpreters](https://craftinginterpreters.com/) book
@@ -67,6 +56,16 @@ The following additional native functions are implemented in the interpreter to 
 - `printerr(string)` prints a string to `stderr`
 - `exit(number)` exits with the specific exit code
 
+# Build
+
+The build uses cmake and ninja and produces a binary `cpplox` in the `bin` folder:
+
+```shell
+$ mkdir build
+$ cmake -S . -G Ninja -B build
+$ ninja -C build
+$ bin/cpplox ../examples/helloworld.lox
+```
 
 # Performance
 
