@@ -73,14 +73,14 @@ namespace lox {
 
             consume(RIGHT_BRACE, "Expect '}' after class body.");
 
-            return std::make_unique<ClassStmt>(name, std::move(superclass), std::move(methods));
+            return std::make_shared<ClassStmt>(name, std::move(superclass), std::move(methods));
         }
 
         VarStmtPtr varDeclaration() {
             const Token name = consume(IDENTIFIER, "Expect variable name.");
             Expr initializer = match(EQUAL) ? expression() : std::make_unique<LiteralExpr>(nullptr);
             consume(SEMICOLON, "Expect ';' after variable declaration.");
-            return std::make_unique<VarStmt>(name, std::move(initializer));
+            return std::make_shared<VarStmt>(name, std::move(initializer));
         }
 
         WhileStmtPtr whileStatement() {
@@ -89,7 +89,7 @@ namespace lox {
             consume(RIGHT_PAREN, "Expect ')' after condition.");
             Stmt body = statement();
 
-            return std::make_unique<WhileStmt>(std::move(condition), std::move(body));
+            return std::make_shared<WhileStmt>(std::move(condition), std::move(body));
         }
 
         Stmt statement() {
@@ -98,7 +98,7 @@ namespace lox {
             if (match(WHILE)) return whileStatement();
             if (match(FOR)) return forStatement();
             if (match(IF)) return ifStatement();
-            if (match(LEFT_BRACE)) return std::make_unique<BlockStmt>(block());
+            if (match(LEFT_BRACE)) return std::make_shared<BlockStmt>(block());
 
             return expressionStatement();
         }
@@ -132,21 +132,21 @@ namespace lox {
             if (increment.has_value()) {
                 StmtList statements;
                 statements.push_back(std::move(body));
-                statements.emplace_back(std::make_unique<ExpressionStmt>(std::move(increment.value())));
-                body = std::make_unique<BlockStmt>(std::move(statements));
+                statements.emplace_back(std::make_shared<ExpressionStmt>(std::move(increment.value())));
+                body = std::make_shared<BlockStmt>(std::move(statements));
             }
 
             if (!condition.has_value()) {
                 condition = std::make_unique<LiteralExpr>(true);
             }
 
-            body = std::make_unique<WhileStmt>(std::move(condition.value()), std::move(body));
+            body = std::make_shared<WhileStmt>(std::move(condition.value()), std::move(body));
 
             if (initializer.has_value()) {
                 StmtList b;
                 b.push_back(std::move(initializer.value()));
                 b.push_back(std::move(body));
-                body = std::make_unique<BlockStmt>(std::move(b));
+                body = std::make_shared<BlockStmt>(std::move(b));
             }
 
             return body;
@@ -155,7 +155,7 @@ namespace lox {
         PrintStmtPtr printStatement() {
             Expr value = expression();
             consume(SEMICOLON, "Expect ';' after value.");
-            return std::make_unique<PrintStmt>(std::move(value));
+            return std::make_shared<PrintStmt>(std::move(value));
         }
 
         IfStmtPtr ifStatement() {
@@ -169,13 +169,13 @@ namespace lox {
                 elseBranch = statement();
             }
 
-            return std::make_unique<IfStmt>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
+            return std::make_shared<IfStmt>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
         }
 
         ExpressionStmtPtr expressionStatement() {
             Expr expr = expression();
             consume(SEMICOLON, "Expect ';' after expression.");
-            return std::make_unique<ExpressionStmt>(std::move(expr));
+            return std::make_shared<ExpressionStmt>(std::move(expr));
         }
 
         FunctionStmtPtr function(const LoxFunctionType type) {
@@ -212,7 +212,7 @@ namespace lox {
             }
 
             consume(SEMICOLON, "Expect ';' after return value.");
-            return std::make_unique<ReturnStmt>(keyword, std::move(value));
+            return std::make_shared<ReturnStmt>(keyword, std::move(value));
         }
 
         StmtList block() {

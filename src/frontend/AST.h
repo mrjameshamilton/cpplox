@@ -177,15 +177,15 @@ namespace lox {
     struct WhileStmt;
     struct ClassStmt;
 
-    using ExpressionStmtPtr = std::unique_ptr<ExpressionStmt>;
+    using ExpressionStmtPtr = std::shared_ptr<ExpressionStmt>;
     using FunctionStmtPtr = std::shared_ptr<FunctionStmt>;
-    using ReturnStmtPtr = std::unique_ptr<ReturnStmt>;
-    using IfStmtPtr = std::unique_ptr<IfStmt>;
-    using PrintStmtPtr = std::unique_ptr<PrintStmt>;
-    using VarStmtPtr = std::unique_ptr<VarStmt>;
-    using BlockStmtPtr = std::unique_ptr<BlockStmt>;
-    using WhileStmtPtr = std::unique_ptr<WhileStmt>;
-    using ClassStmtPtr = std::unique_ptr<ClassStmt>;
+    using ReturnStmtPtr = std::shared_ptr<ReturnStmt>;
+    using IfStmtPtr = std::shared_ptr<IfStmt>;
+    using PrintStmtPtr = std::shared_ptr<PrintStmt>;
+    using VarStmtPtr = std::shared_ptr<VarStmt>;
+    using BlockStmtPtr = std::shared_ptr<BlockStmt>;
+    using WhileStmtPtr = std::shared_ptr<WhileStmt>;
+    using ClassStmtPtr = std::shared_ptr<ClassStmt>;
 
     using Stmt = std::variant<
         ExpressionStmtPtr,
