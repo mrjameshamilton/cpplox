@@ -21,7 +21,6 @@ add_executable(cpplox src/main.cpp
         src/frontend/Scanner.h
         src/frontend/Error.h
         src/frontend/AST.h
-        src/interpreter/Interpreter.h
         src/Util.h
         src/frontend/Resolver.h
         src/compiler/Expr.cpp
@@ -53,12 +52,26 @@ add_executable(cpplox src/main.cpp
         src/compiler/Stack.cpp
         src/compiler/LoxModule.cpp
         src/compiler/MDUtil.h
+        src/interpreter/LoxObject.cpp
+        src/interpreter/LoxObject.h
+        src/interpreter/LoxCallable.h
+        src/interpreter/Interpreter.h
+        src/interpreter/Environment.cpp
+        src/interpreter/Environment.h
+        src/interpreter/Interpreter.cpp
+        src/interpreter/LoxInstance.cpp
+        src/interpreter/LoxInstance.h
+        src/interpreter/NativeFunction.h
+        src/interpreter/LoxClass.h
+        src/interpreter/LoxFunction.cpp
+        src/interpreter/LoxFunction.h
+        src/interpreter/LoxClass.cpp
 )
 
 target_compile_options(cpplox PRIVATE
         $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX>
         $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
-        -O3
+        -O2
 #        -std=c++20 -stdlib=libc++
 )
 
