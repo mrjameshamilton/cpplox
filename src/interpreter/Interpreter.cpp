@@ -6,6 +6,8 @@
 
 #include <chrono>
 
+constexpr int MAX_CALL_DEPTH = 512;
+
 namespace lox {
 
     static LoxNumber checkNumberOperand(const Token &op, const LoxObject &operand) {
@@ -122,7 +124,7 @@ namespace lox {
     }
 
     LoxObject Interpreter::operator()(const CallExprPtr &callExpr) {
-        if (function_depth > 512) { throw lox::runtime_error(callExpr->keyword, "Stack overflow."); }
+        if (function_depth > MAX_CALL_DEPTH) { throw lox::runtime_error(callExpr->keyword, "Stack overflow."); }
 
         const auto &callee = evaluate(callExpr->callee);
 
